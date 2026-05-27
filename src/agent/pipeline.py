@@ -27,7 +27,7 @@ from src.model.poisson import MarketConstraints, fit_params, marginals, score_gr
 from src.model.qualitative import MatchContext, adjust_with_llm, apply_to_lambdas
 from src.notifier.telegram import TelegramConfig, TelegramNotifier
 from src.strategy.portfolio import PortfolioResult, generate_portfolio
-from src.strategy.assignment import assign_picks_to_pencas, fetch_my_pencas_standings
+from src.strategy.assignment import optimal_assignment, fetch_my_pencas_standings
 from src.publisher.penca_api import (
     PredictionPayload,
     get_publisher_from_env,
@@ -280,9 +280,16 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
     ) if len(penca_ids) == 5 else {}
     assignment_list: list[tuple[int, dict, int | None]] = []
     if len(penca_ids) == 5:
-        assignment_list = assign_picks_to_pencas(
-            portfolio.to_dict()["picks"], penca_ids, standings
-        )
+        try:
+            assignment_list = optimal_assignment(
+                portfolio.to_dict()["picks"], penca_ids, grid, standings,
+            )
+        except Exception as e:
+            log.exception("optimal_assignment falló, usando mapeo fijo: %s", e)
+            assignment_list = [
+                (pid, pick, None)
+                for pid, pick in zip(penca_ids, portfolio.to_dict()["picks"])
+            ]
 
     # 5. Persistir versionado
     output_path, version = next_version_path(match_id)

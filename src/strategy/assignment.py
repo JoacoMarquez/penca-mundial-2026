@@ -53,6 +53,79 @@ def fetch_my_pencas_standings(
         return {}
 
 
+def optimal_assignment(
+    picks_in_strategy_order: list[dict],
+    penca_ids: list[int],
+    grid: Any,  # numpy 2D array P(g_L, g_V)
+    pencas_standings: dict[int, dict[str, Any]] | None = None,
+    points_rule=None,
+) -> list[tuple[int, dict, int | None]]:
+    """Asignación ÓPTIMA exacta vía enumeración de las 120 permutaciones.
+
+    Para cada permutación π de los 5 picks a las 5 pencas, calcula:
+        E[max(score_final_i para i en 1..5)] = Σ_ω P(ω) · max_i (current_score_i + points(π(i), ω))
+
+    Donde ω = (g_local, g_visit) recorre la grilla de marcadores ponderados por probabilidad.
+
+    Elige la permutación con mayor E[max]. Maximiza directamente la probabilidad de que
+    al menos una penca termine bien rankeada en el pool.
+
+    Cost: 120 perms × ~64 outcomes × 5 pencas ≈ 40k operaciones simples — <100ms.
+    """
+    from itertools import permutations
+    import numpy as np
+    from src.model.poisson import jmlm_points
+    if points_rule is None:
+        points_rule = jmlm_points
+
+    if len(penca_ids) != 5 or len(picks_in_strategy_order) != 5:
+        raise ValueError(f"5 picks/pencas requeridos, got {len(picks_in_strategy_order)}/{len(penca_ids)}")
+
+    current_pts: dict[int, int] = {
+        pid: int(pencas_standings.get(pid, {}).get("points_total", 0)) if pencas_standings else 0
+        for pid in penca_ids
+    }
+
+    n = grid.shape[0]
+
+    # Pre-computar tabla de puntos: para cada pick × cada outcome → puntos
+    pts_table = np.zeros((5, n, n), dtype=np.int8)
+    for pi, pick in enumerate(picks_in_strategy_order):
+        pick_score = (int(pick["score"][0]), int(pick["score"][1]))
+        for gL in range(n):
+            for gV in range(n):
+                pts_table[pi, gL, gV] = points_rule(pick_score, (gL, gV))
+
+    best_perm: tuple[int, ...] | None = None
+    best_objective = -float("inf")
+    current_pts_arr = np.array([current_pts[pid] for pid in penca_ids])
+
+    for perm in permutations(range(5)):
+        # perm[i] = índice del pick asignado a la penca penca_ids[i]
+        # tabla[i, gL, gV] = puntos de penca i en outcome (gL, gV)
+        per_penca_pts = pts_table[list(perm)]  # shape (5, n, n)
+        # Sumar score actual a cada penca
+        finals = per_penca_pts + current_pts_arr.reshape(5, 1, 1)  # broadcasting
+        # max sobre las 5 pencas para cada outcome
+        max_per_outcome = finals.max(axis=0)  # shape (n, n)
+        # E[max] = sum (P(ω) * max)
+        exp_max = float((grid * max_per_outcome).sum())
+        if exp_max > best_objective:
+            best_objective = exp_max
+            best_perm = perm
+
+    assert best_perm is not None
+
+    # Ranks de pencas por current score (descendente)
+    pencas_by_score = sorted(penca_ids, key=lambda pid: -current_pts[pid])
+    rank_by_penca = {pid: i + 1 for i, pid in enumerate(pencas_by_score)}
+
+    return [
+        (penca_ids[i], picks_in_strategy_order[best_perm[i]], rank_by_penca[penca_ids[i]])
+        for i in range(5)
+    ]
+
+
 def assign_picks_to_pencas(
     picks_in_strategy_order: list[dict],
     penca_ids: list[int],
