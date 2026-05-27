@@ -65,10 +65,10 @@ def load_books_config() -> dict:
 
 def find_match(fixtures: dict, match_id: str) -> dict:
     for m in fixtures.get("fase_grupos", []):
-        if m["id"] == match_id:
+        if str(m["id"]) == str(match_id):
             return m
     for m in fixtures.get("eliminatorias", []):
-        if m["id"] == match_id:
+        if str(m["id"]) == str(match_id):
             return m
     raise ValueError(f"match_id {match_id} no encontrado en fixtures")
 

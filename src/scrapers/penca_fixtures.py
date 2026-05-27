@@ -69,6 +69,10 @@ EXTRA_ALIASES = {
     "turquia": "TUR",
     "iran": "IRN",
     "arabia saudi": "KSA",
+    "catar": "QAT",             # variante hispana de Qatar
+    "qatar": "QAT",
+    "r.d. congo": "COD",
+    "rd. congo": "COD",
     "republica democratica del congo": "COD",
     "rd del congo": "COD",
     "uzbekistan": "UZB",
