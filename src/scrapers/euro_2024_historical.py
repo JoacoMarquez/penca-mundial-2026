@@ -75,54 +75,32 @@ def fetch_wikipedia_results() -> list[dict]:
     soup = BeautifulSoup(resp.text, "lxml")
 
     matches = []
-    for box in soup.find_all("table", class_=re.compile(r"footballbox")):
-        # estructura típica de Wikipedia:
-        # team_home_cell  |  score (a–b)  |  team_away_cell
-        rows = box.find_all("tr")
-        if not rows:
+    # Los footballbox son <div>, no <table>. Adentro tienen fhome/fscore/faway.
+    for box in soup.find_all("div", class_="footballbox"):
+        home_el = box.find("th", class_="fhome")
+        score_el = box.find("th", class_="fscore")
+        away_el = box.find("th", class_="faway")
+        if not (home_el and score_el and away_el):
             continue
-        # Buscar la fila con el score
-        for row in rows:
-            cells = row.find_all(["td", "th"])
-            if len(cells) < 3:
-                continue
-            # Buscar un texto que parezca "2–1"
-            text = " ".join(_strip(c.get_text()) for c in cells)
-            score_match = re.search(r"(\d+)\s*[–\-]\s*(\d+)", text)
-            if not score_match:
-                continue
-            home_score = int(score_match.group(1))
-            away_score = int(score_match.group(2))
+        # Equipo: preferir el <a> interno (texto del nombre del país sin flag)
+        def team_name(el) -> str:
+            a = el.find("a")
+            return _strip(a.get_text() if a else el.get_text())
 
-            # Identificar team home y team away por su posición relativa al score
-            home_idx = None
-            for i, c in enumerate(cells):
-                if score_match.group(0).split("–")[0].strip() in _strip(c.get_text()):
-                    home_idx = i
-                    break
-            if home_idx is None:
-                continue
-            # El home es el cell anterior, away el siguiente
-            home_team = None
-            away_team = None
-            for i in range(home_idx - 1, -1, -1):
-                t = _strip(cells[i].get_text())
-                if t and not re.fullmatch(r"[\d\s\-–]+", t):
-                    home_team = t
-                    break
-            for i in range(home_idx + 1, len(cells)):
-                t = _strip(cells[i].get_text())
-                if t and not re.fullmatch(r"[\d\s\-–:]+", t):
-                    away_team = t
-                    break
-            if home_team and away_team:
-                matches.append({
-                    "home": home_team,
-                    "away": away_team,
-                    "home_score": home_score,
-                    "away_score": away_score,
-                })
-            break   # ya encontramos el score, salir del loop de rows
+        home_team = team_name(home_el)
+        away_team = team_name(away_el)
+        score_txt = _strip(score_el.get_text())
+        m = re.match(r"(\d+)\s*[–\-:]\s*(\d+)", score_txt)
+        if not m:
+            continue
+        # En eliminatorias el score muestra alargue/penales: "1–1 (a.e.t.) (4–3 pen.)"
+        # Tomamos el primer marcador (90 min), que es lo que cuenta para la penca.
+        matches.append({
+            "home": home_team,
+            "away": away_team,
+            "home_score": int(m.group(1)),
+            "away_score": int(m.group(2)),
+        })
     return matches
 
 
