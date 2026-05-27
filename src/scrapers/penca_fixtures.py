@@ -159,6 +159,17 @@ def sync(dry_run: bool = False) -> None:
 
     # Preservar la sección `config` del fixtures.yaml actual
     existing = yaml.safe_load(FIXTURES_PATH.read_text()) if FIXTURES_PATH.exists() else {}
+
+    # Preservar venues de la versión previa (la API de la penca no expone venue)
+    existing_venues_by_id = {}
+    for m in (existing.get("fase_grupos") or []) + (existing.get("eliminatorias") or []):
+        if m.get("venue"):
+            existing_venues_by_id[m.get("id")] = m["venue"]
+    for matches_list in (fase_grupos, eliminatorias):
+        for m in matches_list:
+            if not m.get("venue") and m["id"] in existing_venues_by_id:
+                m["venue"] = existing_venues_by_id[m["id"]]
+
     config_section = existing.get("config", {
         "timezone_display": "America/Montevideo",
         "kickoff_buffer_minutes": 5,
