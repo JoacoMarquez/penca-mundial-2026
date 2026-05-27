@@ -1,0 +1,46 @@
+# Mundial 2026 — calendario de partidos.
+#
+# IMPORTANTE: este archivo es un SCHEMA + seed. La fuente autoritativa de fixtures
+# es la propia web de la penca (https://penca-jmlm-2026.vercel.app/matches) — el
+# scraper `src/scrapers/penca_fixtures.py` actualiza este archivo en cada batch T-72h.
+#
+# Formato:
+#   id          — identificador estable (MATCH_<grupo>_<NN> para grupos, MATCH_KO_<NN> para playoff)
+#   stage       — group | round_of_32 | round_of_16 | quarter | semi | third_place | final
+#   group       — A..L (solo para stage=group)
+#   home, away  — códigos FIFA (referencia a teams.yaml)
+#   kickoff_utc — ISO 8601 con Z (UTC). UY es UTC-3, USA East UTC-4 (EDT), West UTC-7.
+#   venue       — ciudad o estadio si lo sabemos
+#
+# Para eliminatorias usamos placeholders (TBD_<descriptor>) hasta que se resuelvan los grupos.
+
+# Última actualización: 2026-05-27 (seed manual desde screenshots de penca/matches; falta scrapear el resto)
+
+fase_grupos:
+  # GRUPO A (confirmado desde screenshot de penca)
+  - { id: MATCH_A_01, stage: group, group: A, home: MEX, away: RSA, kickoff_utc: "2026-06-11T19:00:00Z", venue: "Estadio Azteca, Ciudad de México" }
+  - { id: MATCH_A_02, stage: group, group: A, home: KOR, away: CZE, kickoff_utc: "2026-06-12T02:00:00Z", venue: "TBD" }
+  - { id: MATCH_A_03, stage: group, group: A, home: CZE, away: RSA, kickoff_utc: "2026-06-18T16:00:00Z", venue: "TBD" }
+  - { id: MATCH_A_04, stage: group, group: A, home: MEX, away: KOR, kickoff_utc: "2026-06-19T01:00:00Z", venue: "TBD" }
+  - { id: MATCH_A_05, stage: group, group: A, home: CZE, away: MEX, kickoff_utc: "2026-06-25T01:00:00Z", venue: "TBD" }
+  - { id: MATCH_A_06, stage: group, group: A, home: RSA, away: KOR, kickoff_utc: "2026-06-25T01:00:00Z", venue: "TBD" }
+
+  # GRUPOS B–L: PENDIENTE de scraper sobre /matches.
+  # El scraper popula este archivo automáticamente en T-72h del primer partido de cada grupo.
+
+eliminatorias:
+  # Stage placeholders. Se llenan dinámicamente cuando termine la fase de grupos.
+  # Ronda de 32 (nueva esta edición): 32 equipos, 16 partidos.
+  # Octavos (R16) → Cuartos → Semis → Final + 3er puesto.
+  #
+  # Esquema esperado:
+  # - { id: MATCH_R32_01, stage: round_of_32, home: TBD_1A, away: TBD_BEST3RD_C, kickoff_utc: "2026-06-28T..." }
+
+config:
+  timezone_display: "America/Montevideo"  # display para notifs
+  kickoff_buffer_minutes: 5  # los timers disparan 5 min antes del kickoff "para estar seguros"
+  scheduling_anchors:
+    T_72h_minutes: 4320
+    T_24h_minutes: 1440
+    T_3h_minutes: 180
+    T_30min_minutes: 30

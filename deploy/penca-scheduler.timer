@@ -1,0 +1,12 @@
+[Unit]
+Description=Penca scheduler — cada 5 min revisa qué partido entra en T-24h / T-3h / T-30min
+Requires=penca-scheduler.service
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=10s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

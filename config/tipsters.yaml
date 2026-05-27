@@ -1,0 +1,116 @@
+# Tipsters — fuentes de análisis cualitativo para Capa 3 del modelo.
+#
+# Cada fuente: URL base, parser, peso, idioma, paywall.
+# El LLM (Claude Sonnet 4.6) lee el texto y extrae JSON estructurado:
+#   { pick: "1"|"X"|"2", confidence: 0..1, predicted_score: [gL, gV] | null,
+#     factors: [string], reasoning_summary: string }
+#
+# Si el tipster es paywall y el usuario tiene suscripción, agrega credentials en .env.
+
+tipsters:
+  # ============ ENGLISH ============
+  the_athletic:
+    enabled: false   # paywall (~$1/mes promo). Activar si el usuario se suscribe.
+    weight: 1.5      # alta calidad de análisis táctico
+    lang: en
+    url_template: "https://theathletic.com/football/world-cup/"
+    parser: the_athletic
+    requires_auth: true
+    notes: "Análisis táctico profundo. Picks suelen estar en columnas previas al partido."
+
+  forebet:
+    enabled: true
+    weight: 0.8
+    lang: en
+    url_template: "https://www.forebet.com/en/football-predictions/{date}"
+    parser: forebet
+    requires_auth: false
+    notes: "Predicciones basadas en modelo + form. Útil como cross-check del modelo cuantitativo."
+
+  sportingpedia:
+    enabled: true
+    weight: 0.7
+    lang: en
+    url_template: "https://www.sportingpedia.com/{match_slug}"
+    parser: sportingpedia
+    requires_auth: false
+
+  goal:
+    enabled: true
+    weight: 0.6
+    lang: en
+    url_template: "https://www.goal.com/en/predictions"
+    parser: goal_com
+    requires_auth: false
+
+  bbc_sport:
+    enabled: true
+    weight: 0.7
+    lang: en
+    url_template: "https://www.bbc.com/sport/football/world-cup"
+    parser: bbc_sport
+    requires_auth: false
+    notes: "Lawro/Cribb previews. Análisis serio, sin sesgo de casa de apuestas."
+
+  # ============ ESPAÑOL ============
+  marca:
+    enabled: true
+    weight: 0.8
+    lang: es
+    url_template: "https://www.marca.com/futbol/mundial.html"
+    parser: marca
+    requires_auth: false
+    notes: "Periodistas españoles. Sesgo pro-España visible — descontar."
+
+  as:
+    enabled: true
+    weight: 0.7
+    lang: es
+    url_template: "https://as.com/futbol/mundial/"
+    parser: as_diario
+    requires_auth: false
+
+  tyc_sports:
+    enabled: true
+    weight: 0.7
+    lang: es
+    url_template: "https://www.tycsports.com/mundial-2026"
+    parser: tyc_sports
+    requires_auth: false
+    notes: "Sesgo CONMEBOL fuerte. Útil para inferencia sobre selecciones sudamericanas."
+
+  el_pais_uy:
+    enabled: true
+    weight: 0.5
+    lang: es
+    url_template: "https://www.elpais.com.uy/deportes/futbol/mundial-2026"
+    parser: el_pais_uy
+    requires_auth: false
+    notes: "Cobertura uruguaya. Sesgo fuerte pro-Uruguay."
+
+  # ============ INTERNACIONALES SHARP ============
+  opta_analyst:
+    enabled: true
+    weight: 1.2
+    lang: en
+    url_template: "https://theanalyst.com/category/football/international-football/"
+    parser: opta_analyst
+    requires_auth: false
+    notes: "Modelo de Opta. Una de las fuentes cuantitativas más respetadas del mundo."
+
+# Reglas de agregación
+aggregation:
+  # Mínimo de tipsters que tienen que opinar sobre un partido para considerar la señal
+  min_tipsters_for_signal: 3
+  # Si el consensus de tipsters difiere del mercado en > N pp (puntos porcentuales) en P(ganador),
+  # se loguea como "potential info edge" para revisión humana
+  info_edge_threshold_pp: 8
+
+# Costo estimado de LLM por partido (extracción cualitativa)
+# ~5-10 artículos × 1000 tokens promedio × $3/M input + 200 tokens output × $15/M output
+# ≈ $0.03-$0.05 por partido. 104 partidos ≈ $5 total.
+llm:
+  model: claude-sonnet-4-6
+  model_eliminatorias: claude-opus-4-7  # solo para octavos en adelante
+  max_tokens_per_extraction: 500
+  temperature: 0.2  # baja para output estructurado

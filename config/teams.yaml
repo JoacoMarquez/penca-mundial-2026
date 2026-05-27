@@ -1,0 +1,137 @@
+# Mundial 2026 — 48 selecciones, 12 grupos.
+# Sorteo realizado el 2025-12-05 en Washington DC.
+#
+# Campos por equipo:
+#   name      — nombre en español (display)
+#   code      — código FIFA de 3 letras (autoritativo)
+#   group     — A..L
+#   elo_seed  — Elo aproximado a 2026-Q1; el scraper sobrescribe en runtime desde eloratings.net
+#   confed    — CONMEBOL / UEFA / AFC / CAF / CONCACAF / OFC
+#
+# IMPORTANTE: elo_seed es solo fallback. La pipeline siempre intenta obtener el Elo
+# en vivo antes de modelar. Si el scraper de Elo cae, este valor mantiene el sistema operativo.
+
+groups:
+  A:
+    - { name: "México",          code: MEX, elo_seed: 1850, confed: CONCACAF }
+    - { name: "Sudáfrica",       code: RSA, elo_seed: 1640, confed: CAF }
+    - { name: "Corea del Sur",   code: KOR, elo_seed: 1740, confed: AFC }
+    - { name: "Czechia",         code: CZE, elo_seed: 1730, confed: UEFA }
+
+  B:
+    - { name: "Canadá",          code: CAN, elo_seed: 1810, confed: CONCACAF }
+    - { name: "Bosnia y Herzeg.", code: BIH, elo_seed: 1700, confed: UEFA }
+    - { name: "Qatar",           code: QAT, elo_seed: 1700, confed: AFC }
+    - { name: "Suiza",           code: SUI, elo_seed: 1810, confed: UEFA }
+
+  C:
+    - { name: "Brasil",          code: BRA, elo_seed: 2050, confed: CONMEBOL }
+    - { name: "Marruecos",       code: MAR, elo_seed: 1900, confed: CAF }
+    - { name: "Haití",           code: HAI, elo_seed: 1500, confed: CONCACAF }
+    - { name: "Escocia",         code: SCO, elo_seed: 1750, confed: UEFA }
+
+  D:
+    - { name: "Estados Unidos",  code: USA, elo_seed: 1830, confed: CONCACAF }
+    - { name: "Paraguay",        code: PAR, elo_seed: 1730, confed: CONMEBOL }
+    - { name: "Australia",       code: AUS, elo_seed: 1740, confed: AFC }
+    - { name: "Türkiye",         code: TUR, elo_seed: 1810, confed: UEFA }
+
+  E:
+    - { name: "Alemania",        code: GER, elo_seed: 1990, confed: UEFA }
+    - { name: "Curaçao",         code: CUW, elo_seed: 1500, confed: CONCACAF }
+    - { name: "Costa de Marfil", code: CIV, elo_seed: 1750, confed: CAF }
+    - { name: "Ecuador",         code: ECU, elo_seed: 1850, confed: CONMEBOL }
+
+  F:
+    - { name: "Países Bajos",    code: NED, elo_seed: 1980, confed: UEFA }
+    - { name: "Japón",           code: JPN, elo_seed: 1860, confed: AFC }
+    - { name: "Suecia",          code: SWE, elo_seed: 1810, confed: UEFA }
+    - { name: "Túnez",           code: TUN, elo_seed: 1700, confed: CAF }
+
+  G:
+    - { name: "Bélgica",         code: BEL, elo_seed: 1960, confed: UEFA }
+    - { name: "Egipto",          code: EGY, elo_seed: 1810, confed: CAF }
+    - { name: "Irán",            code: IRN, elo_seed: 1800, confed: AFC }
+    - { name: "Nueva Zelanda",   code: NZL, elo_seed: 1550, confed: OFC }
+
+  H:
+    - { name: "España",          code: ESP, elo_seed: 2080, confed: UEFA }
+    - { name: "Cabo Verde",      code: CPV, elo_seed: 1600, confed: CAF }
+    - { name: "Arabia Saudita",  code: KSA, elo_seed: 1650, confed: AFC }
+    - { name: "Uruguay",         code: URU, elo_seed: 1900, confed: CONMEBOL }
+
+  I:
+    - { name: "Francia",         code: FRA, elo_seed: 2100, confed: UEFA }
+    - { name: "Senegal",         code: SEN, elo_seed: 1850, confed: CAF }
+    - { name: "Iraq",            code: IRQ, elo_seed: 1620, confed: AFC }
+    - { name: "Noruega",         code: NOR, elo_seed: 1850, confed: UEFA }
+
+  J:
+    - { name: "Argentina",       code: ARG, elo_seed: 2150, confed: CONMEBOL }
+    - { name: "Argelia",         code: ALG, elo_seed: 1820, confed: CAF }
+    - { name: "Austria",         code: AUT, elo_seed: 1900, confed: UEFA }
+    - { name: "Jordania",        code: JOR, elo_seed: 1620, confed: AFC }
+
+  K:
+    - { name: "Portugal",        code: POR, elo_seed: 2030, confed: UEFA }
+    - { name: "RD del Congo",    code: COD, elo_seed: 1700, confed: CAF }
+    - { name: "Uzbekistán",      code: UZB, elo_seed: 1650, confed: AFC }
+    - { name: "Colombia",        code: COL, elo_seed: 1900, confed: CONMEBOL }
+
+  L:
+    - { name: "Inglaterra",      code: ENG, elo_seed: 2050, confed: UEFA }
+    - { name: "Croacia",         code: CRO, elo_seed: 1950, confed: UEFA }
+    - { name: "Ghana",           code: GHA, elo_seed: 1740, confed: CAF }
+    - { name: "Panamá",          code: PAN, elo_seed: 1700, confed: CONCACAF }
+
+# Aliases: nombres alternativos que pueden aparecer en scrapers (penca / casas / tipsters).
+# El loader normaliza contra `code`.
+aliases:
+  MEX: ["Mexico", "México"]
+  RSA: ["South Africa", "Sudafrica", "Sudáfrica"]
+  KOR: ["South Korea", "Corea del Sur", "Korea Republic"]
+  CZE: ["Czech Republic", "Czechia", "Chequia"]
+  CAN: ["Canada", "Canadá"]
+  BIH: ["Bosnia", "Bosnia y Herzegovina", "Bosnia-Herzegovina"]
+  QAT: ["Qatar"]
+  SUI: ["Switzerland", "Suiza"]
+  BRA: ["Brazil", "Brasil"]
+  MAR: ["Morocco", "Marruecos"]
+  HAI: ["Haiti", "Haití"]
+  SCO: ["Scotland", "Escocia"]
+  USA: ["United States", "USA", "Estados Unidos", "USMNT"]
+  PAR: ["Paraguay"]
+  AUS: ["Australia"]
+  TUR: ["Turkey", "Türkiye", "Turquía"]
+  GER: ["Germany", "Alemania", "Deutschland"]
+  CUW: ["Curacao", "Curaçao"]
+  CIV: ["Ivory Coast", "Côte d'Ivoire", "Costa de Marfil"]
+  ECU: ["Ecuador"]
+  NED: ["Netherlands", "Holanda", "Países Bajos", "Holland"]
+  JPN: ["Japan", "Japón"]
+  SWE: ["Sweden", "Suecia"]
+  TUN: ["Tunisia", "Túnez"]
+  BEL: ["Belgium", "Bélgica"]
+  EGY: ["Egypt", "Egipto"]
+  IRN: ["Iran", "Irán", "IR Iran"]
+  NZL: ["New Zealand", "Nueva Zelanda"]
+  ESP: ["Spain", "España"]
+  CPV: ["Cape Verde", "Cabo Verde"]
+  KSA: ["Saudi Arabia", "Arabia Saudita", "Arabia Saudí"]
+  URU: ["Uruguay"]
+  FRA: ["France", "Francia"]
+  SEN: ["Senegal"]
+  IRQ: ["Iraq", "Irak"]
+  NOR: ["Norway", "Noruega"]
+  ARG: ["Argentina"]
+  ALG: ["Algeria", "Argelia"]
+  AUT: ["Austria"]
+  JOR: ["Jordan", "Jordania"]
+  POR: ["Portugal"]
+  COD: ["DR Congo", "Congo DR", "RD Congo", "RD del Congo"]
+  UZB: ["Uzbekistan", "Uzbekistán"]
+  COL: ["Colombia"]
+  ENG: ["England", "Inglaterra"]
+  CRO: ["Croatia", "Croacia"]
+  GHA: ["Ghana"]
+  PAN: ["Panama", "Panamá"]

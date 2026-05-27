@@ -1,0 +1,70 @@
+# Casas de apuestas — fuentes de odds para Capa 1 del modelo.
+#
+# Cada casa tiene un peso en el promedio ponderado de probabilidades (después de de-vig).
+# Los pesos suman 1.0 y reflejan eficiencia conocida del mercado de cada casa:
+#   - Pinnacle:  sharp book, market maker, alta liquidez. El mercado más eficiente.
+#   - Betfair Exchange: peer-to-peer, refleja consenso real de bettors.
+#   - Bet365: retail con margen mayor pero cubre marcadores exactos.
+
+books:
+  pinnacle:
+    enabled: true
+    weight: 0.50
+    scraper: pinnacle
+    markets:
+      - 1x2
+      - over_under
+      - btts
+      - asian_handicap
+      - correct_score  # cuando disponible
+    notes: |
+      Sharp book. Sin login para odds básicas. Si requieren login en algún mercado,
+      las credenciales viven en .env como PINNACLE_USER / PINNACLE_PASS.
+      Rate limit: ~1 req/seg respetable.
+
+  betfair_exchange:
+    enabled: true
+    weight: 0.30
+    scraper: betfair_api
+    markets:
+      - 1x2
+      - over_under
+      - btts
+      - asian_handicap
+      - correct_score
+    notes: |
+      Acceso vía API oficial. Necesita BETFAIR_APP_KEY + BETFAIR_SESSION_TOKEN.
+      Las "back odds" del exchange son la prob real del mercado (no inflada por margen de casa).
+
+  bet365:
+    enabled: true
+    weight: 0.20
+    scraper: bet365_playwright
+    markets:
+      - 1x2
+      - over_under
+      - btts
+      - asian_handicap
+      - correct_score   # Bet365 tiene el mejor grid de marcador exacto
+    notes: |
+      Sitio JS-heavy con anti-bot. Requiere Playwright + posiblemente proxy residencial.
+      Rate limit estricto: máx 1 request cada 30s, sino bloqueo.
+
+# Mercados que se piden a todas las casas y se agregan en src/model/market_probs.py
+markets_priority:
+  - correct_score   # crítico para nuestro sistema de puntos (5 pts = marcador exacto)
+  - 1x2             # base para outcome
+  - over_under      # calibra λ total
+  - btts            # calibra ρ (correlación)
+  - asian_handicap  # señal sharp adicional
+
+# Método de de-vigging por mercado
+devig:
+  1x2: proportional      # método estándar
+  correct_score: shin    # Shin's method maneja mejor la sobrestimación de favorito
+  over_under: proportional
+  btts: proportional
+  asian_handicap: proportional
+
+# Cuando una casa cae, su peso se redistribuye proporcionalmente entre las que sí funcionan
+fallback_policy: redistribute_proportional

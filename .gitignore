@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Data (todo lo grande/sensible queda local)
+data/raw/
+data/processed/
+data/predictions/
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/predictions/.gitkeep
+
+# Secretos
+.env
+.env.local
+config/secrets.yaml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Artefactos iniciales (delivery del usuario)
+files/
+files.zip
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Claude Code
+.claude/
