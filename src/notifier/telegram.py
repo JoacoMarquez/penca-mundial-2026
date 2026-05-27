@@ -138,63 +138,87 @@ class TelegramNotifier:
     # ---------- heartbeat ----------
 
     def send_heartbeat(self, status: dict) -> None:
-        """Heartbeat diario con info de todos los componentes.
+        """Heartbeat diario con secciones bien separadas.
 
         status: dict con keys:
             now_uy, next_match, predictions_24h, predictions_total,
             scheduler_status, last_scheduler_run, api_penca_status,
             pinnacle_status, anthropic_status, disk_free, ram_used,
-            errors_24h, dry_run.
+            errors_24h, dry_run, do_mtd, anthropic_total, anthropic_24h,
+            anthropic_calls_total.
         """
-        ok = "✅"
-        warn = "⚠️"
-        err = "❌"
+        ok_em, warn_em, err_em = "✅", "⚠️", "❌"
 
-        # ícono por componente
         def icon(s: str) -> str:
             s = (s or "").lower()
             if "ok" in s or "200" in s or "active" in s or "success" in s:
-                return ok
+                return ok_em
             if "err" in s or "fail" in s or "404" in s or "500" in s or "inactive" in s:
-                return err
-            return warn
+                return err_em
+            return warn_em
 
-        dry_run_line = ""
-        if status.get("dry_run"):
-            dry_run_line = "\n⚠️ <b>DRY_RUN activo</b> — no publica a la penca"
+        # Resumen global: si TODO está OK, una sola línea de estado feliz.
+        components_icons = [
+            icon(status[k]) for k in (
+                "scheduler_status", "api_penca_status", "pinnacle_status", "anthropic_status"
+            )
+        ]
+        all_ok = all(i == ok_em for i in components_icons)
+        global_emoji = ok_em if all_ok else (err_em if err_em in components_icons else warn_em)
+        global_label = "Todo OK" if all_ok else (
+            "Algo falla" if err_em in components_icons else "Algo a chequear"
+        )
 
-        lines = [
-            f"💓 <b>Heartbeat</b> · {_esc(status['now_uy'])}",
-            f"📅 Próximo: {_esc(status['next_match'])}",
-            "",
-            "<b>Componentes:</b>",
-            f"  {icon(status['scheduler_status'])} Scheduler: {_esc(status['scheduler_status'])}",
-            f"  {icon(status['api_penca_status'])} API Penca: {_esc(status['api_penca_status'])}",
-            f"  {icon(status['pinnacle_status'])} Pinnacle: {_esc(status['pinnacle_status'])}",
-            f"  {icon(status['anthropic_status'])} Anthropic: {_esc(status['anthropic_status'])}",
-            "",
-            "<b>VPS:</b>",
-            f"  💾 {_esc(status['disk_free'])}  |  🧠 {_esc(status['ram_used'])}",
-            f"  📊 Predicciones: {status['predictions_total']} total · {status['predictions_24h']} en 24h",
-            f"  🐛 Errores 24h: {status['errors_24h']}",
+        sep = "━━━━━━━━━━━━━━━"
+
+        # ── Header
+        header = (
+            f"💓 <b>Heartbeat</b>  ·  {_esc(status['now_uy'])}\n"
+            f"{global_emoji} <b>{global_label}</b>  ·  📅 {_esc(status['next_match'])}"
+        )
+
+        # ── Componentes
+        comps = (
+            f"{sep}\n"
+            f"<b>🔧 Componentes</b>\n"
+            f"  {icon(status['scheduler_status'])}  Scheduler  ·  {_esc(status['scheduler_status'])}\n"
+            f"  {icon(status['api_penca_status'])}  API Penca  ·  {_esc(status['api_penca_status'])}\n"
+            f"  {icon(status['pinnacle_status'])}  Pinnacle  ·  {_esc(status['pinnacle_status'])}\n"
+            f"  {icon(status['anthropic_status'])}  Anthropic  ·  {_esc(status['anthropic_status'])}"
+        )
+
+        # ── VPS
+        vps_lines = [
+            f"{sep}",
+            f"<b>💻 VPS</b>",
+            f"  💾 Disco  ·  {_esc(status['disk_free'])}",
+            f"  🧠 RAM  ·  {_esc(status['ram_used'])}",
+            f"  📊 Predicciones  ·  {status['predictions_total']} total  ·  {status['predictions_24h']} en 24h",
+            f"  🐛 Errores 24h  ·  {status['errors_24h']}",
         ]
         if status.get("last_scheduler_run"):
-            lines.append(f"  ⏱ Último scheduler: {_esc(status['last_scheduler_run'])}")
+            vps_lines.append(f"  ⏱  Último scheduler  ·  {_esc(status['last_scheduler_run'])}")
+        vps = "\n".join(vps_lines)
 
-        # Sección de costos
+        # ── Gastos
         do_mtd = status.get("do_mtd", "—")
         anth_total = status.get("anthropic_total", "—")
         anth_24h = status.get("anthropic_24h", "—")
         anth_calls = status.get("anthropic_calls_total", 0)
-        lines.extend([
-            "",
-            "<b>💵 Gastos:</b>",
-            f"  🌊 DigitalOcean (mes): {_esc(do_mtd)}",
-            f"  🧠 Anthropic (total): {_esc(anth_total)}  ·  24h: {_esc(anth_24h)}  ·  {anth_calls} calls",
-        ])
-        lines.append(dry_run_line)
+        gastos = (
+            f"{sep}\n"
+            f"<b>💵 Gastos</b>\n"
+            f"  🌊 DigitalOcean (mes)  ·  {_esc(do_mtd)}\n"
+            f"  🧠 Anthropic (total)  ·  {_esc(anth_total)}  ({anth_calls} calls)\n"
+            f"  🧠 Anthropic (24h)  ·  {_esc(anth_24h)}"
+        )
 
-        text = "\n".join(l for l in lines if l)
+        # ── Footer (dry-run warning si aplica)
+        footer = ""
+        if status.get("dry_run"):
+            footer = f"\n{sep}\n⚠️ <b>DRY_RUN activo</b>  ·  no publica a la penca"
+
+        text = "\n\n".join([header, comps, vps, gastos]) + footer
         self.send(text)
 
 
