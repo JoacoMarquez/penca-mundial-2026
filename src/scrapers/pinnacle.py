@@ -165,6 +165,10 @@ def extract_match_markets(
     """
     out: dict[str, dict[str, float]] = {}
 
+    # Coleccionar todos los totales y spreads para elegir los mejores después
+    all_totals: list[tuple[float, dict[str, float]]] = []
+    all_spreads: list[tuple[float, dict[str, float]]] = []
+
     for market in markets_raw:
         if market.get("matchupId") != matchup_id:
             continue
@@ -189,28 +193,37 @@ def extract_match_markets(
             points = market.get("points")
             if points is None:
                 continue
-            if abs(points - 2.5) < 1e-6:
-                out["ou_2_5"] = {
-                    "over": prices.get("over", 0.0),
-                    "under": prices.get("under", 0.0),
-                }
-            elif abs(points - 3.5) < 1e-6:
-                out["ou_3_5"] = {
-                    "over": prices.get("over", 0.0),
-                    "under": prices.get("under", 0.0),
-                }
+            all_totals.append((points, prices))
         elif mtype == "spread":
             points = market.get("points")
             if points is None:
                 continue
-            if abs(points) < 1e-6:
-                out["asian_handicap_0"] = {
-                    "H": prices.get("home", 0.0),
-                    "A": prices.get("away", 0.0),
-                }
-        elif mtype == "team_total":
-            # opcional: totales por equipo
-            pass
+            all_spreads.append((points, prices))
+        # team_total y otros: ignorar por ahora
+
+    # Elegir el total más cercano a 2.5 (que es el que necesita el modelo Poisson)
+    if all_totals:
+        best_total = min(all_totals, key=lambda t: abs(t[0] - 2.5))
+        out["totals"] = {
+            "points": best_total[0],
+            "over": best_total[1].get("over", 0.0),
+            "under": best_total[1].get("under", 0.0),
+        }
+        # Por compatibilidad con downstream: si tenemos exactamente 2.5, también lo exponemos como ou_2_5
+        if abs(best_total[0] - 2.5) < 1e-6:
+            out["ou_2_5"] = {
+                "over": best_total[1].get("over", 0.0),
+                "under": best_total[1].get("under", 0.0),
+            }
+
+    # Spread más cercano a 0 (handicap 0 = "draw no bet")
+    if all_spreads:
+        best_spread = min(all_spreads, key=lambda s: abs(s[0]))
+        out["asian_handicap"] = {
+            "points": best_spread[0],
+            "H": best_spread[1].get("home", 0.0),
+            "A": best_spread[1].get("away", 0.0),
+        }
 
     return out
 
