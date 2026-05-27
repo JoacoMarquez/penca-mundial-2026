@@ -61,9 +61,16 @@ class BacktestMatch:
 class BacktestResult:
     n_matches: int
     n_simulations: int
+    n_pool_players: int
     portfolio_points_by_penca: list[list[int]]   # [n_sims][5_pencas] — total points
     pool_top_points: list[int]                   # [n_sims] — max score del pool sintético
+    pool_median_points: list[float]              # mediana del pool por sim
+    portfolio_max_points: list[int]              # max de nuestras 5 pencas por sim
+    portfolio_percentile_in_pool: list[float]    # en qué percentil cae nuestro max (0-100)
     p_at_least_one_wins: float                   # P(max(portfolio) > max(pool))
+    p_top_1_percent: float                       # P(max(portfolio) está en top 1% del pool)
+    p_top_5_percent: float                       # P(top 5%)
+    p_top_10_percent: float                      # P(top 10%)
     p_chalk_baseline_wins: float                 # P(chalk también ganaría)
 
 
@@ -191,23 +198,45 @@ def run_backtest(
     chalk_picks_by_match = [pps[0] for pps in portfolio_picks_by_match]   # penca 1 = EV pure ≈ chalk
     chalk_total = sum(chalk_picks_by_match)
 
-    # Simular pool
-    pool_results = []
+    # Simular pool — métricas más ricas
+    pool_top_results = []
+    pool_median_results = []
+    portfolio_max_results = []
+    percentile_results = []
+    portfolio_max = int(portfolio_total_by_penca.max())
+
     for s in range(n_simulations):
         pool_pts = simulate_pool(n_pool_players, matches, PoolModelConfig(), rng)
         pool_total = pool_pts.sum(axis=1)   # shape (n_players,)
-        pool_results.append(int(pool_total.max()))
+        pool_top_results.append(int(pool_total.max()))
+        pool_median_results.append(float(np.median(pool_total)))
+        portfolio_max_results.append(portfolio_max)
+        # En qué percentil cae nuestro max
+        percentile = float((pool_total < portfolio_max).mean() * 100)
+        percentile_results.append(percentile)
 
-    pool_results_arr = np.array(pool_results)
-    p_at_least_one = float((portfolio_total_by_penca.max() > pool_results_arr).mean())
-    p_chalk = float((chalk_total > pool_results_arr).mean())
+    pool_top_arr = np.array(pool_top_results)
+    percentile_arr = np.array(percentile_results)
+
+    p_at_least_one = float((portfolio_max > pool_top_arr).mean())
+    p_chalk = float((chalk_total > pool_top_arr).mean())
+    p_top_1 = float((percentile_arr >= 99).mean())
+    p_top_5 = float((percentile_arr >= 95).mean())
+    p_top_10 = float((percentile_arr >= 90).mean())
 
     return BacktestResult(
         n_matches=len(matches),
         n_simulations=n_simulations,
+        n_pool_players=n_pool_players,
         portfolio_points_by_penca=[portfolio_total_by_penca.tolist()] * n_simulations,
-        pool_top_points=pool_results,
+        pool_top_points=pool_top_results,
+        pool_median_points=pool_median_results,
+        portfolio_max_points=portfolio_max_results,
+        portfolio_percentile_in_pool=percentile_results,
         p_at_least_one_wins=p_at_least_one,
+        p_top_1_percent=p_top_1,
+        p_top_5_percent=p_top_5,
+        p_top_10_percent=p_top_10,
         p_chalk_baseline_wins=p_chalk,
     )
 
@@ -229,10 +258,22 @@ if __name__ == "__main__":
     result = run_backtest(matches, n_simulations=args.sims, n_pool_players=args.pool_size)
     print(f"\n📊 Resultado del backtest:")
     print(f"   Partidos:                 {result.n_matches}")
-    print(f"   Simulaciones del pool:    {result.n_simulations}")
+    print(f"   Pool size:                {result.n_pool_players}")
+    print(f"   Simulaciones:             {result.n_simulations}")
+    print()
     print(f"   Puntos por penca (1..5):  {result.portfolio_points_by_penca[0]}")
-    print(f"   Puntos top del pool:      mediana={np.median(result.pool_top_points):.0f}  max={max(result.pool_top_points)}")
-    print(f"")
-    print(f"   P(al menos 1 penca gana al pool):  {result.p_at_least_one_wins:.1%}")
-    print(f"   P(chalk solo gana al pool):        {result.p_chalk_baseline_wins:.1%}")
-    print(f"   Uplift vs chalk:                   {result.p_at_least_one_wins - result.p_chalk_baseline_wins:+.1%}")
+    print(f"   Nuestro MAX:              {result.portfolio_max_points[0]}")
+    print()
+    print(f"   Pool mediana:             {np.median(result.pool_median_points):.0f}")
+    print(f"   Pool top mediana:         {np.median(result.pool_top_points):.0f}")
+    print(f"   Pool top max:             {max(result.pool_top_points)}")
+    print()
+    print(f"   Percentil promedio nuestro:  {np.mean(result.portfolio_percentile_in_pool):.1f}")
+    print()
+    print(f"   P(ganamos el pool):           {result.p_at_least_one_wins:.1%}")
+    print(f"   P(top 1%):                    {result.p_top_1_percent:.1%}")
+    print(f"   P(top 5%):                    {result.p_top_5_percent:.1%}")
+    print(f"   P(top 10%):                   {result.p_top_10_percent:.1%}")
+    print()
+    print(f"   Benchmark chalk solo gana:    {result.p_chalk_baseline_wins:.1%}")
+    print(f"   Uplift vs chalk:              {result.p_at_least_one_wins - result.p_chalk_baseline_wins:+.1%}")
