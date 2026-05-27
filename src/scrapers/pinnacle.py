@@ -258,9 +258,14 @@ def map_to_match_id(
 
 
 def _resolve_team_code(name: str, aliases: dict[str, list[str]]) -> str | None:
-    n = name.strip().lower()
+    """Case + accent insensitive."""
+    import unicodedata
+    def norm(s: str) -> str:
+        s = unicodedata.normalize("NFKD", s)
+        return "".join(c for c in s if not unicodedata.combining(c)).strip().lower()
+    n = norm(name)
     for code, names in aliases.items():
-        if n == code.lower() or n in [x.lower() for x in names]:
+        if n == norm(code) or n in [norm(x) for x in names]:
             return code
     return None
 
