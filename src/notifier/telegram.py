@@ -228,25 +228,33 @@ class TelegramNotifier:
         # ── Pipeline (actividad)
         gen_24h = status["predictions_24h"]
         gen_total = status["predictions_total"]
-        expected = status.get("expected_pasadas_24h", 0)
+        expected_last = status.get("expected_last_24h", 0)
+        expected_next = status.get("expected_next_24h", 0)
         next_pasada = status.get("next_pasada", "—")
 
-        # status badge para la actividad
-        if expected == 0 and gen_24h == 0:
-            activity = f"⏸  Inactivo (sin partidos en ventana)"
-        elif gen_24h >= expected and expected > 0:
-            activity = f"✅  Cumpliendo: {gen_24h}/{expected} pasadas en 24h"
-        elif gen_24h < expected:
-            activity = f"⚠️  Atrasado: {gen_24h}/{expected} pasadas esperadas en 24h"
+        # Badge comparando lo que DEBERÍA haber corrido (último 24h) vs lo que efectivamente corrió
+        if expected_last == 0 and gen_24h == 0:
+            activity = "⏸  Sin actividad esperada en últimas 24h"
+        elif gen_24h >= expected_last and expected_last > 0:
+            activity = f"✅  Últimas 24h: {gen_24h}/{expected_last} pasadas ejecutadas"
+        elif gen_24h < expected_last:
+            activity = f"⚠️  Últimas 24h: solo {gen_24h}/{expected_last} pasadas (faltan {expected_last - gen_24h})"
         else:
-            activity = f"ℹ️  {gen_24h} pasadas en 24h"
+            activity = f"ℹ️  Últimas 24h: {gen_24h} pasadas (sin esperadas)"
+
+        # Próximas 24h: solo informativo
+        if expected_next == 0:
+            next_line = "  📭  Próximas 24h  ·  sin actividad programada"
+        else:
+            next_line = f"  📥  Próximas 24h  ·  {expected_next} pasadas programadas"
 
         pipeline_section = (
             f"{sep}\n"
             f"<b>📊 Pipeline</b>\n"
             f"  {activity}\n"
-            f"  🗂  Total acumulado  ·  {gen_total} pasadas históricas\n"
-            f"  ⏭  Próxima  ·  {_esc(next_pasada)}"
+            f"{next_line}\n"
+            f"  ⏭  Próxima pasada  ·  {_esc(next_pasada)}\n"
+            f"  🗂  Total histórico  ·  {gen_total} pasadas"
         )
 
         # ── Gastos

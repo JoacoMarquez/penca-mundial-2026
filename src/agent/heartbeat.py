@@ -66,11 +66,9 @@ def _predictions_count(within_hours: int | None = None) -> int:
     return sum(1 for f in files if f.stat().st_mtime > cutoff)
 
 
-def _expected_pasadas_next_24h() -> int:
-    """Cuántas pasadas de pipeline (T-24h, T-3h, T-30min) deberían dispararse en las próximas 24h."""
+def _expected_pasadas_in_window(start: datetime, end: datetime) -> int:
+    """Cuántas pasadas (T-24h, T-3h, T-30min) deberían dispararse en [start, end]."""
     fixtures = load_fixtures()
-    now = datetime.now(timezone.utc)
-    window_end = now + timedelta(hours=24)
     count = 0
     for m in (fixtures.get("fase_grupos") or []) + (fixtures.get("eliminatorias") or []):
         if not m.get("kickoff_utc"):
@@ -81,9 +79,19 @@ def _expected_pasadas_next_24h() -> int:
             continue
         for offset_min in (24 * 60, 3 * 60, 30):
             phase_t = ko - timedelta(minutes=offset_min)
-            if now <= phase_t <= window_end:
+            if start <= phase_t <= end:
                 count += 1
     return count
+
+
+def _expected_pasadas_last_24h() -> int:
+    now = datetime.now(timezone.utc)
+    return _expected_pasadas_in_window(now - timedelta(hours=24), now)
+
+
+def _expected_pasadas_next_24h() -> int:
+    now = datetime.now(timezone.utc)
+    return _expected_pasadas_in_window(now, now + timedelta(hours=24))
 
 
 def _next_scheduled_pasada() -> str:
@@ -259,7 +267,8 @@ def main() -> int:
         "ram_used": _ram_used(),
         "predictions_total": _predictions_count(),
         "predictions_24h": _predictions_count(within_hours=24),
-        "expected_pasadas_24h": _expected_pasadas_next_24h(),
+        "expected_last_24h": _expected_pasadas_last_24h(),
+        "expected_next_24h": _expected_pasadas_next_24h(),
         "next_pasada": _next_scheduled_pasada(),
         "errors_24h": _errors_24h(),
         "dry_run": dry_run,
