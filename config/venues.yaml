@@ -1,0 +1,144 @@
+# Sedes del Mundial 2026 con coordenadas para queries de clima.
+# Source: FIFA + Wikipedia coordinates.
+
+venues:
+  # MÉXICO
+  estadio_azteca:
+    name: "Estadio Azteca"
+    city: "Ciudad de México"
+    country: "México"
+    lat: 19.3026
+    lon: -99.1505
+    elevation_m: 2240
+    indoor: false
+
+  estadio_akron:
+    name: "Estadio Akron"
+    city: "Guadalajara"
+    country: "México"
+    lat: 20.6817
+    lon: -103.4628
+    elevation_m: 1566
+    indoor: false
+
+  estadio_bbva:
+    name: "Estadio BBVA"
+    city: "Monterrey"
+    country: "México"
+    lat: 25.6692
+    lon: -100.2447
+    elevation_m: 500
+    indoor: false
+
+  # ESTADOS UNIDOS
+  metlife_stadium:
+    name: "MetLife Stadium"
+    city: "East Rutherford, NJ"
+    country: "USA"
+    lat: 40.8136
+    lon: -74.0744
+    indoor: false
+
+  attstadium:
+    name: "AT&T Stadium"
+    city: "Arlington, TX"
+    country: "USA"
+    lat: 32.7473
+    lon: -97.0945
+    indoor: true   # techo retráctil
+
+  sofi_stadium:
+    name: "SoFi Stadium"
+    city: "Inglewood, CA"
+    country: "USA"
+    lat: 33.9534
+    lon: -118.3392
+    indoor: true
+
+  mercedes_benz_stadium:
+    name: "Mercedes-Benz Stadium"
+    city: "Atlanta, GA"
+    country: "USA"
+    lat: 33.7553
+    lon: -84.4006
+    indoor: true
+
+  arrowhead_stadium:
+    name: "Arrowhead Stadium"
+    city: "Kansas City, MO"
+    country: "USA"
+    lat: 39.0489
+    lon: -94.4839
+    indoor: false
+
+  hard_rock_stadium:
+    name: "Hard Rock Stadium"
+    city: "Miami Gardens, FL"
+    country: "USA"
+    lat: 25.9580
+    lon: -80.2389
+    indoor: false
+
+  nrg_stadium:
+    name: "NRG Stadium"
+    city: "Houston, TX"
+    country: "USA"
+    lat: 29.6847
+    lon: -95.4107
+    indoor: true
+
+  gillette_stadium:
+    name: "Gillette Stadium"
+    city: "Foxborough, MA"
+    country: "USA"
+    lat: 42.0909
+    lon: -71.2643
+    indoor: false
+
+  levis_stadium:
+    name: "Levi's Stadium"
+    city: "Santa Clara, CA"
+    country: "USA"
+    lat: 37.4030
+    lon: -121.9698
+    indoor: false
+
+  lincoln_financial_field:
+    name: "Lincoln Financial Field"
+    city: "Philadelphia, PA"
+    country: "USA"
+    lat: 39.9008
+    lon: -75.1675
+    indoor: false
+
+  lumen_field:
+    name: "Lumen Field"
+    city: "Seattle, WA"
+    country: "USA"
+    lat: 47.5952
+    lon: -122.3316
+    indoor: false
+
+  # CANADÁ
+  bmo_field:
+    name: "BMO Field"
+    city: "Toronto"
+    country: "Canadá"
+    lat: 43.6326
+    lon: -79.4185
+    indoor: false
+
+  bc_place:
+    name: "BC Place"
+    city: "Vancouver"
+    country: "Canadá"
+    lat: 49.2767
+    lon: -123.1119
+    indoor: true   # techo retráctil
+
+# Mapeo nombre-en-fixtures → key de venues
+# Si el venue del fixtures.yaml no coincide exactamente con la "name" del venue, usar este mapeo.
+name_to_key:
+  "Estadio Azteca, Ciudad de México": estadio_azteca
+  "Estadio Azteca": estadio_azteca
+  "MetLife Stadium": metlife_stadium

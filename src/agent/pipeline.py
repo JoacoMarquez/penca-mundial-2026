@@ -253,9 +253,27 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
     qualitative_summary: dict | None = None
     if os.environ.get("ANTHROPIC_API_KEY") and not os.environ.get("ANTHROPIC_API_KEY", "").startswith("sk-ant-xxx"):
         try:
+            # Recolectar contexto de partido: lineups/lesiones (T-3h+ traen lineups) + clima
+            try:
+                from src.scrapers.football_api import collect_match_context
+                from src.scrapers.weather import get_weather_for_match
+                kickoff_dt = datetime.fromisoformat(match["kickoff_utc"].replace("Z", "+00:00"))
+                fetch_lineups = phase in (Phase.T_3H, Phase.T_30MIN)
+                fapi_ctx = collect_match_context(
+                    home_name=match.get("home_name") or match.get("home", "?"),
+                    away_name=match.get("away_name") or match.get("away", "?"),
+                    kickoff_utc=kickoff_dt,
+                    fetch_lineups=fetch_lineups,
+                )
+                weather_ctx = get_weather_for_match(match.get("venue"), kickoff_dt)
+            except Exception as e:
+                log.warning("fetch contexto (api-football/weather) falló: %s", e)
+                fapi_ctx = {}
+                weather_ctx = None
+
             ctx = MatchContext(
-                home_team=match["home"],
-                away_team=match["away"],
+                home_team=match.get("home_name") or match.get("home", "?"),
+                away_team=match.get("away_name") or match.get("away", "?"),
                 kickoff_local=_format_kickoff_local(match),
                 stage=match.get("stage", "group"),
                 market_p_home=constraints.p_home_win,
@@ -263,7 +281,14 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
                 market_p_away=constraints.p_away_win,
                 market_e_goals_L=m.expected_goals_L,
                 market_e_goals_V=m.expected_goals_V,
-                # TODO: poblar lesiones/alineaciones desde scrapers en T-3h y T-30min
+                home_recent_form=fapi_ctx.get("home_recent_form"),
+                away_recent_form=fapi_ctx.get("away_recent_form"),
+                home_injuries=fapi_ctx.get("home_injuries"),
+                away_injuries=fapi_ctx.get("away_injuries"),
+                home_lineup_change=fapi_ctx.get("home_lineup_change"),
+                away_lineup_change=fapi_ctx.get("away_lineup_change"),
+                h2h_recent=fapi_ctx.get("h2h_recent"),
+                weather=weather_ctx.get("summary") if weather_ctx else None,
             )
             adj = adjust_with_llm(ctx)
             new_L, new_V = apply_to_lambdas(lam_L, lam_V, adj)
