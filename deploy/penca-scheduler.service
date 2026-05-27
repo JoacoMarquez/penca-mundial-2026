@@ -2,6 +2,7 @@
 Description=Penca Mundial 2026 scheduler — chequea fixtures cada 5 min y dispara la pipeline en T-24h/T-3h/T-30min
 After=network-online.target
 Wants=network-online.target
+OnFailure=penca-failure-notify.service
 
 [Service]
 Type=oneshot

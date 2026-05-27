@@ -1,0 +1,11 @@
+[Unit]
+Description=Heartbeat diario — 09:00 UTC (06:00 UY)
+Requires=penca-heartbeat.service
+
+[Timer]
+OnCalendar=*-*-* 09:00:00
+Persistent=true
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target
