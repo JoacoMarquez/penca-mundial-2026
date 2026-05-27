@@ -27,6 +27,7 @@ from src.model.poisson import MarketConstraints, fit_params, marginals, score_gr
 from src.model.qualitative import MatchContext, adjust_with_llm, apply_to_lambdas
 from src.notifier.telegram import TelegramConfig, TelegramNotifier
 from src.strategy.portfolio import PortfolioResult, generate_portfolio
+from src.strategy.assignment import assign_picks_to_pencas, fetch_my_pencas_standings
 from src.publisher.penca_api import (
     PredictionPayload,
     get_publisher_from_env,
@@ -202,6 +203,7 @@ class PipelineRun:
     portfolio: dict[str, Any]
     odds_snapshot: dict[str, Any]
     qualitative_adjustment: dict[str, Any] | None = None
+    assignment: list[dict[str, Any]] | None = None
 
 
 def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
@@ -265,6 +267,23 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
         pool_config=PoolModelConfig(),
     )
 
+    # 4b. Asignación adaptativa: penca con más puntos → estrategia más conservadora
+    penca_ids_raw = [x.strip() for x in os.environ.get("PENCA_IDS", "").split(",") if x.strip()]
+    try:
+        penca_ids = [int(x) for x in penca_ids_raw]
+    except ValueError:
+        penca_ids = []
+    standings = fetch_my_pencas_standings(
+        api_base_url=os.environ.get("PENCA_API_BASE_URL", ""),
+        api_key=os.environ.get("PENCA_API_KEY", ""),
+        my_penca_ids=penca_ids,
+    ) if len(penca_ids) == 5 else {}
+    assignment_list: list[tuple[int, dict, int | None]] = []
+    if len(penca_ids) == 5:
+        assignment_list = assign_picks_to_pencas(
+            portfolio.to_dict()["picks"], penca_ids, standings
+        )
+
     # 5. Persistir versionado
     output_path, version = next_version_path(match_id)
     run = PipelineRun(
@@ -284,6 +303,10 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
         portfolio=portfolio.to_dict(),
         odds_snapshot=asdict(snapshot),
         qualitative_adjustment=qualitative_summary,
+        assignment=[
+            {"penca_id": pid, "rank": rank, "objective": pick["objective"], "score": pick["score"]}
+            for pid, pick, rank in assignment_list
+        ],
     )
     output_path.write_text(json.dumps(asdict(run), indent=2, default=str))
     log.info("pipeline DONE | v=%d wrote=%s", version, output_path)
@@ -332,9 +355,23 @@ def _notify_and_publish(
     }
     picks = run.portfolio["picks"]
 
+    # Anotar picks con info de asignación (penca_id real, rank entre tus pencas)
+    if run.assignment:
+        assigned_by_obj = {a["objective"]: a for a in run.assignment}
+        picks_annotated = []
+        for p in picks:
+            assignment_info = assigned_by_obj.get(p["objective"])
+            ann = dict(p)
+            if assignment_info:
+                ann["assigned_penca_id"] = assignment_info["penca_id"]
+                ann["assigned_rank"] = assignment_info["rank"]
+            picks_annotated.append(ann)
+    else:
+        picks_annotated = list(picks)
+
     if phase == Phase.T_24H and notifier:
         notifier.send_t24h_picks(
-            label, kickoff_local, picks, model_summary,
+            label, kickoff_local, picks_annotated, model_summary,
             qualitative=run.qualitative_adjustment,
         )
 
@@ -347,18 +384,16 @@ def _notify_and_publish(
                 notifier.send_diff(label, "T-3h: alineaciones probables", diffs)
 
     elif phase == Phase.T_30MIN:
-        # Publish
         pubpsher = get_publisher_from_env()
-        penca_ids = [x.strip() for x in os.environ.get("PENCA_IDS", "").split(",") if x.strip()]
-        if len(penca_ids) == 5:
+        if run.assignment:
             payloads = [
                 PredictionPayload(
                     match_id=run.match_id,
-                    penca_id=penca_ids[i],
-                    score_local=p["score"][0],
-                    score_visit=p["score"][1],
+                    penca_id=str(a["penca_id"]),
+                    score_local=a["score"][0],
+                    score_visit=a["score"][1],
                 )
-                for i, p in enumerate(picks)
+                for a in run.assignment
             ]
             results = pubpsher.publish_batch(payloads)
             failed = [r for r in results if not r.ok]
@@ -368,10 +403,10 @@ def _notify_and_publish(
                     f"{len(failed)}/{len(results)} fallaron: {failed[0].detail}",
                 )
         else:
-            log.warning("PENCA_IDS no tiene 5 valores (tiene %d) — skip publish", len(penca_ids))
+            log.warning("Sin asignación — skip publish")
 
         if notifier:
-            notifier.send_lockin(label, picks)
+            notifier.send_lockin(label, picks_annotated)
 
 
 def _last_picks_from_predictions(match_id: str, exclude_version: int) -> list[dict] | None:

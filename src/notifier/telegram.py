@@ -127,17 +127,30 @@ class TelegramNotifier:
             f"📈 E[goles]: {model_summary['e_goals_L']:.1f} — {model_summary['e_goals_V']:.1f}"
         )
 
-        # Picks con labels humanos
+        # Picks con labels humanos + indicador de rank si hay asignación adaptativa
+        rank_emoji = {1: "🥇", 2: "🥈", 3: "🥉", 4: "4°", 5: "5°"}
+
         picks_lines = []
+        has_assignment = any(p.get("assigned_penca_id") is not None for p in picks)
         for p in picks:
             gL, gV = p["score"]
             emoji, label = HUMAN_OBJECTIVE_LABELS.get(p["objective"], ("🔸", p["objective"].title()))
             p_score = p.get("p_scoreline", 0.0) * 100
-            picks_lines.append(
-                f"  <b>P{p['penca_index']}</b> {emoji} {label:<12} <b>{gL}-{gV}</b>  ({p_score:.0f}%)"
-            )
 
-        picks_block = "<b>🎯 Picks</b>\n" + "\n".join(picks_lines)
+            if has_assignment and p.get("assigned_penca_id"):
+                rank = p.get("assigned_rank") or 0
+                rmark = rank_emoji.get(rank, str(rank))
+                penca_str = f"P{p['penca_index']}→{p['assigned_penca_id']}"
+                picks_lines.append(
+                    f"  {rmark} {emoji} {label:<12} <b>{gL}-{gV}</b>  ({p_score:.0f}%)  <i>{_esc(penca_str)}</i>"
+                )
+            else:
+                picks_lines.append(
+                    f"  <b>P{p['penca_index']}</b> {emoji} {label:<12} <b>{gL}-{gV}</b>  ({p_score:.0f}%)"
+                )
+
+        header_title = "🎯 Picks  <i>(asignación adaptativa por rank)</i>" if has_assignment else "🎯 Picks"
+        picks_block = f"<b>{header_title}</b>\n" + "\n".join(picks_lines)
 
         sep = "━━━━━━━━━━━━━━━"
         parts = [header, sep, picks_block]
