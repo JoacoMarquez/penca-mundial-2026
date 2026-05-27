@@ -89,9 +89,27 @@ def get_matchups(league_id: int) -> list[dict]:
     return _get(f"/leagues/{league_id}/matchups")
 
 
-def get_markets(league_id: int) -> list[dict]:
-    """Markets straight (no específicos) para todos los matchups de la liga."""
-    return _get(f"/leagues/{league_id}/markets/straight", params={"primaryOnly": "true"})
+def get_markets(league_id: int, primary_only: bool = False) -> list[dict]:
+    """Markets straight (no específicos) para todos los matchups de la liga.
+
+    primary_only=False trae todos los mercados (1X2, totales, BTTS, spreads, etc).
+    """
+    return _get(
+        f"/leagues/{league_id}/markets/straight",
+        params={"primaryOnly": "true" if primary_only else "false"},
+    )
+
+
+def american_to_decimal(odds: float) -> float:
+    """Convierte American odds → decimal odds.
+    +150 → 2.50    (bet $100 to win $150)
+    -200 → 1.50    (bet $200 to win $100)
+    """
+    if odds == 0:
+        return 0.0
+    if odds > 0:
+        return odds / 100.0 + 1.0
+    return 100.0 / abs(odds) + 1.0
 
 
 def get_special_markets(league_id: int) -> list[dict]:
@@ -155,7 +173,11 @@ def extract_match_markets(
         if period != 0:
             continue  # solo full-game
 
-        prices = {p["designation"]: p["price"] for p in market.get("prices", [])}
+        prices = {
+            p["designation"]: american_to_decimal(p["price"])
+            for p in market.get("prices", [])
+            if p.get("price") is not None
+        }
 
         if mtype == "moneyline":
             out["1x2"] = {
@@ -251,7 +273,16 @@ if __name__ == "__main__":
 
     if matchups:
         print(f"\n› Markets para {matchups[0].home} vs {matchups[0].away}:")
-        markets_raw = get_markets(league_id)
+        markets_raw = get_markets(league_id, primary_only=False)
         m_data = extract_match_markets(matchups[0].matchup_id, markets_raw)
         for mkt, prices in m_data.items():
             print(f"  {mkt}: {prices}")
+
+        # Debug: cuántos mercados tiene ese matchup, y de qué tipos
+        match_markets = [m for m in markets_raw if m.get("matchupId") == matchups[0].matchup_id]
+        from collections import Counter
+        types = Counter((m.get("type"), m.get("period")) for m in match_markets)
+        print(f"\n  Total markets crudos: {len(match_markets)}")
+        print(f"  Distribución por (type, period):")
+        for k, v in types.most_common():
+            print(f"    {k}: {v}")
