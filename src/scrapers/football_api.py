@@ -76,30 +76,32 @@ def find_fixture_for_match(
     away_name: str,
     kickoff_utc: datetime,
 ) -> dict | None:
-    """Busca el fixture en API-Football que matchea con (home, away, kickoff ±24h).
+    """Busca el fixture en API-Football que matchea con (home, away, kickoff ±1 día).
 
-    Returns: dict del fixture (con id, teams, etc) o None si no se encuentra.
+    Returns: dict del fixture o None si no se encuentra.
     """
-    date_from = (kickoff_utc - timedelta(hours=24)).date().isoformat()
-    date_to = (kickoff_utc + timedelta(hours=24)).date().isoformat()
+    # API-Football: el filtro from/to combinado con season+league no anda bien.
+    # Estrategia: consultar 3 días (ayer, hoy, mañana relativos al kickoff) por separado.
+    candidates = []
+    for delta_days in (-1, 0, 1):
+        d = (kickoff_utc + timedelta(days=delta_days)).date().isoformat()
+        data = _get("/fixtures", {
+            "league": WORLD_CUP_LEAGUE_ID,
+            "date": d,
+        })
+        if data and data.get("results", 0) > 0:
+            candidates.extend(data.get("response", []))
 
-    data = _get("/fixtures", {
-        "league": WORLD_CUP_LEAGUE_ID,
-        "season": WORLD_CUP_SEASON,
-        "from": date_from,
-        "to": date_to,
-    })
-    if not data or data.get("results", 0) == 0:
+    if not candidates:
         return None
 
     home_aliases = _team_name_aliases(home_name)
     away_aliases = _team_name_aliases(away_name)
 
-    for r in data.get("response", []):
+    for r in candidates:
         teams = r["teams"]
         h_norm = _norm(teams["home"]["name"])
         a_norm = _norm(teams["away"]["name"])
-        # Match si alguno de los aliases aparece en el nombre normalizado
         h_match = any(alias in h_norm or h_norm in alias for alias in home_aliases)
         a_match = any(alias in a_norm or a_norm in alias for alias in away_aliases)
         if h_match and a_match:
