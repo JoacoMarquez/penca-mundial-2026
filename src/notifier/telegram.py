@@ -73,26 +73,33 @@ class TelegramNotifier:
         picks: iterable de dicts con keys (penca_index, objective, score, e_points, uplift, variance, pool_popularity).
         model_summary: dict con (p_home, p_draw, p_away, e_goals_L, e_goals_V, market_chalk_score).
         """
+        # Pre-formatear para evitar f-strings anidadas con escapes
+        p_home = _escape_md(f"{model_summary['p_home']:.0%}")
+        p_draw = _escape_md(f"{model_summary['p_draw']:.0%}")
+        p_away = _escape_md(f"{model_summary['p_away']:.0%}")
+        eg_L = _escape_md(f"{model_summary['e_goals_L']:.2f}")
+        eg_V = _escape_md(f"{model_summary['e_goals_V']:.2f}")
+        label_esc = _escape_md(match_label)
+        ko_esc = _escape_md(kickoff_local)
+
         lines = [
-            f"🔮 *T\\-24h* — {_escape_md(match_label)}",
-            f"⏰ {_escape_md(kickoff_local)}",
+            f"🔮 *T\\-24h* — {label_esc}",
+            f"⏰ {ko_esc}",
             "",
             "*Modelo:*",
-            f"  P\\(local\\)={_escape_md(f'{model_summary[\"p_home\"]:.0%}')}  "
-            f"P\\(empate\\)={_escape_md(f'{model_summary[\"p_draw\"]:.0%}')}  "
-            f"P\\(visit\\)={_escape_md(f'{model_summary[\"p_away\"]:.0%}')}",
-            f"  E\\[goles\\]: {_escape_md(f'{model_summary[\"e_goals_L\"]:.1f}')} \\- {_escape_md(f'{model_summary[\"e_goals_V\"]:.1f}')}",
+            f"  P\\(local\\)={p_home}  P\\(empate\\)={p_draw}  P\\(visit\\)={p_away}",
+            f"  E\\[goles\\]: {eg_L} \\- {eg_V}",
             "",
             "*Picks:*",
         ]
         for p in picks:
             gL, gV = p["score"]
+            obj_esc = _escape_md(p["objective"])
+            ev_esc = _escape_md(f"{p['e_points']:.2f}")
+            up_esc = _escape_md(f"{p['uplift']:+.2f}")
             lines.append(
-                f"  `P{p['penca_index']}` "
-                f"\\[{_escape_md(p['objective'])}\\] "
-                f"*{gL}\\-{gV}*  "
-                f"E\\[pts\\]={_escape_md(f'{p[\"e_points\"]:.2f}')}  "
-                f"uplift={_escape_md(f'{p[\"uplift\"]:+.2f}')}"
+                f"  `P{p['penca_index']}` \\[{obj_esc}\\] *{gL}\\-{gV}*  "
+                f"E\\[pts\\]={ev_esc}  uplift={up_esc}"
             )
 
         self.send("\n".join(lines))
