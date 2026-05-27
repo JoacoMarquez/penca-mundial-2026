@@ -165,6 +165,8 @@ def extract_match_markets(
             }
         elif mtype == "total":
             points = market.get("points")
+            if points is None:
+                continue
             if abs(points - 2.5) < 1e-6:
                 out["ou_2_5"] = {
                     "over": prices.get("over", 0.0),
@@ -177,6 +179,8 @@ def extract_match_markets(
                 }
         elif mtype == "spread":
             points = market.get("points")
+            if points is None:
+                continue
             if abs(points) < 1e-6:
                 out["asian_handicap_0"] = {
                     "H": prices.get("home", 0.0),
