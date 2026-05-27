@@ -125,7 +125,8 @@ def fetch_odds(match_id: str) -> OddsSnapshot:
             teams_data = load_teams()
             aliases = teams_data.get("aliases", {})
             for pm in matchups:
-                if map_to_match_id(pm, fixtures, aliases) == match_id:
+                mapped = map_to_match_id(pm, fixtures, aliases)
+                if mapped is not None and str(mapped) == str(match_id):
                     pinnacle_markets = extract_match_markets(pm.matchup_id, markets_raw)
                     if pinnacle_markets:
                         odds_by_book["pinnacle"] = pinnacle_markets
