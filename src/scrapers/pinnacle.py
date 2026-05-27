@@ -248,7 +248,7 @@ def map_to_match_id(
     from datetime import datetime, timedelta
     pinn_kickoff = datetime.fromisoformat(pinnacle_match.start_time_utc.replace("Z", "+00:00"))
 
-    for m in fixtures.get("fase_grupos", []) + fixtures.get("eliminatorias", []):
+    for m in (fixtures.get("fase_grupos") or []) + (fixtures.get("eliminatorias") or []):
         if m.get("home") != home_code or m.get("away") != away_code:
             continue
         fix_kickoff = datetime.fromisoformat(m["kickoff_utc"].replace("Z", "+00:00"))
