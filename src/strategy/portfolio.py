@@ -31,12 +31,21 @@ class PickWithMetrics:
     pool_popularity: float   # Q(esta pick)
 
 
+MIN_REALISTIC_PROB = 0.005   # 0.5% — scorelines más improbables que esto se descartan como candidatos
+MAX_REALISTIC_GOALS = 5      # ningún equipo va a meter 6+ goles — descarta candidatos absurdos
+
+
 def all_picks_with_metrics(
     grid: np.ndarray,
     pool_q: np.ndarray,
     points_rule=jmlm_points,
+    restrict_realistic: bool = True,
 ) -> list[dict]:
-    """Pre-calcula métricas para cada scoreline posible. Retorna lista ordenada por E[pts] desc."""
+    """Pre-calcula métricas para cada scoreline posible. Retorna lista ordenada por E[pts] desc.
+
+    Si `restrict_realistic`, descarta scorelines con P < MIN_REALISTIC_PROB o goles > MAX_REALISTIC_GOALS.
+    Esto evita picks absurdas como 7-0 cuando differentiated/tail las prefieren por la matemática.
+    """
     n = grid.shape[0]
     metrics = []
 
@@ -52,6 +61,12 @@ def all_picks_with_metrics(
 
     for pgL in range(n):
         for pgV in range(n):
+            if restrict_realistic:
+                if pgL > MAX_REALISTIC_GOALS or pgV > MAX_REALISTIC_GOALS:
+                    continue
+                # Probabilidad de que ese marcador efectivamente ocurra
+                if grid[pgL, pgV] < MIN_REALISTIC_PROB:
+                    continue
             pick = (pgL, pgV)
             pts_by_actual = np.array([
                 [points_rule(pick, (agL, agV)) for agV in range(n)]
@@ -68,6 +83,7 @@ def all_picks_with_metrics(
                 "uplift": e_pts - e_pool,
                 "variance": var,
                 "pool_popularity": float(pool_q[pgL, pgV]),
+                "p_scoreline": float(grid[pgL, pgV]),
             })
 
     metrics.sort(key=lambda d: -d["e_points"])
@@ -127,9 +143,14 @@ def pick_tail(
         return pick_ev(all_picks_with_metrics(grid, pool_q, points_rule))
 
     # E[my_pts | pick, tail] = (1/tail_mass) * sum_{tail} P(actual) * points(pick, actual)
+    # Restringir candidatos a marcadores realistas — sin esto preferiría 7-5, 6-4, etc.
     best = None
     for pgL in range(n):
         for pgV in range(n):
+            if pgL > MAX_REALISTIC_GOALS or pgV > MAX_REALISTIC_GOALS:
+                continue
+            if grid[pgL, pgV] < MIN_REALISTIC_PROB:
+                continue
             pick = (pgL, pgV)
             e = sum(
                 p * points_rule(pick, actual) for actual, _, p in tail_outcomes
