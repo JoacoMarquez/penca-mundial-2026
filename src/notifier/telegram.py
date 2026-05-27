@@ -108,6 +108,7 @@ class TelegramNotifier:
         model_summary: dict,
         qualitative: dict | None = None,
         phase_label: str = "T-24h",
+        assignment_meta: dict | None = None,
     ) -> int:
         """Primer aviso del partido, 24h antes (o etiqueta personalizable)."""
         fav_pct, fav_side = _favorite(model_summary)
@@ -149,7 +150,16 @@ class TelegramNotifier:
                     f"  <b>P{p['penca_index']}</b> {emoji} {label:<12} <b>{gL}-{gV}</b>  ({p_score:.0f}%)"
                 )
 
-        header_title = "🎯 Picks  <i>(asignación adaptativa por rank)</i>" if has_assignment else "🎯 Picks"
+        if assignment_meta and assignment_meta.get("objective") == "p_top_k":
+            p_value = assignment_meta.get("p_top_k_value", 0.0)
+            threshold = assignment_meta.get("threshold", 0)
+            header_title = f"🎯 Picks  <i>(maximizando P(top-3): {p_value:.1%}, cutoff {threshold} pts)</i>"
+        elif assignment_meta and assignment_meta.get("objective", "").startswith("e_max"):
+            header_title = "🎯 Picks  <i>(maximizando E[max] — sin data de pool aún)</i>"
+        elif has_assignment:
+            header_title = "🎯 Picks  <i>(asignación adaptativa por rank)</i>"
+        else:
+            header_title = "🎯 Picks"
         picks_block = f"<b>{header_title}</b>\n" + "\n".join(picks_lines)
 
         sep = "━━━━━━━━━━━━━━━"

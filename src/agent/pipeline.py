@@ -27,7 +27,12 @@ from src.model.poisson import MarketConstraints, fit_params, marginals, score_gr
 from src.model.qualitative import MatchContext, adjust_with_llm, apply_to_lambdas
 from src.notifier.telegram import TelegramConfig, TelegramNotifier
 from src.strategy.portfolio import PortfolioResult, generate_portfolio
-from src.strategy.assignment import optimal_assignment, fetch_my_pencas_standings
+from src.strategy.assignment import (
+    fetch_my_pencas_standings,
+    fetch_pool_top_k_threshold,
+    optimal_assignment,
+    optimal_assignment_p_top_k,
+)
 from src.publisher.penca_api import (
     PredictionPayload,
     get_publisher_from_env,
@@ -204,6 +209,7 @@ class PipelineRun:
     odds_snapshot: dict[str, Any]
     qualitative_adjustment: dict[str, Any] | None = None
     assignment: list[dict[str, Any]] | None = None
+    assignment_meta: dict[str, Any] | None = None
 
 
 def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
@@ -279,10 +285,21 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
         my_penca_ids=penca_ids,
     ) if len(penca_ids) == 5 else {}
     assignment_list: list[tuple[int, dict, int | None]] = []
+    assignment_meta: dict[str, Any] = {}
     if len(penca_ids) == 5:
         try:
-            assignment_list = optimal_assignment(
+            from src.meta.pool import pool_pick_distribution, PoolModelConfig as _PC
+            pool_q_for_assignment = pool_pick_distribution(grid, _PC())
+            top_k_threshold = fetch_pool_top_k_threshold(
+                api_base_url=os.environ.get("PENCA_API_BASE_URL", ""),
+                api_key=os.environ.get("PENCA_API_KEY", ""),
+                k=3,
+            )
+            log.info("Asignación: pool top-3 threshold=%s", top_k_threshold)
+            assignment_list, assignment_meta = optimal_assignment_p_top_k(
                 portfolio.to_dict()["picks"], penca_ids, grid, standings,
+                pool_top_k_threshold=top_k_threshold,
+                pool_q=pool_q_for_assignment,
             )
         except Exception as e:
             log.exception("optimal_assignment falló, usando mapeo fijo: %s", e)
@@ -314,6 +331,7 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
             {"penca_id": pid, "rank": rank, "objective": pick["objective"], "score": pick["score"]}
             for pid, pick, rank in assignment_list
         ],
+        assignment_meta=assignment_meta or None,
     )
     output_path.write_text(json.dumps(asdict(run), indent=2, default=str))
     log.info("pipeline DONE | v=%d wrote=%s", version, output_path)
@@ -380,6 +398,7 @@ def _notify_and_publish(
         notifier.send_t24h_picks(
             label, kickoff_local, picks_annotated, model_summary,
             qualitative=run.qualitative_adjustment,
+            assignment_meta=run.assignment_meta,
         )
 
     elif phase == Phase.T_3H and notifier:
