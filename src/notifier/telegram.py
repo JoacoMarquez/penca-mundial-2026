@@ -57,7 +57,11 @@ class TelegramNotifier:
             "parse_mode": parse_mode,
             "disable_web_page_preview": True,
         })
-        resp.raise_for_status()
+        if resp.status_code >= 400:
+            raise RuntimeError(
+                f"Telegram sendMessage falló: {resp.status_code} — body={resp.text} — "
+                f"text_preview={text[:200]!r}"
+            )
 
     # ---------- plantillas ----------
 
@@ -87,7 +91,7 @@ class TelegramNotifier:
             f"⏰ {ko_esc}",
             "",
             "*Modelo:*",
-            f"  P\\(local\\)={p_home}  P\\(empate\\)={p_draw}  P\\(visit\\)={p_away}",
+            f"  P\\(local\\)\\={p_home}  P\\(empate\\)\\={p_draw}  P\\(visit\\)\\={p_away}",
             f"  E\\[goles\\]: {eg_L} \\- {eg_V}",
             "",
             "*Picks:*",
@@ -99,7 +103,7 @@ class TelegramNotifier:
             up_esc = _escape_md(f"{p['uplift']:+.2f}")
             lines.append(
                 f"  `P{p['penca_index']}` \\[{obj_esc}\\] *{gL}\\-{gV}*  "
-                f"E\\[pts\\]={ev_esc}  uplift={up_esc}"
+                f"E\\[pts\\]\\={ev_esc}  uplift\\={up_esc}"
             )
 
         self.send("\n".join(lines))
