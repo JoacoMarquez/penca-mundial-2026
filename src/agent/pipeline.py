@@ -210,6 +210,7 @@ class PipelineRun:
     qualitative_adjustment: dict[str, Any] | None = None
     assignment: list[dict[str, Any]] | None = None
     assignment_meta: dict[str, Any] | None = None
+    tipster_consensus: dict[str, Any] | None = None
 
 
 def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
@@ -230,6 +231,23 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
     lam_L, lam_V, lam12 = fit_params(constraints)
     grid = score_grid(lam_L, lam_V, lam12, max_goals=7)
     m = marginals(grid)
+
+    # 3a. Capa 3: tipsters consensus (si hay ANTHROPIC_API_KEY y solo en T-24h para ahorrar costos)
+    tipster_consensus: dict | None = None
+    if phase == Phase.T_24H and os.environ.get("ANTHROPIC_API_KEY") and not os.environ.get("ANTHROPIC_API_KEY", "").startswith("sk-ant-xxx"):
+        try:
+            from src.scrapers.tipsters_runner import collect_tipster_consensus
+            kickoff_dt = datetime.fromisoformat(match["kickoff_utc"].replace("Z", "+00:00"))
+            tipster_consensus = collect_tipster_consensus(
+                home=match.get("home_name") or match.get("home", "?"),
+                away=match.get("away_name") or match.get("away", "?"),
+                kickoff_utc=kickoff_dt,
+                market_p_home=constraints.p_home_win,
+                market_p_away=constraints.p_away_win,
+            )
+            log.info("Capa 3 tipsters: %d picks recolectadas", tipster_consensus.get("n_tipsters_picked", 0))
+        except Exception as e:
+            log.exception("Capa 3 falló — sigo sin tipsters: %s", e)
 
     # 3b. Capa 4: ajuste cualitativo con LLM (si hay ANTHROPIC_API_KEY)
     qualitative_summary: dict | None = None
@@ -332,6 +350,7 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
             for pid, pick, rank in assignment_list
         ],
         assignment_meta=assignment_meta or None,
+        tipster_consensus=tipster_consensus,
     )
     output_path.write_text(json.dumps(asdict(run), indent=2, default=str))
     log.info("pipeline DONE | v=%d wrote=%s", version, output_path)
