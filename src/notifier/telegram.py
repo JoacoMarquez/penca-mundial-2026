@@ -1,18 +1,19 @@
-"""Notifier por Telegram bot.
+"""Notifier por Telegram bot — formato conciso, HTML mode.
 
 Tipos de mensajes:
-- t24h_picks: las 5 picks recién generadas, 24h antes del partido.
-- t3h_diff: cambios respecto a v1 si hubo updates (alineaciones, lesiones).
-- t30min_lockin: confirmación final de las 5 picks publicadas.
-- error: alertas (scraper caído, no se pudo publicar, etc).
+- t24h_picks:  primer mensaje del partido, con 5 picks + contexto breve.
+- t3h_diff:    SOLO si las picks cambian en T-3h (silencio si todo igual).
+- t30min_lockin: confirmación final cuando se publica.
+- error:       alerta texto plano.
+- heartbeat:   resumen diario del sistema.
 
-Usa Markdown V2 para formato — escapar caracteres reservados con `_escape_md`.
+Usa HTML parse mode (solo escapa &, <, >). Menos mess que MarkdownV2.
 """
 
 from __future__ import annotations
 
+import html
 import os
-import re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Iterable, Literal
@@ -22,12 +23,10 @@ import httpx
 
 TELEGRAM_API = "https://api.telegram.org/bot{token}/sendMessage"
 
-# Caracteres que MarkdownV2 reserva (https://core.telegram.org/bots/api#markdownv2-style)
-_MD_RESERVED = re.compile(r"([_*\[\]()~`>#+\-=|{}.!\\])")
 
-
-def _escape_md(text: str) -> str:
-    return _MD_RESERVED.sub(r"\\\1", text)
+def _esc(text: str | int | float) -> str:
+    """Escape de HTML para Telegram (solo & < >)."""
+    return html.escape(str(text), quote=False)
 
 
 @dataclass(frozen=True)
@@ -49,7 +48,7 @@ class TelegramNotifier:
         self.config = config
         self._client = httpx.Client(timeout=10.0)
 
-    def send(self, text: str, parse_mode: Literal["MarkdownV2", "HTML"] = "MarkdownV2") -> None:
+    def send(self, text: str, parse_mode: Literal["HTML", "MarkdownV2"] = "HTML") -> None:
         url = TELEGRAM_API.format(token=self.config.bot_token)
         resp = self._client.post(url, json={
             "chat_id": self.config.chat_id,
@@ -60,10 +59,10 @@ class TelegramNotifier:
         if resp.status_code >= 400:
             raise RuntimeError(
                 f"Telegram sendMessage falló: {resp.status_code} — body={resp.text} — "
-                f"text_preview={text[:200]!r}"
+                f"preview={text[:200]!r}"
             )
 
-    # ---------- plantillas ----------
+    # ---------- mensajes por fase del partido ----------
 
     def send_t24h_picks(
         self,
@@ -72,41 +71,27 @@ class TelegramNotifier:
         picks: Iterable[dict],
         model_summary: dict,
     ) -> None:
-        """Notifica los 5 picks generados a T-24h.
+        """Primer aviso del partido, 24h antes."""
+        fav_pct, fav_side = _favorite(model_summary)
+        match_label_e = _esc(match_label)
+        ko_e = _esc(kickoff_local)
+        fav_e = f"{fav_side} fav {fav_pct}"
 
-        picks: iterable de dicts con keys (penca_index, objective, score, e_points, uplift, variance, pool_popularity).
-        model_summary: dict con (p_home, p_draw, p_away, e_goals_L, e_goals_V, market_chalk_score).
-        """
-        # Pre-formatear para evitar f-strings anidadas con escapes
-        p_home = _escape_md(f"{model_summary['p_home']:.0%}")
-        p_draw = _escape_md(f"{model_summary['p_draw']:.0%}")
-        p_away = _escape_md(f"{model_summary['p_away']:.0%}")
-        eg_L = _escape_md(f"{model_summary['e_goals_L']:.2f}")
-        eg_V = _escape_md(f"{model_summary['e_goals_V']:.2f}")
-        label_esc = _escape_md(match_label)
-        ko_esc = _escape_md(kickoff_local)
-
-        lines = [
-            f"🔮 *T\\-24h* — {label_esc}",
-            f"⏰ {ko_esc}",
-            "",
-            "*Modelo:*",
-            f"  P\\(local\\)\\={p_home}  P\\(empate\\)\\={p_draw}  P\\(visit\\)\\={p_away}",
-            f"  E\\[goles\\]: {eg_L} \\- {eg_V}",
-            "",
-            "*Picks:*",
-        ]
+        # Tabla de picks con alineación monospace
+        picks_lines = []
         for p in picks:
             gL, gV = p["score"]
-            obj_esc = _escape_md(p["objective"])
-            ev_esc = _escape_md(f"{p['e_points']:.2f}")
-            up_esc = _escape_md(f"{p['uplift']:+.2f}")
-            lines.append(
-                f"  `P{p['penca_index']}` \\[{obj_esc}\\] *{gL}\\-{gV}*  "
-                f"E\\[pts\\]\\={ev_esc}  uplift\\={up_esc}"
-            )
+            obj = _esc(p["objective"][:8])    # truncar para que no rompa columnas
+            picks_lines.append(f"  P{p['penca_index']} [{obj:<8}]  <b>{gL}-{gV}</b>")
 
-        self.send("\n".join(lines))
+        text = (
+            f"⚽ <b>{match_label_e}</b>\n"
+            f"⏰ {ko_e}  |  {_esc(fav_e)}\n"
+            "\n"
+            "<pre>" + "\n".join(picks_lines) + "</pre>\n"
+            f"E[goles]: {model_summary['e_goals_L']:.1f} — {model_summary['e_goals_V']:.1f}"
+        )
+        self.send(text)
 
     def send_diff(
         self,
@@ -114,41 +99,35 @@ class TelegramNotifier:
         phase: str,
         changes: list[dict],
     ) -> None:
-        """Notifica cambios entre versiones (v1 → v2 a T-3h, o v2 → v_final a T-30min).
-
-        changes: lista de {penca_index, old_score, new_score, reason}.
-        """
+        """Cambios entre versiones. NO se envía si no hay cambios."""
         if not changes:
-            return  # silencio si nada cambió
+            return
         lines = [
-            f"🔁 *{_escape_md(phase)}* — {_escape_md(match_label)}",
+            f"🔁 <b>{_esc(phase)}</b> — {_esc(match_label)}",
             "",
-            "*Cambios:*",
         ]
         for c in changes:
-            old_g = f"{c['old_score'][0]}\\-{c['old_score'][1]}"
-            new_g = f"{c['new_score'][0]}\\-{c['new_score'][1]}"
-            lines.append(
-                f"  `P{c['penca_index']}`: {old_g} → *{new_g}*  _{_escape_md(c['reason'])}_"
-            )
+            old = f"{c['old_score'][0]}-{c['old_score'][1]}"
+            new_ = f"{c['new_score'][0]}-{c['new_score'][1]}"
+            reason = _esc(c.get("reason", ""))
+            lines.append(f"  P{c['penca_index']}: {old} → <b>{new_}</b>  <i>{reason}</i>")
         self.send("\n".join(lines))
 
     def send_lockin(self, match_label: str, picks: Iterable[dict]) -> None:
-        """Notifica el lock-in final a T-30min con confirmación de publicación."""
-        lines = [
-            f"🔒 *LOCK\\-IN* — {_escape_md(match_label)}",
-            "",
-            "*Picks publicadas:*",
-        ]
+        """Confirmación final cuando se publica."""
+        picks_lines = []
         for p in picks:
             gL, gV = p["score"]
-            lines.append(f"  `P{p['penca_index']}`  *{gL}\\-{gV}*")
-        self.send("\n".join(lines))
+            picks_lines.append(f"  P{p['penca_index']}  <b>{gL}-{gV}</b>")
+        text = (
+            f"🔒 <b>LOCK-IN</b> — {_esc(match_label)}\n"
+            "\n" + "\n".join(picks_lines)
+        )
+        self.send(text)
 
     def send_error(self, context: str, error: str) -> None:
-        """Alerta de error. Sin formato — texto plano para garantizar entrega."""
+        """Texto plano (sin parse_mode) para garantizar entrega aun con caracteres raros."""
         text = f"❌ ERROR ({context})\n\n{error[:1500]}"
-        # texto plano: deshabilitar parse_mode
         url = TELEGRAM_API.format(token=self.config.bot_token)
         self._client.post(url, json={
             "chat_id": self.config.chat_id,
@@ -156,11 +135,74 @@ class TelegramNotifier:
             "disable_web_page_preview": True,
         }).raise_for_status()
 
+    # ---------- heartbeat ----------
+
+    def send_heartbeat(self, status: dict) -> None:
+        """Heartbeat diario con info de todos los componentes.
+
+        status: dict con keys:
+            now_uy, next_match, predictions_24h, predictions_total,
+            scheduler_status, last_scheduler_run, api_penca_status,
+            pinnacle_status, anthropic_status, disk_free, ram_used,
+            errors_24h, dry_run.
+        """
+        ok = "✅"
+        warn = "⚠️"
+        err = "❌"
+
+        # ícono por componente
+        def icon(s: str) -> str:
+            s = (s or "").lower()
+            if "ok" in s or "200" in s or "active" in s or "success" in s:
+                return ok
+            if "err" in s or "fail" in s or "404" in s or "500" in s or "inactive" in s:
+                return err
+            return warn
+
+        dry_run_line = ""
+        if status.get("dry_run"):
+            dry_run_line = "\n⚠️ <b>DRY_RUN activo</b> — no publica a la penca"
+
+        lines = [
+            f"💓 <b>Heartbeat</b> · {_esc(status['now_uy'])}",
+            f"📅 Próximo: {_esc(status['next_match'])}",
+            "",
+            "<b>Componentes:</b>",
+            f"  {icon(status['scheduler_status'])} Scheduler: {_esc(status['scheduler_status'])}",
+            f"  {icon(status['api_penca_status'])} API Penca: {_esc(status['api_penca_status'])}",
+            f"  {icon(status['pinnacle_status'])} Pinnacle: {_esc(status['pinnacle_status'])}",
+            f"  {icon(status['anthropic_status'])} Anthropic: {_esc(status['anthropic_status'])}",
+            "",
+            "<b>VPS:</b>",
+            f"  💾 {_esc(status['disk_free'])}  |  🧠 {_esc(status['ram_used'])}",
+            f"  📊 Predicciones: {status['predictions_total']} total · {status['predictions_24h']} en 24h",
+            f"  🐛 Errores 24h: {status['errors_24h']}",
+        ]
+        if status.get("last_scheduler_run"):
+            lines.append(f"  ⏱ Último scheduler: {_esc(status['last_scheduler_run'])}")
+        lines.append(dry_run_line)
+
+        text = "\n".join(l for l in lines if l)
+        self.send(text)
+
 
 def send_hello() -> None:
-    """Smoke check para verificar que bot/chat_id están configurados correctamente."""
+    """Smoke check."""
     notif = TelegramNotifier(TelegramConfig.from_env())
-    notif.send(f"✅ Penca Mundial 2026 \\- conectado a las {_escape_md(datetime.now().strftime('%H:%M:%S'))}")
+    notif.send(f"✅ Penca Mundial 2026 — conectado {_esc(datetime.now().strftime('%H:%M:%S'))}")
+
+
+def _favorite(model_summary: dict) -> tuple[str, str]:
+    """Identifica el favorito y devuelve (porcentaje, descripción)."""
+    p_h = model_summary["p_home"]
+    p_d = model_summary["p_draw"]
+    p_a = model_summary["p_away"]
+    m = max(p_h, p_d, p_a)
+    if m == p_h:
+        return f"{p_h:.0%}", "Local"
+    if m == p_a:
+        return f"{p_a:.0%}", "Visit"
+    return f"{p_d:.0%}", "Empate"
 
 
 if __name__ == "__main__":
