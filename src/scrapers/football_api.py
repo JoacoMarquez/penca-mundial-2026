@@ -87,6 +87,7 @@ def find_fixture_for_match(
         d = (kickoff_utc + timedelta(days=delta_days)).date().isoformat()
         data = _get("/fixtures", {
             "league": WORLD_CUP_LEAGUE_ID,
+            "season": WORLD_CUP_SEASON,
             "date": d,
         })
         if data and data.get("results", 0) > 0:
