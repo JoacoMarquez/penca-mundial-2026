@@ -172,7 +172,7 @@ def main():
     print(f"   ssh root@{ip}")
     print()
     print("Y dentro del droplet, correr:")
-    print(f"   bash <(curl -fsSL <URL_GITHUB_RAW>/deploy/setup_droplet.sh)")
+    print(f"   bash <(curl -fsSL https://raw.githubusercontent.com/JoacoMarquez/penca-mundial-2026/main/deploy/setup_droplet.sh)")
     print()
     print("Para destruir el droplet al final del Mundial:")
     print(f"   curl -X DELETE -H 'Authorization: Bearer $DO_API_TOKEN' \\\n"
