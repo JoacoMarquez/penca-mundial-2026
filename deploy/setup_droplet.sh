@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-REPO_URL="${REPO_URL:-https://github.com/joacomarquez/penca-mundial-2026.git}"  # ajustar al repo real
+REPO_URL="${REPO_URL:-https://github.com/JoacoMarquez/penca-mundial-2026.git}"
 INSTALL_DIR="/opt/penca"
 DATA_DIR="/var/lib/penca"
 ENV_DIR="/etc/penca"

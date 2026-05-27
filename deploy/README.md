@@ -22,7 +22,7 @@ El script:
 ssh root@<IP_DEL_DROPLET>
 
 # Bajar el setup script (idempotente) y correrlo:
-curl -fsSL https://raw.githubusercontent.com/<TU_USER>/<TU_REPO>/main/deploy/setup_droplet.sh -o setup.sh
+curl -fsSL https://raw.githubusercontent.com/JoacoMarquez/penca-mundial-2026/main/deploy/setup_droplet.sh -o setup.sh
 chmod +x setup.sh
 ./setup.sh
 ```
