@@ -39,7 +39,7 @@ def next_match_summary() -> str:
             continue
     if not upcoming:
         return "(no quedan partidos pendientes)"
-    upcoming.sort()
+    upcoming.sort(key=lambda x: x[0])
     ko, m = upcoming[0]
     delta = ko - now
     days = delta.days
