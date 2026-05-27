@@ -160,6 +160,13 @@ def adjust_with_llm(
         messages=[{"role": "user", "content": user_prompt}],
     )
 
+    # Log de uso/costo
+    try:
+        from src.utils.usage_log import log_anthropic_call
+        log_anthropic_call(model=model, usage=response.usage, purpose="qualitative", match_id=None)
+    except Exception:
+        pass
+
     raw_text = response.content[0].text  # type: ignore[union-attr]
     parsed = _extract_json(raw_text)
 

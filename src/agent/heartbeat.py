@@ -17,6 +17,7 @@ import httpx
 
 from src.agent.pipeline import PREDICTIONS_DIR, load_fixtures
 from src.notifier.telegram import TelegramConfig, TelegramNotifier
+from src.utils.usage_log import read_usage_summary
 
 log = logging.getLogger(__name__)
 
@@ -140,6 +141,41 @@ def _check_anthropic() -> str:
     return "key inválida"
 
 
+def _do_balance() -> dict[str, str]:
+    """Consulta el balance del mes de DigitalOcean."""
+    token = os.environ.get("DO_API_TOKEN", "")
+    if not token:
+        return {"month_to_date": "no token", "balance": "—"}
+    try:
+        with httpx.Client(timeout=5.0, headers={"Authorization": f"Bearer {token}"}) as c:
+            r = c.get("https://api.digitalocean.com/v2/customers/my/balance")
+        if r.status_code != 200:
+            return {"month_to_date": f"err {r.status_code}", "balance": "—"}
+        d = r.json()
+        # month_to_date_usage = gasto del mes corriente (positivo)
+        # account_balance = saldo (negativo si debés)
+        mtd = float(d.get("month_to_date_usage", 0))
+        bal = float(d.get("account_balance", 0))
+        return {
+            "month_to_date": f"${mtd:.2f}",
+            "balance": f"${bal:.2f}",
+        }
+    except Exception as e:
+        return {"month_to_date": f"err ({type(e).__name__})", "balance": "—"}
+
+
+def _anthropic_spending() -> dict[str, str]:
+    """Resumen de gasto Anthropic: 24h y total."""
+    last_24h = read_usage_summary(within_hours=24)
+    total = read_usage_summary()
+    return {
+        "spending_24h": f"${last_24h['cost_usd']:.4f}",
+        "spending_total": f"${total['cost_usd']:.4f}",
+        "calls_24h": last_24h["calls"],
+        "calls_total": total["calls"],
+    }
+
+
 def _errors_24h() -> int:
     try:
         out = subprocess.run(
@@ -161,6 +197,8 @@ def main() -> int:
 
     scheduler_status, last_run = _scheduler_status()
     dry_run = os.environ.get("DRY_RUN", "true").lower() == "true"
+    do = _do_balance()
+    anth = _anthropic_spending()
 
     status = {
         "now_uy": _now_uy_str(),
@@ -176,6 +214,12 @@ def main() -> int:
         "predictions_24h": _predictions_count(within_hours=24),
         "errors_24h": _errors_24h(),
         "dry_run": dry_run,
+        "do_mtd": do["month_to_date"],
+        "do_balance": do["balance"],
+        "anthropic_24h": anth["spending_24h"],
+        "anthropic_total": anth["spending_total"],
+        "anthropic_calls_24h": anth["calls_24h"],
+        "anthropic_calls_total": anth["calls_total"],
     }
 
     notif.send_heartbeat(status)

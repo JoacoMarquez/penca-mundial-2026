@@ -127,6 +127,14 @@ def extract_pick(
         ],
         messages=[{"role": "user", "content": build_extraction_prompt(home_team, away_team, article)}],
     )
+
+    # Log de uso/costo
+    try:
+        from src.utils.usage_log import log_anthropic_call
+        log_anthropic_call(model=model, usage=response.usage, purpose="tipster_signal", match_id=None)
+    except Exception:
+        pass
+
     text = response.content[0].text   # type: ignore[union-attr]
     parsed = _safe_parse_json(text)
 

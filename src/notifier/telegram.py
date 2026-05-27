@@ -180,6 +180,18 @@ class TelegramNotifier:
         ]
         if status.get("last_scheduler_run"):
             lines.append(f"  ⏱ Último scheduler: {_esc(status['last_scheduler_run'])}")
+
+        # Sección de costos
+        do_mtd = status.get("do_mtd", "—")
+        anth_total = status.get("anthropic_total", "—")
+        anth_24h = status.get("anthropic_24h", "—")
+        anth_calls = status.get("anthropic_calls_total", 0)
+        lines.extend([
+            "",
+            "<b>💵 Gastos:</b>",
+            f"  🌊 DigitalOcean (mes): {_esc(do_mtd)}",
+            f"  🧠 Anthropic (total): {_esc(anth_total)}  ·  24h: {_esc(anth_24h)}  ·  {anth_calls} calls",
+        ])
         lines.append(dry_run_line)
 
         text = "\n".join(l for l in lines if l)
