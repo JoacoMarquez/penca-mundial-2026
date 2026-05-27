@@ -24,7 +24,12 @@ import yaml
 from src.meta.pool import PoolModelConfig
 from src.model.market_probs import BookQuote, aggregate, devig
 from src.model.poisson import MarketConstraints, fit_params, marginals, score_grid
+from src.notifier.telegram import TelegramConfig, TelegramNotifier
 from src.strategy.portfolio import PortfolioResult, generate_portfolio
+from src.publisher.penca_api import (
+    PredictionPayload,
+    get_publisher_from_env,
+)
 
 log = logging.getLogger(__name__)
 
@@ -223,7 +228,114 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
     output_path.write_text(json.dumps(asdict(run), indent=2, default=str))
     log.info("pipeline DONE | v=%d wrote=%s", version, output_path)
 
+    # 6. Notificar y publicar según la fase
+    _notify_and_publish(match, run, portfolio, phase)
+
     return run
+
+
+# -------------------- notify + publish --------------------
+
+def _format_match_label(match: dict, teams_data: dict | None = None) -> str:
+    return f"{match['home']} vs {match['away']}"
+
+
+def _format_kickoff_local(match: dict) -> str:
+    """Convierte el kickoff UTC a hora de Uruguay (UTC-3) para display."""
+    from datetime import timedelta
+    dt = datetime.fromisoformat(match["kickoff_utc"].replace("Z", "+00:00"))
+    dt_uy = dt - timedelta(hours=3)
+    return dt_uy.strftime("%a %d/%m %H:%M") + " UY"
+
+
+def _notify_and_publish(
+    match: dict, run: PipelineRun, portfolio: PortfolioResult, phase: Phase
+) -> None:
+    """Manda la notif por Telegram. Publica solo en T_30MIN (lock-in)."""
+    try:
+        notifier = TelegramNotifier(TelegramConfig.from_env())
+    except RuntimeError as e:
+        log.warning("Telegram no configurado: %s", e)
+        notifier = None
+
+    label = _format_match_label(match)
+    kickoff_local = _format_kickoff_local(match)
+    model_summary = {
+        "p_home": run.constraints["p_home"],
+        "p_draw": run.constraints["p_draw"],
+        "p_away": run.constraints["p_away"],
+        "e_goals_L": run.constraints["e_goals_L"],
+        "e_goals_V": run.constraints["e_goals_V"],
+    }
+    picks = run.portfolio["picks"]
+
+    if phase == Phase.T_24H and notifier:
+        notifier.send_t24h_picks(label, kickoff_local, picks, model_summary)
+
+    elif phase == Phase.T_3H and notifier:
+        # Diff vs versión anterior
+        prev_picks = _last_picks_from_predictions(run.match_id, exclude_version=run.version)
+        if prev_picks:
+            diffs = _compute_diffs(prev_picks, picks)
+            if diffs:
+                notifier.send_diff(label, "T-3h: alineaciones probables", diffs)
+
+    elif phase == Phase.T_30MIN:
+        # Publish
+        pubpsher = get_publisher_from_env()
+        penca_ids = [x.strip() for x in os.environ.get("PENCA_IDS", "").split(",") if x.strip()]
+        if len(penca_ids) == 5:
+            payloads = [
+                PredictionPayload(
+                    match_id=run.match_id,
+                    penca_id=penca_ids[i],
+                    score_local=p["score"][0],
+                    score_visit=p["score"][1],
+                )
+                for i, p in enumerate(picks)
+            ]
+            results = pubpsher.publish_batch(payloads)
+            failed = [r for r in results if not r.ok]
+            if failed and notifier:
+                notifier.send_error(
+                    "publish T-30min",
+                    f"{len(failed)}/{len(results)} fallaron: {failed[0].detail}",
+                )
+        else:
+            log.warning("PENCA_IDS no tiene 5 valores (tiene %d) — skip publish", len(penca_ids))
+
+        if notifier:
+            notifier.send_lockin(label, picks)
+
+
+def _last_picks_from_predictions(match_id: str, exclude_version: int) -> list[dict] | None:
+    """Lee la versión más reciente anterior a `exclude_version` para hacer diff."""
+    match_dir = PREDICTIONS_DIR / match_id
+    if not match_dir.exists():
+        return None
+    versions = sorted(match_dir.glob("v*_*.json"))
+    for f in reversed(versions):
+        try:
+            data = json.loads(f.read_text())
+            if data.get("version") != exclude_version:
+                return data.get("portfolio", {}).get("picks")
+        except Exception:
+            continue
+    return None
+
+
+def _compute_diffs(old_picks: list[dict], new_picks: list[dict]) -> list[dict]:
+    """Devuelve picks que cambiaron entre versiones."""
+    diffs = []
+    for old, new in zip(old_picks, new_picks):
+        if old["score"] != new["score"]:
+            diffs.append({
+                "penca_index": new["penca_index"],
+                "old_score": old["score"],
+                "new_score": new["score"],
+                "reason": f"E[pts] {old['e_points']:.2f} → {new['e_points']:.2f}",
+            })
+    return diffs
 
 
 # -------------------- CLI --------------------
