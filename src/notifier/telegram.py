@@ -213,18 +213,41 @@ class TelegramNotifier:
             f"  {icon(status['anthropic_status'])}  Anthropic  ·  {_esc(status['anthropic_status'])}"
         )
 
-        # ── VPS
+        # ── VPS (recursos)
         vps_lines = [
             f"{sep}",
             f"<b>💻 VPS</b>",
             f"  💾 Disco  ·  {_esc(status['disk_free'])}",
             f"  🧠 RAM  ·  {_esc(status['ram_used'])}",
-            f"  📊 Predicciones  ·  {status['predictions_total']} total  ·  {status['predictions_24h']} en 24h",
             f"  🐛 Errores 24h  ·  {status['errors_24h']}",
         ]
         if status.get("last_scheduler_run"):
             vps_lines.append(f"  ⏱  Último scheduler  ·  {_esc(status['last_scheduler_run'])}")
         vps = "\n".join(vps_lines)
+
+        # ── Pipeline (actividad)
+        gen_24h = status["predictions_24h"]
+        gen_total = status["predictions_total"]
+        expected = status.get("expected_pasadas_24h", 0)
+        next_pasada = status.get("next_pasada", "—")
+
+        # status badge para la actividad
+        if expected == 0 and gen_24h == 0:
+            activity = f"⏸  Inactivo (sin partidos en ventana)"
+        elif gen_24h >= expected and expected > 0:
+            activity = f"✅  Cumpliendo: {gen_24h}/{expected} pasadas en 24h"
+        elif gen_24h < expected:
+            activity = f"⚠️  Atrasado: {gen_24h}/{expected} pasadas esperadas en 24h"
+        else:
+            activity = f"ℹ️  {gen_24h} pasadas en 24h"
+
+        pipeline_section = (
+            f"{sep}\n"
+            f"<b>📊 Pipeline</b>\n"
+            f"  {activity}\n"
+            f"  🗂  Total acumulado  ·  {gen_total} pasadas históricas\n"
+            f"  ⏭  Próxima  ·  {_esc(next_pasada)}"
+        )
 
         # ── Gastos
         do_mtd = status.get("do_mtd", "—")
@@ -244,7 +267,7 @@ class TelegramNotifier:
         if status.get("dry_run"):
             footer = f"\n{sep}\n⚠️ <b>DRY_RUN activo</b>  ·  no publica a la penca"
 
-        text = "\n\n".join([header, comps, vps, gastos]) + footer
+        text = "\n\n".join([header, comps, vps, pipeline_section, gastos]) + footer
         return self.send(text)
 
 

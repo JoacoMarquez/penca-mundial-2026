@@ -66,6 +66,53 @@ def _predictions_count(within_hours: int | None = None) -> int:
     return sum(1 for f in files if f.stat().st_mtime > cutoff)
 
 
+def _expected_pasadas_next_24h() -> int:
+    """Cuántas pasadas de pipeline (T-24h, T-3h, T-30min) deberían dispararse en las próximas 24h."""
+    fixtures = load_fixtures()
+    now = datetime.now(timezone.utc)
+    window_end = now + timedelta(hours=24)
+    count = 0
+    for m in (fixtures.get("fase_grupos") or []) + (fixtures.get("eliminatorias") or []):
+        if not m.get("kickoff_utc"):
+            continue
+        try:
+            ko = datetime.fromisoformat(m["kickoff_utc"].replace("Z", "+00:00"))
+        except Exception:
+            continue
+        for offset_min in (24 * 60, 3 * 60, 30):
+            phase_t = ko - timedelta(minutes=offset_min)
+            if now <= phase_t <= window_end:
+                count += 1
+    return count
+
+
+def _next_scheduled_pasada() -> str:
+    """Próximo momento en que el scheduler va a disparar la pipeline."""
+    fixtures = load_fixtures()
+    now = datetime.now(timezone.utc)
+    phase_labels = {24 * 60: "T-24h", 3 * 60: "T-3h", 30: "T-30min"}
+    next_events: list[tuple[datetime, str, dict]] = []
+    for m in (fixtures.get("fase_grupos") or []) + (fixtures.get("eliminatorias") or []):
+        if not m.get("kickoff_utc") or not (m.get("home") or m.get("home_name")):
+            continue
+        try:
+            ko = datetime.fromisoformat(m["kickoff_utc"].replace("Z", "+00:00"))
+        except Exception:
+            continue
+        for offset_min, label in phase_labels.items():
+            phase_t = ko - timedelta(minutes=offset_min)
+            if phase_t > now:
+                next_events.append((phase_t, label, m))
+    if not next_events:
+        return "—"
+    next_events.sort(key=lambda x: x[0])
+    when, label, m = next_events[0]
+    when_uy = when.astimezone(UY_TZ).strftime("%d/%m %H:%M")
+    home = m.get("home_name") or m.get("home", "?")
+    away = m.get("away_name") or m.get("away", "?")
+    return f"{label} {home}-{away} · {when_uy} UY"
+
+
 def _disk_free() -> str:
     du = shutil.disk_usage("/var/lib/penca" if Path("/var/lib/penca").exists() else "/")
     return f"{du.free // (1024**3)}GB libres ({100 - int(du.used * 100 / du.total)}%)"
@@ -212,6 +259,8 @@ def main() -> int:
         "ram_used": _ram_used(),
         "predictions_total": _predictions_count(),
         "predictions_24h": _predictions_count(within_hours=24),
+        "expected_pasadas_24h": _expected_pasadas_next_24h(),
+        "next_pasada": _next_scheduled_pasada(),
         "errors_24h": _errors_24h(),
         "dry_run": dry_run,
         "do_mtd": do["month_to_date"],
