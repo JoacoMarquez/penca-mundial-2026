@@ -33,6 +33,8 @@ class PickWithMetrics:
 
 MIN_REALISTIC_PROB = 0.005   # 0.5% — scorelines más improbables que esto se descartan como candidatos
 MAX_REALISTIC_GOALS = 5      # ningún equipo va a meter 6+ goles — descarta candidatos absurdos
+DIFFERENTIATED_TOP_K = 8     # differentiated solo elige entre los top-K más probables (evita 5-0)
+TAIL_TOP_K = 8               # idem para tail
 
 
 def all_picks_with_metrics(
@@ -107,16 +109,19 @@ def pick_differentiated(
     metrics: list[dict],
     beta: float = 2.0,
     excluded: set[tuple[int, int]] | None = None,
+    top_k: int = DIFFERENTIATED_TOP_K,
 ) -> dict:
-    """Objetivo 2: argmax E[my_pts] * (1 - Q(pick))^β.
+    """Objetivo 2: argmax E[my_pts] * (1 - Q(pick))^β, RESTRICTO a top-K más probables.
 
-    Castiga picks populares. β controla cuánto:
-        β=0 → equivalente a EV-max
-        β=2 → equilibrio razonable
-        β→∞ → pick más impopular sin importar EV
+    Castiga picks populares pero solo dentro de scorelines realistas (top-K por P(scoreline)).
+    Sin top_k cap, esto preferiría 5-0/6-1 — matemáticamente óptimo pero no humanos.
     """
     excluded = excluded or set()
-    candidates = [d for d in metrics if d["pick"] not in excluded]
+    # Top-K por probabilidad de marcador (no por E[points])
+    by_prob = sorted(metrics, key=lambda d: -d.get("p_scoreline", 0.0))
+    candidates = [d for d in by_prob[:top_k] if d["pick"] not in excluded]
+    if not candidates:
+        candidates = [d for d in metrics if d["pick"] not in excluded]
 
     def score(d: dict) -> float:
         return d["e_points"] * (1.0 - d["pool_popularity"]) ** beta
@@ -151,16 +156,22 @@ def pick_tail(
         return pick_ev(all_picks_with_metrics(grid, pool_q, points_rule))
 
     excluded = excluded or set()
+    # Construir set de picks realistas: top-K por P(scoreline) global
+    flat = []
+    for pgL in range(n):
+        for pgV in range(n):
+            if pgL <= MAX_REALISTIC_GOALS and pgV <= MAX_REALISTIC_GOALS:
+                flat.append((grid[pgL, pgV], (pgL, pgV)))
+    flat.sort(reverse=True)
+    top_k_picks = {pick for _, pick in flat[:TAIL_TOP_K]}
+
     # E[my_pts | pick, tail] = (1/tail_mass) * sum_{tail} P(actual) * points(pick, actual)
-    # Restringir candidatos a marcadores realistas — sin esto preferiría 7-5, 6-4, etc.
     best = None
     for pgL in range(n):
         for pgV in range(n):
-            if pgL > MAX_REALISTIC_GOALS or pgV > MAX_REALISTIC_GOALS:
-                continue
-            if grid[pgL, pgV] < MIN_REALISTIC_PROB:
-                continue
             pick = (pgL, pgV)
+            if pick not in top_k_picks:
+                continue
             if pick in excluded:
                 continue
             e = sum(
