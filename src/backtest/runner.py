@@ -104,8 +104,15 @@ def simulate_pool(
     matches: list[BacktestMatch],
     pool_config: PoolModelConfig,
     rng: np.random.Generator,
+    chalk_concentration: float = 0.55,  # 55% de los jugadores pican el modal de Q (chalk)
 ) -> np.ndarray:
-    """Simula `n_players` chalk-biased que tiran picks. Retorna matriz [n_players, n_matches] de puntos."""
+    """Simula `n_players` chalk-biased que tiran picks. Retorna matriz [n_players, n_matches] de puntos.
+
+    Modelo del jugador del pool: con prob `chalk_concentration` pica el modal de Q (lo que
+    haría la mayoría intuitivamente). En el resto sampleamos Q completa.
+
+    Esto refleja mejor a humanos reales que muchos se aglutinan en 1-0 / 2-1 etc.
+    """
     n_matches = len(matches)
     points = np.zeros((n_players, n_matches), dtype=int)
 
@@ -121,13 +128,16 @@ def simulate_pool(
         grid = score_grid(lam_L, lam_V, lam12)
         pool_q = pool_pick_distribution(grid, pool_config)
 
-        # Cada jugador hace un draw de pool_q
         n = pool_q.shape[0]
         flat_q = pool_q.flatten()
+        modal_idx = int(np.argmax(flat_q))
         actual = (match.actual_home_score, match.actual_away_score)
 
         for i in range(n_players):
-            idx = rng.choice(len(flat_q), p=flat_q)
+            if rng.random() < chalk_concentration:
+                idx = modal_idx
+            else:
+                idx = int(rng.choice(len(flat_q), p=flat_q))
             pgL, pgV = idx // n, idx % n
             points[i, j] = jmlm_points((pgL, pgV), actual)
 
