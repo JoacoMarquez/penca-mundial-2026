@@ -106,29 +106,51 @@ class OddsSnapshot:
 
 
 def fetch_odds(match_id: str) -> OddsSnapshot:
-    """STUB. Las implementaciones reales viven en src/scrapers/{pinnacle,bet365,betfair}.py
-    y se ensamblan acá. Por ahora retornamos un mock para que el pipeline corra end-to-end."""
-    log.warning("fetch_odds: usando MOCK ODDS — implementar scrapers reales en src/scrapers/")
-    return OddsSnapshot(
-        match_id=match_id,
-        fetched_at=datetime.now(timezone.utc).isoformat(),
-        odds_by_book={
+    """Fetcha odds en vivo de las casas configuradas. Si una falla, log + sigue con las que respondan."""
+    fixtures = load_fixtures()
+    match = find_match(fixtures, match_id)
+
+    odds_by_book: dict[str, dict[str, dict[str, float]]] = {}
+
+    # Pinnacle
+    try:
+        from src.scrapers.pinnacle import (
+            extract_match_markets, find_world_cup_league_id, get_markets,
+            get_matchups, map_to_match_id, parse_matchups,
+        )
+        league_id = find_world_cup_league_id()
+        if league_id:
+            matchups = parse_matchups(get_matchups(league_id))
+            markets_raw = get_markets(league_id, primary_only=False)
+            teams_data = load_teams()
+            aliases = teams_data.get("aliases", {})
+            for pm in matchups:
+                if map_to_match_id(pm, fixtures, aliases) == match_id:
+                    pinnacle_markets = extract_match_markets(pm.matchup_id, markets_raw)
+                    if pinnacle_markets:
+                        odds_by_book["pinnacle"] = pinnacle_markets
+                    break
+            if "pinnacle" not in odds_by_book:
+                log.warning("Pinnacle: no encontré matchup para match_id=%s", match_id)
+    except Exception as e:
+        log.exception("Pinnacle fetch falló: %s", e)
+
+    # Bet365 — TODO: implementar con Playwright
+    # Betfair — desactivado por decisión del usuario
+
+    if not odds_by_book:
+        log.error("Ninguna casa devolvió odds para %s — usando MOCK fallback", match_id)
+        odds_by_book = {
             "pinnacle": {
                 "1x2": {"H": 2.10, "D": 3.40, "A": 3.50},
                 "ou_2_5": {"over": 2.00, "under": 1.85},
-                "btts": {"yes": 1.95, "no": 1.85},
-            },
-            "betfair_exchange": {
-                "1x2": {"H": 2.12, "D": 3.45, "A": 3.55},
-                "ou_2_5": {"over": 2.05, "under": 1.82},
-                "btts": {"yes": 1.97, "no": 1.83},
-            },
-            "bet365": {
-                "1x2": {"H": 2.05, "D": 3.30, "A": 3.40},
-                "ou_2_5": {"over": 1.95, "under": 1.80},
-                "btts": {"yes": 1.90, "no": 1.80},
-            },
-        },
+            }
+        }
+
+    return OddsSnapshot(
+        match_id=match_id,
+        fetched_at=datetime.now(timezone.utc).isoformat(),
+        odds_by_book=odds_by_book,
     )
 
 
