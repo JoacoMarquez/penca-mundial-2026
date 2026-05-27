@@ -24,6 +24,7 @@ import yaml
 from src.meta.pool import PoolModelConfig
 from src.model.market_probs import BookQuote, aggregate, devig
 from src.model.poisson import MarketConstraints, fit_params, marginals, score_grid
+from src.model.qualitative import MatchContext, adjust_with_llm, apply_to_lambdas
 from src.notifier.telegram import TelegramConfig, TelegramNotifier
 from src.strategy.portfolio import PortfolioResult, generate_portfolio
 from src.publisher.penca_api import (
@@ -177,6 +178,7 @@ class PipelineRun:
     constraints: dict[str, Any]
     portfolio: dict[str, Any]
     odds_snapshot: dict[str, Any]
+    qualitative_adjustment: dict[str, Any] | None = None
 
 
 def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
@@ -197,6 +199,40 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
     lam_L, lam_V, lam12 = fit_params(constraints)
     grid = score_grid(lam_L, lam_V, lam12, max_goals=7)
     m = marginals(grid)
+
+    # 3b. Capa 4: ajuste cualitativo con LLM (si hay ANTHROPIC_API_KEY)
+    qualitative_summary: dict | None = None
+    if os.environ.get("ANTHROPIC_API_KEY") and not os.environ.get("ANTHROPIC_API_KEY", "").startswith("sk-ant-xxx"):
+        try:
+            ctx = MatchContext(
+                home_team=match["home"],
+                away_team=match["away"],
+                kickoff_local=_format_kickoff_local(match),
+                stage=match.get("stage", "group"),
+                market_p_home=constraints.p_home_win,
+                market_p_draw=constraints.p_draw,
+                market_p_away=constraints.p_away_win,
+                market_e_goals_L=m.expected_goals_L,
+                market_e_goals_V=m.expected_goals_V,
+                # TODO: poblar lesiones/alineaciones desde scrapers en T-3h y T-30min
+            )
+            adj = adjust_with_llm(ctx)
+            new_L, new_V = apply_to_lambdas(lam_L, lam_V, adj)
+            log.info("qualitative adj | λL %.2f→%.2f  λV %.2f→%.2f", lam_L, new_L, lam_V, new_V)
+            lam_L, lam_V = new_L, new_V
+            # Re-fit grid con λs ajustadas
+            grid = score_grid(lam_L, lam_V, lam12, max_goals=7)
+            m = marginals(grid)
+            qualitative_summary = {
+                "delta_lambda_L": adj.delta_lambda_L,
+                "delta_lambda_V": adj.delta_lambda_V,
+                "reasoning": adj.reasoning,
+                "confidence": adj.confidence,
+            }
+        except Exception as e:
+            log.exception("Capa 4 (qualitative) falló — sigo sin ajuste: %s", e)
+    else:
+        log.info("ANTHROPIC_API_KEY no configurada — skip Capa 4")
 
     # 4. Generar las 5 picks
     portfolio = generate_portfolio(
@@ -224,6 +260,7 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
         },
         portfolio=portfolio.to_dict(),
         odds_snapshot=asdict(snapshot),
+        qualitative_adjustment=qualitative_summary,
     )
     output_path.write_text(json.dumps(asdict(run), indent=2, default=str))
     log.info("pipeline DONE | v=%d wrote=%s", version, output_path)
