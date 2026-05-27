@@ -128,7 +128,7 @@ def get_team_recent_form(team_id: int, last_n: int = 5) -> list[dict]:
 
 def get_fixture_lineups(fixture_id: int) -> list[dict]:
     """Lineups (confirmadas) del partido. Disponibles típicamente ~1h antes del kickoff."""
-    data = _get("/lineups", {"fixture": fixture_id})
+    data = _get("/fixtures/lineups", {"fixture": fixture_id})
     if not data:
         return []
     return data.get("response", [])
