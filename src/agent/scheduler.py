@@ -57,7 +57,7 @@ def matches_in_window(fixtures: dict, now: datetime | None = None) -> list[tuple
     now = now or datetime.now(timezone.utc)
     out = []
 
-    all_matches = fixtures.get("fase_grupos", []) + fixtures.get("eliminatorias", [])
+    all_matches = (fixtures.get("fase_grupos") or []) + (fixtures.get("eliminatorias") or [])
     for m in all_matches:
         kickoff = parse_kickoff(m["kickoff_utc"])
         for phase, offset_min in PHASE_OFFSETS_MIN.items():
