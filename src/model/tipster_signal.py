@@ -118,7 +118,13 @@ def extract_pick(
         model=model,
         max_tokens=400,
         temperature=0.1,
-        system=SYSTEM_PROMPT,
+        system=[
+            {
+                "type": "text",
+                "text": SYSTEM_PROMPT,
+                "cache_control": {"type": "ephemeral"},
+            }
+        ],
         messages=[{"role": "user", "content": build_extraction_prompt(home_team, away_team, article)}],
     )
     text = response.content[0].text   # type: ignore[union-attr]
