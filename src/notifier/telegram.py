@@ -22,6 +22,8 @@ import httpx
 
 
 TELEGRAM_API = "https://api.telegram.org/bot{token}/sendMessage"
+TELEGRAM_PIN = "https://api.telegram.org/bot{token}/pinChatMessage"
+TELEGRAM_UNPIN = "https://api.telegram.org/bot{token}/unpinChatMessage"
 
 
 def _esc(text: str | int | float) -> str:
@@ -48,7 +50,8 @@ class TelegramNotifier:
         self.config = config
         self._client = httpx.Client(timeout=10.0)
 
-    def send(self, text: str, parse_mode: Literal["HTML", "MarkdownV2"] = "HTML") -> None:
+    def send(self, text: str, parse_mode: Literal["HTML", "MarkdownV2"] = "HTML") -> int:
+        """Envía un mensaje y devuelve el message_id."""
         url = TELEGRAM_API.format(token=self.config.bot_token)
         resp = self._client.post(url, json={
             "chat_id": self.config.chat_id,
@@ -61,6 +64,29 @@ class TelegramNotifier:
                 f"Telegram sendMessage falló: {resp.status_code} — body={resp.text} — "
                 f"preview={text[:200]!r}"
             )
+        return int(resp.json()["result"]["message_id"])
+
+    def pin_message(self, message_id: int, disable_notification: bool = True) -> None:
+        """Pinea un mensaje en el chat."""
+        url = TELEGRAM_PIN.format(token=self.config.bot_token)
+        resp = self._client.post(url, json={
+            "chat_id": self.config.chat_id,
+            "message_id": message_id,
+            "disable_notification": disable_notification,
+        })
+        if resp.status_code >= 400:
+            raise RuntimeError(f"Telegram pinChatMessage falló: {resp.status_code} — {resp.text}")
+
+    def unpin_message(self, message_id: int) -> None:
+        """Despinea un mensaje específico. No-throws si el mensaje ya no existe."""
+        url = TELEGRAM_UNPIN.format(token=self.config.bot_token)
+        try:
+            self._client.post(url, json={
+                "chat_id": self.config.chat_id,
+                "message_id": message_id,
+            })
+        except Exception:
+            pass   # best-effort
 
     # ---------- mensajes por fase del partido ----------
 
@@ -137,7 +163,7 @@ class TelegramNotifier:
 
     # ---------- heartbeat ----------
 
-    def send_heartbeat(self, status: dict) -> None:
+    def send_heartbeat(self, status: dict) -> int:
         """Heartbeat diario con secciones bien separadas.
 
         status: dict con keys:
@@ -219,7 +245,7 @@ class TelegramNotifier:
             footer = f"\n{sep}\n⚠️ <b>DRY_RUN activo</b>  ·  no publica a la penca"
 
         text = "\n\n".join([header, comps, vps, gastos]) + footer
-        self.send(text)
+        return self.send(text)
 
 
 def send_hello() -> None:

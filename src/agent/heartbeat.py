@@ -222,8 +222,35 @@ def main() -> int:
         "anthropic_calls_total": anth["calls_total"],
     }
 
-    notif.send_heartbeat(status)
-    log.info("heartbeat OK")
+    # Pin del mensaje más reciente: despinear el anterior, pinear el nuevo
+    pin_state_path = Path(os.environ.get("DATA_DIR", "data")) / "last_heartbeat_msg.txt"
+    prev_msg_id: int | None = None
+    if pin_state_path.exists():
+        try:
+            prev_msg_id = int(pin_state_path.read_text().strip())
+        except Exception:
+            prev_msg_id = None
+
+    new_msg_id = notif.send_heartbeat(status)
+
+    # Pinear el nuevo
+    try:
+        notif.pin_message(new_msg_id, disable_notification=True)
+    except Exception as e:
+        log.warning("no se pudo pinear: %s", e)
+
+    # Despinear el anterior (si había)
+    if prev_msg_id and prev_msg_id != new_msg_id:
+        notif.unpin_message(prev_msg_id)
+
+    # Guardar el message_id del nuevo
+    try:
+        pin_state_path.parent.mkdir(parents=True, exist_ok=True)
+        pin_state_path.write_text(str(new_msg_id))
+    except Exception as e:
+        log.warning("no se pudo guardar last_heartbeat_msg: %s", e)
+
+    log.info("heartbeat OK (msg_id=%d, pinned, prev_unpinned=%s)", new_msg_id, prev_msg_id)
     return 0
 
 
