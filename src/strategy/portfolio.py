@@ -29,6 +29,7 @@ class PickWithMetrics:
     uplift: float            # e_points - e_pool_points
     variance: float          # Var[my_pts | grid]
     pool_popularity: float   # Q(esta pick)
+    p_scoreline: float       # P(este marcador exacto) bajo el modelo
 
 
 MIN_REALISTIC_PROB = 0.005   # 0.5% — scorelines más improbables que esto se descartan como candidatos
@@ -257,6 +258,7 @@ class PortfolioResult:
                     "uplift": round(p.uplift, 3),
                     "variance": round(p.variance, 3),
                     "pool_popularity": round(p.pool_popularity, 4),
+                    "p_scoreline": round(p.p_scoreline, 4),
                 }
                 for i, p in enumerate(self.picks)
             ]
@@ -317,6 +319,7 @@ def generate_portfolio(
             uplift=m["uplift"],
             variance=m["variance"],
             pool_popularity=m["pool_popularity"],
+            p_scoreline=m.get("p_scoreline", float(grid[gL, gV])),
         ))
 
     return PortfolioResult(picks=picks)

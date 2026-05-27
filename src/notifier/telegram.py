@@ -26,6 +26,16 @@ TELEGRAM_PIN = "https://api.telegram.org/bot{token}/pinChatMessage"
 TELEGRAM_UNPIN = "https://api.telegram.org/bot{token}/unpinChatMessage"
 
 
+# Labels humanos para los 5 objetivos de strategy/portfolio.py
+HUMAN_OBJECTIVE_LABELS: dict[str, tuple[str, str]] = {
+    "ev":             ("🎯", "Favorito"),
+    "differentiated": ("📊", "Diferencial"),
+    "tail":           ("⚡", "Goleada"),
+    "upset":          ("😲", "Sorpresa"),
+    "variance":       ("📈", "Varianza"),
+}
+
+
 def _esc(text: str | int | float) -> str:
     """Escape de HTML para Telegram (solo & < >)."""
     return html.escape(str(text), quote=False)
@@ -96,28 +106,58 @@ class TelegramNotifier:
         kickoff_local: str,
         picks: Iterable[dict],
         model_summary: dict,
-    ) -> None:
-        """Primer aviso del partido, 24h antes."""
+        qualitative: dict | None = None,
+        phase_label: str = "T-24h",
+    ) -> int:
+        """Primer aviso del partido, 24h antes (o etiqueta personalizable)."""
         fav_pct, fav_side = _favorite(model_summary)
         match_label_e = _esc(match_label)
         ko_e = _esc(kickoff_local)
-        fav_e = f"{fav_side} fav {fav_pct}"
+        local_team = match_label.split(" vs ")[0] if " vs " in match_label else "Local"
+        away_team = match_label.split(" vs ")[1] if " vs " in match_label else "Visit"
+        fav_team = local_team if fav_side == "Local" else (
+            away_team if fav_side == "Visit" else "Empate"
+        )
+        fav_line = f"{_esc(fav_team)} favorito {fav_pct}" if fav_side != "Empate" else f"empate parejo {fav_pct}"
 
-        # Tabla de picks con alineación monospace
+        # Header
+        header = (
+            f"⚽ <b>{match_label_e}</b>\n"
+            f"⏰ {ko_e}  ·  {fav_line}\n"
+            f"📈 E[goles]: {model_summary['e_goals_L']:.1f} — {model_summary['e_goals_V']:.1f}"
+        )
+
+        # Picks con labels humanos
         picks_lines = []
         for p in picks:
             gL, gV = p["score"]
-            obj = _esc(p["objective"][:8])    # truncar para que no rompa columnas
-            picks_lines.append(f"  P{p['penca_index']} [{obj:<8}]  <b>{gL}-{gV}</b>")
+            emoji, label = HUMAN_OBJECTIVE_LABELS.get(p["objective"], ("🔸", p["objective"].title()))
+            p_score = p.get("p_scoreline", 0.0) * 100
+            picks_lines.append(
+                f"  <b>P{p['penca_index']}</b> {emoji} {label:<12} <b>{gL}-{gV}</b>  ({p_score:.0f}%)"
+            )
 
-        text = (
-            f"⚽ <b>{match_label_e}</b>\n"
-            f"⏰ {ko_e}  |  {_esc(fav_e)}\n"
-            "\n"
-            "<pre>" + "\n".join(picks_lines) + "</pre>\n"
-            f"E[goles]: {model_summary['e_goals_L']:.1f} — {model_summary['e_goals_V']:.1f}"
-        )
-        self.send(text)
+        picks_block = "<b>🎯 Picks</b>\n" + "\n".join(picks_lines)
+
+        sep = "━━━━━━━━━━━━━━━"
+        parts = [header, sep, picks_block]
+
+        # Análisis LLM (si hay)
+        if qualitative and qualitative.get("reasoning"):
+            d_l = qualitative.get("delta_lambda_L", 0.0)
+            d_v = qualitative.get("delta_lambda_V", 0.0)
+            conf = qualitative.get("confidence", 0.0)
+            reasoning_e = _esc(qualitative["reasoning"])
+            llm_block = (
+                f"<b>🧠 Análisis LLM</b>\n"
+                f"{reasoning_e}\n"
+                f"<i>Ajuste λ: {d_l:+.2f} / {d_v:+.2f}  ·  confianza {conf:.2f}</i>"
+            )
+            parts.append(sep)
+            parts.append(llm_block)
+
+        text = "\n\n".join(parts)
+        return self.send(text)
 
     def send_diff(
         self,
@@ -129,8 +169,10 @@ class TelegramNotifier:
         if not changes:
             return
         lines = [
-            f"🔁 <b>{_esc(phase)}</b> — {_esc(match_label)}",
+            f"🔁 <b>{_esc(phase)}</b>",
+            f"⚽ {_esc(match_label)}",
             "",
+            "<b>Cambios:</b>",
         ]
         for c in changes:
             old = f"{c['old_score'][0]}-{c['old_score'][1]}"
@@ -144,9 +186,11 @@ class TelegramNotifier:
         picks_lines = []
         for p in picks:
             gL, gV = p["score"]
-            picks_lines.append(f"  P{p['penca_index']}  <b>{gL}-{gV}</b>")
+            emoji, label = HUMAN_OBJECTIVE_LABELS.get(p["objective"], ("🔸", p["objective"].title()))
+            picks_lines.append(f"  <b>P{p['penca_index']}</b> {emoji} {label:<12} <b>{gL}-{gV}</b>")
         text = (
-            f"🔒 <b>LOCK-IN</b> — {_esc(match_label)}\n"
+            f"🔒 <b>LOCK-IN — Predicciones publicadas</b>\n"
+            f"⚽ {_esc(match_label)}\n"
             "\n" + "\n".join(picks_lines)
         )
         self.send(text)

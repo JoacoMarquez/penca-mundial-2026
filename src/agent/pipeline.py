@@ -297,7 +297,10 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
 # -------------------- notify + publish --------------------
 
 def _format_match_label(match: dict, teams_data: dict | None = None) -> str:
-    return f"{match['home']} vs {match['away']}"
+    """Prefiere nombres completos en español del fixtures (home_name/away_name)."""
+    home = match.get("home_name") or match.get("home") or "?"
+    away = match.get("away_name") or match.get("away") or "?"
+    return f"{home} vs {away}"
 
 
 def _format_kickoff_local(match: dict) -> str:
@@ -330,7 +333,10 @@ def _notify_and_publish(
     picks = run.portfolio["picks"]
 
     if phase == Phase.T_24H and notifier:
-        notifier.send_t24h_picks(label, kickoff_local, picks, model_summary)
+        notifier.send_t24h_picks(
+            label, kickoff_local, picks, model_summary,
+            qualitative=run.qualitative_adjustment,
+        )
 
     elif phase == Phase.T_3H and notifier:
         # Diff vs versión anterior
