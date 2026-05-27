@@ -60,9 +60,17 @@ def _strip(s: str) -> str:
     return re.sub(r"\s+", " ", s).strip()
 
 
+USER_AGENT = "PencaMundial2026-Backtest/0.1 (contact: penca-mundial-2026)"
+
+
 def fetch_wikipedia_results() -> list[dict]:
     """Devuelve lista de matches con {home, away, home_score, away_score}."""
-    resp = httpx.get(WIKIPEDIA_URL, timeout=20.0, follow_redirects=True)
+    resp = httpx.get(
+        WIKIPEDIA_URL,
+        timeout=20.0,
+        follow_redirects=True,
+        headers={"User-Agent": USER_AGENT},
+    )
     resp.raise_for_status()
     soup = BeautifulSoup(resp.text, "lxml")
 
