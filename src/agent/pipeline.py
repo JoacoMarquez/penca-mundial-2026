@@ -418,6 +418,7 @@ def _notify_and_publish(
             label, kickoff_local, picks_annotated, model_summary,
             qualitative=run.qualitative_adjustment,
             assignment_meta=run.assignment_meta,
+            tipster_consensus=run.tipster_consensus,
         )
 
     elif phase == Phase.T_3H and notifier:

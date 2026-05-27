@@ -109,6 +109,7 @@ class TelegramNotifier:
         qualitative: dict | None = None,
         phase_label: str = "T-24h",
         assignment_meta: dict | None = None,
+        tipster_consensus: dict | None = None,
     ) -> int:
         """Primer aviso del partido, 24h antes (o etiqueta personalizable)."""
         fav_pct, fav_side = _favorite(model_summary)
@@ -164,6 +165,24 @@ class TelegramNotifier:
 
         sep = "━━━━━━━━━━━━━━━"
         parts = [header, sep, picks_block]
+
+        # Consenso de tipsters (si encontró alguno)
+        if tipster_consensus and tipster_consensus.get("n_tipsters_picked", 0) > 0:
+            n = tipster_consensus["n_tipsters_picked"]
+            p1 = tipster_consensus.get("consensus_p_1", 0) * 100
+            pX = tipster_consensus.get("consensus_p_X", 0) * 100
+            p2 = tipster_consensus.get("consensus_p_2", 0) * 100
+            tips_lines = [
+                f"<b>🗞️ Tipsters ({n} pronosticadores)</b>",
+                f"  Local {p1:.0f}%  ·  Empate {pX:.0f}%  ·  Visit {p2:.0f}%",
+            ]
+            edge = tipster_consensus.get("info_edge_vs_market")
+            if edge:
+                delta = edge.get("delta_pp", 0)
+                direction = edge.get("direction", "")
+                tips_lines.append(f"  ⚠️ <i>Info edge: {delta:+.1f}pp vs mercado — {_esc(direction)}</i>")
+            parts.append(sep)
+            parts.append("\n".join(tips_lines))
 
         # Análisis LLM (si hay)
         if qualitative and qualitative.get("reasoning"):
