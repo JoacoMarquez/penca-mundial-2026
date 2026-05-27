@@ -102,8 +102,8 @@ def winner_of(pick: tuple[int, int]) -> str:
 
 
 def pick_ev(metrics: list[dict]) -> dict:
-    """Objetivo 1: argmax E[my_pts]."""
-    return max(metrics, key=lambda d: d["e_points"])
+    """Objetivo 1: argmax E[my_pts]. Tiebreaker: mayor P(marcador exacto)."""
+    return max(metrics, key=lambda d: (d["e_points"], d.get("p_scoreline", 0.0)))
 
 
 def pick_differentiated(
@@ -124,8 +124,9 @@ def pick_differentiated(
     if not candidates:
         candidates = [d for d in metrics if d["pick"] not in excluded]
 
-    def score(d: dict) -> float:
-        return d["e_points"] * (1.0 - d["pool_popularity"]) ** beta
+    def score(d: dict) -> tuple[float, float]:
+        primary = d["e_points"] * (1.0 - d["pool_popularity"]) ** beta
+        return (primary, d.get("p_scoreline", 0.0))   # tiebreaker: exacto
     return max(candidates or metrics, key=score)
 
 
@@ -178,7 +179,10 @@ def pick_tail(
             e = sum(
                 p * points_rule(pick, actual) for actual, _, p in tail_outcomes
             ) / tail_mass
-            if best is None or e > best[0]:
+            # Comparación con tiebreaker en P(scoreline)
+            p_score_here = float(grid[pgL, pgV])
+            curr_key = (e, p_score_here)
+            if best is None or curr_key > best[0]:
                 # también guardo métricas estándar para consistencia
                 e_pts = sum(grid[agL, agV] * points_rule(pick, (agL, agV)) for agL in range(n) for agV in range(n))
                 e_pool = 0.0
@@ -189,7 +193,7 @@ def pick_tail(
                                 e_pool += grid[agL, agV] * pool_q[ppL, ppV] * points_rule((ppL, ppV), (agL, agV))
                 e_pts_sq = sum(grid[agL, agV] * points_rule(pick, (agL, agV)) ** 2 for agL in range(n) for agV in range(n))
                 var = max(e_pts_sq - e_pts ** 2, 0.0)
-                best = (e, {
+                best = (curr_key, {
                     "pick": pick,
                     "e_points": e_pts,
                     "e_points_in_tail": e,
@@ -197,6 +201,7 @@ def pick_tail(
                     "uplift": e_pts - e_pool,
                     "variance": var,
                     "pool_popularity": float(pool_q[pgL, pgV]),
+                    "p_scoreline": p_score_here,
                 })
     return best[1]
 
@@ -223,7 +228,8 @@ def pick_upset(
 
     if not candidates:
         return metrics[0]  # fallback al EV-max
-    return candidates[0]   # ya están ordenados por e_points desc
+    # Re-pick con tiebreaker en P(scoreline): para casos donde el top está empatado en e_points
+    return max(candidates, key=lambda d: (d["e_points"], d.get("p_scoreline", 0.0)))
 
 
 def pick_variance_diversified(
@@ -239,7 +245,7 @@ def pick_variance_diversified(
     if not candidates:
         # extremo: si todos los picks ya fueron usados (no debería pasar)
         return metrics[-1]
-    return max(candidates, key=lambda d: d["variance"])
+    return max(candidates, key=lambda d: (d["variance"], d.get("p_scoreline", 0.0)))
 
 
 @dataclass(frozen=True)
