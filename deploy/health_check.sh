@@ -48,8 +48,13 @@ echo "  ⏰ Último run: ${LAST_RUN:-?}"
 
 # 4. Errores recientes
 print_header "Errores recientes (24h)"
-ERR_COUNT=$(ssh "$VPS" "journalctl -u penca-scheduler --since '24h ago' -p err --no-pager 2>/dev/null | grep -c ERROR || echo 0")
-[ "$ERR_COUNT" -eq 0 ] && print_ok "Sin errores en 24h" || print_warn "$ERR_COUNT errores en últimas 24h — chequear con: ssh $VPS 'journalctl -u penca-scheduler -p err --since 24h ago'"
+ERR_COUNT=$(ssh "$VPS" "journalctl -u penca-scheduler --since '24h ago' -p err --no-pager 2>/dev/null | grep -c ERROR" | tr -d '[:space:]')
+ERR_COUNT=${ERR_COUNT:-0}
+if [ "$ERR_COUNT" = "0" ]; then
+  print_ok "Sin errores en 24h"
+else
+  print_warn "$ERR_COUNT errores en últimas 24h — ver: ssh $VPS 'journalctl -u penca-scheduler -p err --since 24h ago'"
+fi
 
 # 5. Predicciones generadas
 print_header "Predicciones generadas"
