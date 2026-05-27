@@ -103,7 +103,11 @@ def pick_ev(metrics: list[dict]) -> dict:
     return max(metrics, key=lambda d: d["e_points"])
 
 
-def pick_differentiated(metrics: list[dict], beta: float = 2.0) -> dict:
+def pick_differentiated(
+    metrics: list[dict],
+    beta: float = 2.0,
+    excluded: set[tuple[int, int]] | None = None,
+) -> dict:
     """Objetivo 2: argmax E[my_pts] * (1 - Q(pick))^β.
 
     Castiga picks populares. β controla cuánto:
@@ -111,9 +115,12 @@ def pick_differentiated(metrics: list[dict], beta: float = 2.0) -> dict:
         β=2 → equilibrio razonable
         β→∞ → pick más impopular sin importar EV
     """
+    excluded = excluded or set()
+    candidates = [d for d in metrics if d["pick"] not in excluded]
+
     def score(d: dict) -> float:
         return d["e_points"] * (1.0 - d["pool_popularity"]) ** beta
-    return max(metrics, key=score)
+    return max(candidates or metrics, key=score)
 
 
 def pick_tail(
@@ -121,6 +128,7 @@ def pick_tail(
     pool_q: np.ndarray,
     top_k_percent: float = 0.10,
     points_rule=jmlm_points,
+    excluded: set[tuple[int, int]] | None = None,
 ) -> dict:
     """Objetivo 3: argmax E[my_pts | pick, top-K% outcomes por total de goles].
 
@@ -142,6 +150,7 @@ def pick_tail(
         # Fallback raro: cae a EV-max
         return pick_ev(all_picks_with_metrics(grid, pool_q, points_rule))
 
+    excluded = excluded or set()
     # E[my_pts | pick, tail] = (1/tail_mass) * sum_{tail} P(actual) * points(pick, actual)
     # Restringir candidatos a marcadores realistas — sin esto preferiría 7-5, 6-4, etc.
     best = None
@@ -152,6 +161,8 @@ def pick_tail(
             if grid[pgL, pgV] < MIN_REALISTIC_PROB:
                 continue
             pick = (pgL, pgV)
+            if pick in excluded:
+                continue
             e = sum(
                 p * points_rule(pick, actual) for actual, _, p in tail_outcomes
             ) / tail_mass
@@ -260,11 +271,11 @@ def generate_portfolio(
 
     # 1: EV puro
     m1 = pick_ev(metrics)
-    # 2: differentiated EV
-    m2 = pick_differentiated(metrics)
-    # 3: tail-max (cola alta de goles)
-    m3 = pick_tail(grid, pool_q, points_rule=points_rule)
-    # 4: upset / conditional alternative
+    # 2: differentiated EV — excluyendo el #1
+    m2 = pick_differentiated(metrics, excluded={m1["pick"]})
+    # 3: tail-max — excluyendo los anteriores
+    m3 = pick_tail(grid, pool_q, points_rule=points_rule, excluded={m1["pick"], m2["pick"]})
+    # 4: upset / conditional alternative — el upset filter ya restringe ganador, dedupe se hace post
     m4 = pick_upset(metrics, market_p_home, market_p_away)
 
     # Si 4 coincide con 1, intentamos el segundo mejor "alternativo"
