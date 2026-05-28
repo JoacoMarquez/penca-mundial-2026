@@ -43,7 +43,7 @@ def root():
 def dashboard_html(request: Request, token: str):
     _check_token(token)
     data = _gather()
-    return templates.TemplateResponse("index.html", {"request": request, "data": data, "token": token})
+    return templates.TemplateResponse(request, "index.html", {"data": data, "token": token})
 
 
 @app.get("/dash/{token}/api/data")
