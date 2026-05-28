@@ -39,7 +39,8 @@ def _setup_logging(verbose: bool) -> None:
 def _pick_next_match(fixtures: dict) -> dict | None:
     now = datetime.now(timezone.utc)
     upcoming = []
-    for m in fixtures.get("matches", []):
+    all_matches = list(fixtures.get("fase_grupos", [])) + list(fixtures.get("eliminatorias", [])) + list(fixtures.get("matches", []))
+    for m in all_matches:
         ko = m.get("kickoff_utc") or m.get("kickoff")
         if not ko:
             continue
