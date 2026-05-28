@@ -258,6 +258,7 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
                 from src.scrapers.football_api import collect_match_context
                 from src.scrapers.weather import get_weather_for_match
                 from src.scrapers.news import collect_news_context
+                from src.scrapers.espn import collect_match_context_espn
                 kickoff_dt = datetime.fromisoformat(match["kickoff_utc"].replace("Z", "+00:00"))
                 fetch_lineups = phase in (Phase.T_3H, Phase.T_30MIN)
                 home_name = match.get("home_name") or match.get("home", "?")
@@ -268,11 +269,13 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
                 )
                 weather_ctx = get_weather_for_match(match.get("venue"), kickoff_dt)
                 news_ctx = collect_news_context(home_name, away_name, lang="es")
+                espn_ctx = collect_match_context_espn(home_name, away_name)
             except Exception as e:
                 log.warning("fetch contexto falló: %s", e)
                 fapi_ctx = {}
                 weather_ctx = None
                 news_ctx = {}
+                espn_ctx = {}
 
             ctx = MatchContext(
                 home_team=match.get("home_name") or match.get("home", "?"),
@@ -290,9 +293,12 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
                 away_injuries=fapi_ctx.get("away_injuries"),
                 home_lineup_change=fapi_ctx.get("home_lineup_change"),
                 away_lineup_change=fapi_ctx.get("away_lineup_change"),
-                h2h_recent=fapi_ctx.get("h2h_recent"),
+                h2h_recent=fapi_ctx.get("h2h_recent") or espn_ctx.get("h2h_recent_espn"),
                 weather=weather_ctx.get("summary") if weather_ctx else None,
-                home_news_summary=news_ctx.get("home_news_summary"),
+                home_news_summary=_combine_news(
+                    news_ctx.get("home_news_summary"),
+                    espn_ctx.get("espn_news"),
+                ),
                 away_news_summary=news_ctx.get("away_news_summary"),
             )
             adj = adjust_with_llm(ctx)
@@ -392,6 +398,14 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
 
 
 # -------------------- notify + publish --------------------
+
+def _combine_news(*chunks: str | None) -> str | None:
+    """Junta varias secciones de noticias (Google News + ESPN) en un solo string."""
+    parts = [c for c in chunks if c]
+    if not parts:
+        return None
+    return "\n\n".join(parts)
+
 
 def _format_match_label(match: dict, teams_data: dict | None = None) -> str:
     """Prefiere nombres completos en español del fixtures (home_name/away_name)."""

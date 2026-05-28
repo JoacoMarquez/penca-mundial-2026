@@ -1,0 +1,222 @@
+"""Cliente de la API pública de ESPN para data de partidos.
+
+Endpoints públicos, sin auth, sin anti-bot:
+    /apis/site/v2/sports/soccer/fifa.world/scoreboard
+    /apis/site/v2/sports/soccer/fifa.world/summary?event={id}
+    /apis/site/v2/sports/soccer/fifa.world/teams
+    /apis/site/v2/sports/soccer/fifa.world/teams/{id}
+    /apis/site/v2/sports/soccer/fifa.world/teams/{id}/roster
+
+Data útil:
+    - Squad/roster de cada equipo (50+ jugadores con posición)
+    - H2H histórico
+    - News articles per partido
+    - Odds DraftKings (otro bookmaker para combinar con Pinnacle)
+    - Venue info (Estadio Banorte = Azteca renombrado por sponsor)
+
+Limitaciones:
+    - Lineups específicos pre-match: solo cuando los publica el equipo (~1h antes kickoff)
+    - Injuries por jugador: no expuesto (usar Google News para eso)
+"""
+
+from __future__ import annotations
+
+import logging
+import unicodedata
+from dataclasses import dataclass
+from datetime import datetime
+from functools import lru_cache
+from typing import Any
+
+import httpx
+
+log = logging.getLogger(__name__)
+
+
+ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world"
+
+
+def _get(path: str, params: dict[str, Any] | None = None) -> dict | None:
+    try:
+        with httpx.Client(timeout=10.0, headers={"User-Agent": "PencaMundial/1.0"}) as c:
+            r = c.get(f"{ESPN_BASE}{path}", params=params or {})
+        if r.status_code != 200:
+            log.warning("ESPN %s → %d", path, r.status_code)
+            return None
+        return r.json()
+    except Exception as e:
+        log.warning("ESPN %s falló: %s", path, e)
+        return None
+
+
+def _norm(s: str) -> str:
+    s = unicodedata.normalize("NFKD", s)
+    return "".join(c for c in s if not unicodedata.combining(c)).strip().lower()
+
+
+# ============ scoreboard / events ============
+
+def get_scoreboard() -> list[dict]:
+    """Próximos partidos del Mundial 2026."""
+    data = _get("/scoreboard")
+    return data.get("events", []) if data else []
+
+
+def find_event(home_name: str, away_name: str) -> dict | None:
+    """Busca event por nombres de equipos. ESPN usa formato 'Away at Home'."""
+    events = get_scoreboard()
+    if not events:
+        return None
+    h_norm = _norm(home_name)
+    a_norm = _norm(away_name)
+    for e in events:
+        name_norm = _norm(e.get("name", ""))
+        if h_norm in name_norm and a_norm in name_norm:
+            return e
+    return None
+
+
+def get_match_summary(event_id: str | int) -> dict | None:
+    """Detalle completo del partido (boxscore, h2h, news, odds, rosters, etc)."""
+    return _get("/summary", {"event": str(event_id)})
+
+
+# ============ teams ============
+
+@lru_cache(maxsize=1)
+def _all_teams_cached() -> list[dict]:
+    """Cachea la lista de 48 equipos del Mundial (cambia ~nunca)."""
+    data = _get("/teams")
+    if not data:
+        return []
+    leagues = data.get("sports", [{}])[0].get("leagues", [{}])
+    return leagues[0].get("teams", []) if leagues else []
+
+
+def find_team_id(team_name: str) -> int | None:
+    """ESPN team ID para un nombre de equipo (case + accent insensitive)."""
+    teams = _all_teams_cached()
+    n_target = _norm(team_name)
+    for entry in teams:
+        info = entry.get("team", {})
+        if (n_target == _norm(info.get("displayName", ""))
+                or n_target == _norm(info.get("shortDisplayName", ""))
+                or n_target == _norm(info.get("name", ""))):
+            return int(info["id"])
+    return None
+
+
+def get_team_roster(team_id: int) -> list[dict]:
+    """Squad de un equipo. Para el Mundial son los 23-26 convocados."""
+    data = _get(f"/teams/{team_id}/roster")
+    if not data:
+        return []
+    return data.get("athletes", [])
+
+
+# ============ contexto agregado para Capa 4 ============
+
+@dataclass(frozen=True)
+class EspnMatchContext:
+    event_id: str
+    venue: str | None
+    home_id: int | None
+    away_id: int | None
+    home_squad_names: list[str]
+    away_squad_names: list[str]
+    news_headlines: list[str]
+    draftkings_odds: dict | None
+    h2h_summary: str | None
+
+
+def collect_match_context_espn(home_name: str, away_name: str) -> dict[str, Any]:
+    """API de alto nivel — retorna dict compatible con MatchContext del LLM.
+
+    Returns keys:
+        - home_squad / away_squad: lista de jugadores convocados
+        - news_summary: titulares ESPN
+        - h2h_recent: resumen h2h
+        - draftkings_summary: odds DraftKings como referencia
+        - venue
+    """
+    event = find_event(home_name, away_name)
+    if not event:
+        return {}
+
+    event_id = event["id"]
+    summary = get_match_summary(event_id)
+    if not summary:
+        return {}
+
+    out: dict[str, Any] = {"espn_event_id": event_id}
+
+    # Venue
+    game_info = summary.get("gameInfo", {})
+    venue = game_info.get("venue", {}).get("fullName")
+    if venue:
+        out["venue"] = venue
+
+    # Rosters de cada equipo (si están disponibles)
+    rosters = summary.get("rosters", [])
+    for r in rosters:
+        team = r.get("team", {})
+        roster_players = r.get("roster", [])
+        if not roster_players:
+            continue
+        names = [p.get("athlete", {}).get("displayName") for p in roster_players[:25] if p.get("athlete")]
+        names = [n for n in names if n]
+        if _norm(team.get("displayName", "")) == _norm(home_name):
+            out["home_squad_listed"] = ", ".join(names)
+        else:
+            out["away_squad_listed"] = ", ".join(names)
+
+    # News
+    news = summary.get("news", [])
+    if news:
+        headlines = []
+        for n in news[:5]:
+            if isinstance(n, dict) and n.get("headline"):
+                headlines.append(f"[ESPN] {n['headline']}")
+        if headlines:
+            out["espn_news"] = "\n".join(headlines)
+
+    # H2H games
+    h2h = summary.get("headToHeadGames", [])
+    h2h_lines = []
+    for group in h2h:
+        if isinstance(group, dict) and "events" in group:
+            for ev in group["events"][:3]:
+                name = ev.get("name", "")
+                date = ev.get("date", "")[:10]
+                if name and date:
+                    h2h_lines.append(f"{date}: {name}")
+    if h2h_lines:
+        out["h2h_recent_espn"] = " · ".join(h2h_lines[:3])
+
+    # DraftKings odds (sirve como punto de validación adicional contra Pinnacle)
+    pickcenter = summary.get("pickcenter", [])
+    if pickcenter:
+        p = pickcenter[0]
+        out["draftkings_summary"] = (
+            f"spread={p.get('spread')}, OU={p.get('overUnder')}, "
+            f"ML home/away={p.get('homeTeamOdds',{}).get('moneyLine')}/{p.get('awayTeamOdds',{}).get('moneyLine')}"
+        )
+
+    return out
+
+
+def get_team_squad(team_name: str) -> list[str] | None:
+    """Squad list de un equipo (nombres). Útil si rosters del match no están poblados."""
+    team_id = find_team_id(team_name)
+    if not team_id:
+        return None
+    roster = get_team_roster(team_id)
+    if not roster:
+        return None
+    names = []
+    for a in roster:
+        name = a.get("displayName")
+        if name:
+            pos = a.get("position", {}).get("abbreviation", "?")
+            names.append(f"{name} ({pos})")
+    return names[:30]
