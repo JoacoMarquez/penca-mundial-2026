@@ -27,7 +27,8 @@ try:
     from src.agent import scheduler
     from src.agent import pipeline
     from src.agent import heartbeat
-    from src.model import dossier, qualitative, portfolio, poisson
+    from src.model import dossier, qualitative, poisson, anomaly
+    from src.strategy import portfolio, assignment
     from src.scrapers import espn, news, pinnacle, weather, football_api
     print('OK')
 except Exception as e:
