@@ -1,0 +1,19 @@
+[Unit]
+Description=Penca Mundial 2026 — Dashboard FastAPI
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/penca/env
+Environment="PYTHONPATH=/opt/penca"
+WorkingDirectory=/opt/penca
+ExecStart=/opt/penca/.venv/bin/uvicorn src.dashboard.app:app --host 0.0.0.0 --port 8000
+Restart=on-failure
+RestartSec=5s
+StandardOutput=append:/var/lib/penca/logs/dashboard.log
+StandardError=append:/var/lib/penca/logs/dashboard.err
+User=root
+
+[Install]
+WantedBy=multi-user.target
