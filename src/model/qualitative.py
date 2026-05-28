@@ -48,6 +48,8 @@ class MatchContext:
     weather: str | None = None
     referee: str | None = None
     motivation_notes: str | None = None   # "El local ya clasificó, puede rotar" / "El visit necesita ganar"
+    home_news_summary: str | None = None  # titulares + descriptions de Google News
+    away_news_summary: str | None = None
 
 
 # ============ schema del output ============
@@ -78,12 +80,21 @@ Tu trabajo es ajustar las predicciones cuantitativas del mercado en base a infor
 que el mercado puede no haber procesado bien: lesiones de último momento, cambios de alineación
 táctica, motivación (equipos que ya clasificaron y rotan), arbitraje, clima.
 
+CUANDO RECIBÍS "NOTICIAS RECIENTES":
+- Son titulares + descriptions de Google News, no artículos completos. Pueden ser ruidosos.
+- Extraé de ahí: nombre de jugadores lesionados/suspendidos, cambios de DT, controversias internas,
+  predicciones de alineación que cite el cuerpo técnico o medios oficiales.
+- Ignorá noticias genéricas tipo "cómo ver el partido" o "horario y dónde se juega".
+- Si dos fuentes confirman lo mismo (ej. dos medios dicen "X jugador se va a perder el partido"),
+  ese dato es confiable. Si solo lo dice una fuente especulativa, descontá.
+
 RESTRICCIONES IMPORTANTES:
 - El mercado es generalmente muy eficiente. Solo ajustá si tenés información concreta y verificable.
 - Tus ajustes (delta) están acotados a ±0.30 goles esperados por equipo. Más allá de eso, asumimos
   que tu razonamiento está mal o el mercado ya lo descontó.
 - Si no tenés información cualitativa relevante, devolvé delta=0 con confidence=0.
 - Si la info dice "Messi se lesionó" → reducí λ_Argentina. Si dice "Ronaldo descansa, ya clasificaron" → reducí λ_Portugal.
+- En el reasoning, citá la fuente concreta de las noticias (ej. "según Marca, Pedri no estará").
 - Devolvé SIEMPRE JSON válido con el schema exacto."""
 
 
@@ -122,6 +133,10 @@ def build_user_prompt(ctx: MatchContext) -> str:
         parts.append(f"ÁRBITRO: {ctx.referee}")
     if ctx.motivation_notes:
         parts.append(f"MOTIVACIÓN: {ctx.motivation_notes}")
+    if ctx.home_news_summary:
+        parts.append(f"\nNOTICIAS RECIENTES — {ctx.home_team}:\n{ctx.home_news_summary}")
+    if ctx.away_news_summary:
+        parts.append(f"\nNOTICIAS RECIENTES — {ctx.away_team}:\n{ctx.away_news_summary}")
 
     parts.append("")
     parts.append("Devolvé un JSON con este schema exacto:")

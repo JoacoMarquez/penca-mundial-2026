@@ -253,23 +253,26 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
     qualitative_summary: dict | None = None
     if os.environ.get("ANTHROPIC_API_KEY") and not os.environ.get("ANTHROPIC_API_KEY", "").startswith("sk-ant-xxx"):
         try:
-            # Recolectar contexto de partido: lineups/lesiones (T-3h+ traen lineups) + clima
+            # Recolectar contexto de partido: lineups/lesiones (api-football, si plan) + noticias + clima
             try:
                 from src.scrapers.football_api import collect_match_context
                 from src.scrapers.weather import get_weather_for_match
+                from src.scrapers.news import collect_news_context
                 kickoff_dt = datetime.fromisoformat(match["kickoff_utc"].replace("Z", "+00:00"))
                 fetch_lineups = phase in (Phase.T_3H, Phase.T_30MIN)
+                home_name = match.get("home_name") or match.get("home", "?")
+                away_name = match.get("away_name") or match.get("away", "?")
                 fapi_ctx = collect_match_context(
-                    home_name=match.get("home_name") or match.get("home", "?"),
-                    away_name=match.get("away_name") or match.get("away", "?"),
-                    kickoff_utc=kickoff_dt,
-                    fetch_lineups=fetch_lineups,
+                    home_name=home_name, away_name=away_name,
+                    kickoff_utc=kickoff_dt, fetch_lineups=fetch_lineups,
                 )
                 weather_ctx = get_weather_for_match(match.get("venue"), kickoff_dt)
+                news_ctx = collect_news_context(home_name, away_name, lang="es")
             except Exception as e:
-                log.warning("fetch contexto (api-football/weather) falló: %s", e)
+                log.warning("fetch contexto falló: %s", e)
                 fapi_ctx = {}
                 weather_ctx = None
+                news_ctx = {}
 
             ctx = MatchContext(
                 home_team=match.get("home_name") or match.get("home", "?"),
@@ -289,6 +292,8 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
                 away_lineup_change=fapi_ctx.get("away_lineup_change"),
                 h2h_recent=fapi_ctx.get("h2h_recent"),
                 weather=weather_ctx.get("summary") if weather_ctx else None,
+                home_news_summary=news_ctx.get("home_news_summary"),
+                away_news_summary=news_ctx.get("away_news_summary"),
             )
             adj = adjust_with_llm(ctx)
             new_L, new_V = apply_to_lambdas(lam_L, lam_V, adj)
