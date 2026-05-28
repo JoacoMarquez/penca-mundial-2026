@@ -19,6 +19,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
 from src.dashboard.data_loader import (
+    build_penca_labels,
     load_match_detail,
     load_matches_by_day,
     load_my_pencas_standings,
@@ -53,7 +54,7 @@ def page_home(request: Request, token: str):
         "next_match": load_next_match_data(),
         "health": load_system_health(),
     }
-    return templates.TemplateResponse(request, "index.html", {"data": data, "token": token})
+    return templates.TemplateResponse(request, "index.html", {"data": data, "token": token, "penca_labels": build_penca_labels()})
 
 
 @app.get("/dash/{token}/matches/", response_class=HTMLResponse)
@@ -63,7 +64,7 @@ def page_matches(request: Request, token: str):
         "days": load_matches_by_day(days_back=2, days_ahead=21),
         "health": load_system_health(),
     }
-    return templates.TemplateResponse(request, "matches.html", {"data": data, "token": token})
+    return templates.TemplateResponse(request, "matches.html", {"data": data, "token": token, "penca_labels": build_penca_labels()})
 
 
 @app.get("/dash/{token}/match/{match_id}/", response_class=HTMLResponse)
@@ -76,7 +77,7 @@ def page_match_detail(request: Request, token: str, match_id: str):
         "match": detail,
         "health": load_system_health(),
     }
-    return templates.TemplateResponse(request, "match_detail.html", {"data": data, "token": token})
+    return templates.TemplateResponse(request, "match_detail.html", {"data": data, "token": token, "penca_labels": build_penca_labels()})
 
 
 @app.get("/dash/{token}/pencas/", response_class=HTMLResponse)
@@ -86,7 +87,7 @@ def page_pencas(request: Request, token: str):
         "standings": load_my_pencas_standings(),
         "health": load_system_health(),
     }
-    return templates.TemplateResponse(request, "pencas.html", {"data": data, "token": token})
+    return templates.TemplateResponse(request, "pencas.html", {"data": data, "token": token, "penca_labels": build_penca_labels()})
 
 
 @app.get("/dash/{token}/history/", response_class=HTMLResponse)
@@ -96,7 +97,7 @@ def page_history(request: Request, token: str):
         "postmortems": load_recent_postmortems(limit=20),
         "health": load_system_health(),
     }
-    return templates.TemplateResponse(request, "history.html", {"data": data, "token": token})
+    return templates.TemplateResponse(request, "history.html", {"data": data, "token": token, "penca_labels": build_penca_labels()})
 
 
 @app.get("/dash/{token}/system/", response_class=HTMLResponse)

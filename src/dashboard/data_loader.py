@@ -18,6 +18,16 @@ def _data_dir() -> Path:
 UY_TZ = timezone(timedelta(hours=-3))
 
 
+def build_penca_labels() -> dict[int, str]:
+    """Devuelve {penca_id: 'short label'} usando el orden de PENCA_IDS en .env.
+
+    PENCA_IDS=1651,1652,1653,1654,1655 → {1651: '1', 1652: '2', ..., 1655: '5'}
+    """
+    from src.utils.env import get_int_list
+    ids = get_int_list("PENCA_IDS")
+    return {pid: str(i + 1) for i, pid in enumerate(ids)}
+
+
 def _to_uy(iso: str) -> str:
     try:
         dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
@@ -440,9 +450,16 @@ def load_my_pencas_standings() -> dict[str, Any]:
     for i, e in enumerate(sorted_entries):
         pid = int(e.get("penca_id", 0))
         if pid in my_ids:
+            raw_name = e.get("penca_name") or ""
+            # Compactar: "Penca 1" → "1", "Penca Joaco 3" → "Joaco 3", fallback al pid
+            short_name = raw_name
+            if raw_name.lower().startswith("penca "):
+                short_name = raw_name.split(" ", 1)[1].strip()
+            if not short_name:
+                short_name = str(pid)
             my_entries.append({
                 "penca_id": pid,
-                "penca_name": e.get("penca_name") or f"P{pid}",
+                "penca_name": short_name,
                 "rank": i + 1,
                 "points": e.get("points_total", 0),
                 "exact_scores": e.get("exact_scores", 0),

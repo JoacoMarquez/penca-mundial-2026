@@ -37,7 +37,7 @@
         <div class="flex items-center gap-3">
           <span class="text-2xl">{{ strategy_emoji.get(p.objective, '•') }}</span>
           <div>
-            <div class="font-bold text-lg">P{{ p.penca_id }}
+            <div class="font-bold text-lg">P{{ penca_labels.get(p.penca_id, p.penca_id) }}
               <span class="text-slate-400 font-normal">— {{ strategy_label.get(p.objective, p.objective) }}</span>
             </div>
             {% if p.rank %}<div class="text-xs text-slate-500">posición actual: {{ p.rank }}°</div>{% endif %}
@@ -101,7 +101,7 @@
         {% for a in v.assignment %}
         <div class="flex items-center justify-between text-xs bg-slate-900/60 rounded px-3 py-1.5">
           <span class="flex items-center gap-2">
-            <span class="text-slate-500 w-12">P{{ a.penca_id }}</span>
+            <span class="text-slate-500 w-12">P{{ penca_labels.get(a.penca_id, a.penca_id) }}</span>
             <span>{{ strategy_emoji.get(a.objective, '•') }}</span>
             <span class="text-slate-400">{{ a.objective }}</span>
           </span>
@@ -140,7 +140,7 @@
           <div class="text-xs uppercase text-orange-400 tracking-wider mb-1">Picks que cambiaron:</div>
           {% for c in d.pick_changes %}
           <div class="text-sm bg-slate-900/50 rounded px-3 py-1 mb-1">
-            <span class="text-slate-400">P{{ c.penca_id }}:</span>
+            <span class="text-slate-400">P{{ penca_labels.get(c.penca_id, c.penca_id) }}:</span>
             <span class="line-through text-slate-500">{{ c.old }}</span>
             <span class="text-slate-500 mx-1">→</span>
             <span class="font-medium text-white">{{ c.new }}</span>

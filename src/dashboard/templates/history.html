@@ -38,7 +38,7 @@
           {% elif r.points_earned >= 3 %}<span>✅</span>
           {% elif r.points_earned > 0 %}<span>〰️</span>
           {% else %}<span class="opacity-50">❌</span>{% endif %}
-          <span class="text-slate-400 w-12 text-xs">P{{ r.penca_id }}</span>
+          <span class="text-slate-400 w-12 text-xs">P{{ penca_labels.get(r.penca_id, r.penca_id) }}</span>
           <span>{{ strategy_emoji.get(obj, '•') }}</span>
           <span class="text-slate-300">{{ strategy_label.get(obj, obj) }}</span>
           <span class="text-slate-500 text-xs">pick {{ r.predicted_score[0] }}-{{ r.predicted_score[1] }}</span>
