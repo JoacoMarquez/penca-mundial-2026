@@ -33,10 +33,25 @@ import httpx
 log = logging.getLogger(__name__)
 
 
-ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world"
+ESPN_BASE_TEMPLATE = "https://site.api.espn.com/apis/site/v2/sports/soccer/{league}"
+DEFAULT_LEAGUE = "fifa.world"
+# Variable global mutable: permite override para testing en otras ligas
+_LEAGUE_CODE = DEFAULT_LEAGUE
+
+
+def set_league(code: str) -> None:
+    """Override del league code (ej: 'conmebol.libertadores' para testing)."""
+    global _LEAGUE_CODE
+    _LEAGUE_CODE = code
+    _all_teams_cached.cache_clear()
+
+
+def get_league() -> str:
+    return _LEAGUE_CODE
 
 
 def _get(path: str, params: dict[str, Any] | None = None) -> dict | None:
+    ESPN_BASE = ESPN_BASE_TEMPLATE.format(league=_LEAGUE_CODE)
     try:
         with httpx.Client(timeout=10.0, headers={"User-Agent": "PencaMundial/1.0"}) as c:
             r = c.get(f"{ESPN_BASE}{path}", params=params or {})
@@ -232,16 +247,126 @@ def collect_match_context_espn(home_name: str, away_name: str) -> dict[str, Any]
     if h2h_lines:
         out["h2h_recent_espn"] = " · ".join(h2h_lines[:3])
 
-    # DraftKings odds (sirve como punto de validación adicional contra Pinnacle)
+    # DraftKings odds — extraer ML home/away/draw + spread + OU
     pickcenter = summary.get("pickcenter", [])
     if pickcenter:
         p = pickcenter[0]
-        out["draftkings_summary"] = (
-            f"spread={p.get('spread')}, OU={p.get('overUnder')}, "
-            f"ML home/away={p.get('homeTeamOdds',{}).get('moneyLine')}/{p.get('awayTeamOdds',{}).get('moneyLine')}"
-        )
+        ml_home = p.get('homeTeamOdds', {}).get('moneyLine')
+        ml_away = p.get('awayTeamOdds', {}).get('moneyLine')
+        # Buscar draw en el detalle de odds nested
+        odds_list = summary.get("odds", [])
+        ml_draw = None
+        for od in odds_list:
+            d_odds = od.get("drawOdds") or {}
+            ml_draw = d_odds.get("moneyLine") or ml_draw
+
+        if ml_home and ml_away:
+            out["draftkings_odds"] = {
+                "ml_home_american": ml_home,
+                "ml_away_american": ml_away,
+                "ml_draw_american": ml_draw,
+                "spread": p.get('spread'),
+                "over_under": p.get('overUnder'),
+            }
+            out["draftkings_summary"] = (
+                f"spread={p.get('spread')}, OU={p.get('overUnder')}, "
+                f"ML home/away/draw={ml_home}/{ml_away}/{ml_draw or '?'}"
+            )
+
+    # Standings del torneo (útil post-jornada para contexto motivacional)
+    try:
+        std = get_standings()
+        if std:
+            home_norm = _norm(home_name)
+            away_norm = _norm(away_name)
+            relevant_lines = []
+            for group, entries in std.items():
+                in_group = any(
+                    _norm(e["team"]) == home_norm or _norm(e["team"]) == away_norm
+                    for e in entries
+                )
+                if in_group:
+                    relevant_lines.append(f"{group}:")
+                    for e in entries:
+                        marker = "→ " if _norm(e["team"]) in (home_norm, away_norm) else "  "
+                        relevant_lines.append(
+                            f"  {marker}{e['team']:<25} {e['w']}W-{e['d']}D-{e['l']}L  {e['points']}pts (GF {e['gf']}-{e['ga']} GA)"
+                        )
+                    break
+            if relevant_lines:
+                out["standings_context"] = "\n".join(relevant_lines)
+    except Exception as e:
+        log.warning("get_standings falló: %s", e)
+
+    # Forma reciente (últimos 5)
+    home_form = get_team_form_from_summary(summary, home_name)
+    away_form = get_team_form_from_summary(summary, away_name)
+    if home_form:
+        out["home_recent_form_espn"] = home_form
+    if away_form:
+        out["away_recent_form_espn"] = away_form
 
     return out
+
+
+def get_standings() -> dict[str, list[dict]] | None:
+    """Tabla del torneo. Retorna {group_name: [{team, points, w, d, l, gd, ...}, ...]}.
+
+    Útil para: 'ya clasificó / necesita ganar' como contexto para Capa 4.
+    """
+    data = _get("/standings")
+    if not data:
+        return None
+    out: dict[str, list[dict]] = {}
+    children = data.get("children", []) if isinstance(data, dict) else []
+    for c in children:
+        group_name = c.get("name", "?")
+        std = c.get("standings", {})
+        rows = []
+        for entry in std.get("entries", []):
+            team = entry.get("team", {})
+            stats = {s.get("name"): s.get("value") for s in entry.get("stats", []) if isinstance(s, dict)}
+            rows.append({
+                "team": team.get("displayName"),
+                "team_id": team.get("id"),
+                "points": stats.get("points", 0),
+                "w": stats.get("wins", 0),
+                "d": stats.get("ties", 0),
+                "l": stats.get("losses", 0),
+                "gf": stats.get("pointsFor", 0),
+                "ga": stats.get("pointsAgainst", 0),
+                "rank": stats.get("rank", 0),
+            })
+        out[group_name] = rows
+    return out
+
+
+def get_team_form_from_summary(summary: dict, team_name: str) -> str | None:
+    """Extrae 'forma reciente' del boxscore.form del summary endpoint.
+
+    boxscore.form tiene los últimos partidos de cada equipo. Devuelve string tipo 'WWLDW'.
+    """
+    if not summary:
+        return None
+    boxscore = summary.get("boxscore", {})
+    form_data = boxscore.get("form", [])
+    n_target = _norm(team_name)
+    for entry in form_data:
+        if not isinstance(entry, dict):
+            continue
+        team = entry.get("team", {})
+        if _norm(team.get("displayName", "")) != n_target and _norm(team.get("abbreviation", "")) != n_target:
+            continue
+        events = entry.get("events", [])
+        if not events:
+            return None
+        results = []
+        for ev in events[:5]:
+            r = ev.get("gameResult")  # 'W' | 'L' | 'D' o similar
+            if r:
+                results.append(r[0])
+        return "".join(results) if results else None
+    return None
 
 
 def get_team_squad(team_name: str) -> list[str] | None:

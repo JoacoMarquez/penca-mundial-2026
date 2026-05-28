@@ -295,6 +295,9 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
                 away_lineup_change=fapi_ctx.get("away_lineup_change"),
                 h2h_recent=fapi_ctx.get("h2h_recent") or espn_ctx.get("h2h_recent_espn"),
                 weather=weather_ctx.get("summary") if weather_ctx else None,
+                home_recent_form=fapi_ctx.get("home_recent_form") or espn_ctx.get("home_recent_form_espn"),
+                away_recent_form=fapi_ctx.get("away_recent_form") or espn_ctx.get("away_recent_form_espn"),
+                motivation_notes=espn_ctx.get("standings_context"),
                 home_news_summary=_combine_news(
                     news_ctx.get("home_news_summary"),
                     espn_ctx.get("espn_news"),
