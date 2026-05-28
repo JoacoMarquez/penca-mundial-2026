@@ -62,16 +62,48 @@ def get_scoreboard() -> list[dict]:
     return data.get("events", []) if data else []
 
 
+@lru_cache(maxsize=1)
+def _load_team_aliases() -> dict[str, list[str]]:
+    """Lee config/teams.yaml para resolver nombres en español → inglés (que usa ESPN)."""
+    try:
+        from pathlib import Path
+        import yaml
+        path = Path(__file__).resolve().parents[2] / "config" / "teams.yaml"
+        if not path.exists():
+            return {}
+        data = yaml.safe_load(path.read_text()) or {}
+        return data.get("aliases", {})
+    except Exception as e:
+        log.warning("No se pudo cargar teams.yaml aliases: %s", e)
+        return {}
+
+
+def _team_aliases(team_name: str) -> set[str]:
+    """Para un team_name (cualquier idioma), retorna todos los aliases conocidos."""
+    aliases = _load_team_aliases()
+    n_target = _norm(team_name)
+    out = {n_target}
+    for code, names in aliases.items():
+        if n_target == _norm(code) or n_target in (_norm(x) for x in names):
+            out.add(_norm(code))
+            for n in names:
+                out.add(_norm(n))
+            break
+    return out
+
+
 def find_event(home_name: str, away_name: str) -> dict | None:
-    """Busca event por nombres de equipos. ESPN usa formato 'Away at Home'."""
+    """Busca event por nombres de equipos. ESPN usa formato 'Away at Home' en inglés."""
     events = get_scoreboard()
     if not events:
         return None
-    h_norm = _norm(home_name)
-    a_norm = _norm(away_name)
+    home_set = _team_aliases(home_name)
+    away_set = _team_aliases(away_name)
     for e in events:
         name_norm = _norm(e.get("name", ""))
-        if h_norm in name_norm and a_norm in name_norm:
+        h_match = any(alias in name_norm for alias in home_set if len(alias) >= 3)
+        a_match = any(alias in name_norm for alias in away_set if len(alias) >= 3)
+        if h_match and a_match:
             return e
     return None
 
