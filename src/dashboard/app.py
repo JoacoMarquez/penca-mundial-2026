@@ -19,6 +19,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
 from src.dashboard.data_loader import (
+    load_match_detail,
     load_matches_by_day,
     load_my_pencas_standings,
     load_next_match_data,
@@ -63,6 +64,19 @@ def page_matches(request: Request, token: str):
         "health": load_system_health(),
     }
     return templates.TemplateResponse(request, "matches.html", {"data": data, "token": token})
+
+
+@app.get("/dash/{token}/match/{match_id}/", response_class=HTMLResponse)
+def page_match_detail(request: Request, token: str, match_id: str):
+    _check_token(token)
+    detail = load_match_detail(match_id)
+    if not detail:
+        raise HTTPException(404, "Match not found")
+    data = {
+        "match": detail,
+        "health": load_system_health(),
+    }
+    return templates.TemplateResponse(request, "match_detail.html", {"data": data, "token": token})
 
 
 @app.get("/dash/{token}/pencas/", response_class=HTMLResponse)

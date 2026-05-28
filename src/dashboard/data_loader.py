@@ -201,6 +201,218 @@ def load_matches_by_day(days_back: int = 2, days_ahead: int = 21) -> list[dict]:
     return days_sorted
 
 
+# ---------- match detail con timeline de pasadas ----------
+
+STRATEGY_RATIONALE: dict[str, str] = {
+    "ev": "EV puro: marcador con MAYOR esperanza de puntos sobre toda la grilla Poisson.",
+    "differentiated": "Diferencial: alto EV PERO castigando popularidad (el marcador modal del pool resta valor).",
+    "tail": "Goleada: maximiza puntos esperados condicionado al 10% de outcomes con MÁS goles.",
+    "upset": "Sorpresa: argmax E[points] forzando ganador opuesto al favorito de mercado.",
+    "variance": "Varianza: entre top-K por EV no usadas, la de mayor desvío estándar (alta varianza).",
+}
+
+
+def _assignment_reason(penca_rank: int | None, objective: str, assignment_meta: dict) -> str:
+    """Por qué a esta penca le tocó esta estrategia en esta pasada."""
+    obj_label = {
+        "ev": "Favorito 🎯",
+        "differentiated": "Diferencial 📊",
+        "tail": "Goleada ⚡",
+        "upset": "Sorpresa 😲",
+        "variance": "Varianza 📈",
+    }.get(objective, objective)
+
+    if not penca_rank:
+        return f"Estrategia: {obj_label} (sin ranking aún)."
+
+    pos = f"rank {penca_rank}"
+    if penca_rank == 1:
+        return (
+            f"Penca actualmente {pos} (puntera). "
+            f"Recibe {obj_label} porque el optimizer maximiza P(top-3) y, dada su ventaja, "
+            "asignarle el marcador más sólido preserva la posición."
+        )
+    if penca_rank == 5:
+        return (
+            f"Penca {pos} (última). "
+            f"Recibe {obj_label}: el optimizer detectó que necesita una jugada con mayor varianza "
+            "para tener chance real de remontar al cutoff de top-3."
+        )
+    return (
+        f"Penca {pos}. Recibe {obj_label} porque la combinación de su score actual + esa estrategia "
+        "es la que más aporta al objetivo global de meter a alguna penca en top-3."
+    )
+
+
+def _strategy_rationale_for_pick(objective: str, pick_metrics: dict | None) -> str:
+    base = STRATEGY_RATIONALE.get(objective, objective)
+    if not pick_metrics:
+        return base
+    e_pts = pick_metrics.get("e_points")
+    pop = pick_metrics.get("pool_popularity")
+    p_score = pick_metrics.get("p_scoreline")
+    extras = []
+    if e_pts is not None:
+        extras.append(f"E[pts]={e_pts:.2f}")
+    if p_score is not None:
+        extras.append(f"P(marcador)={p_score*100:.1f}%")
+    if pop is not None:
+        extras.append(f"pool pop={pop*100:.1f}%")
+    if extras:
+        base += "  ·  " + " · ".join(extras)
+    return base
+
+
+def load_match_detail(match_id) -> dict | None:
+    """Carga todas las versiones de predicción del partido + diff entre pasadas."""
+    import yaml
+    try:
+        fixtures_path = Path(__file__).resolve().parents[2] / "config" / "fixtures.yaml"
+        fixtures = yaml.safe_load(fixtures_path.read_text()) or {}
+    except Exception:
+        fixtures = {}
+
+    all_matches = (fixtures.get("fase_grupos") or []) + (fixtures.get("eliminatorias") or [])
+    match_meta = next((m for m in all_matches if str(m.get("id")) == str(match_id)), None)
+    if not match_meta:
+        return None
+
+    pdir = _data_dir() / "predictions" / str(match_id)
+    if not pdir.exists():
+        return {
+            "match_id": match_id,
+            "home": match_meta.get("home_name") or match_meta.get("home", "?"),
+            "away": match_meta.get("away_name") or match_meta.get("away", "?"),
+            "kickoff_uy": _to_uy(match_meta["kickoff_utc"]),
+            "venue": match_meta.get("venue"),
+            "group": match_meta.get("group"),
+            "stage": match_meta.get("stage", "?"),
+            "versions": [],
+            "current_pencas": [],
+            "diffs": [],
+        }
+
+    files = sorted(pdir.glob("v*_*.json"))
+    versions = []
+    for f in files:
+        try:
+            v = json.loads(f.read_text())
+            versions.append(v)
+        except Exception:
+            continue
+
+    if not versions:
+        return None
+
+    latest = versions[-1]
+    # Construir lista de pencas con razón por estrategia
+    portfolio_picks = {p["objective"]: p for p in (latest.get("portfolio") or {}).get("picks", [])}
+    current_pencas = []
+    for a in latest.get("assignment") or []:
+        obj = a["objective"]
+        pick_metrics = portfolio_picks.get(obj, {})
+        current_pencas.append({
+            "penca_id": a["penca_id"],
+            "rank": a.get("rank"),
+            "objective": obj,
+            "score": a["score"],
+            "p_scoreline": pick_metrics.get("p_scoreline"),
+            "e_points": pick_metrics.get("e_points"),
+            "pool_popularity": pick_metrics.get("pool_popularity"),
+            "assignment_reason": _assignment_reason(a.get("rank"), obj, latest.get("assignment_meta") or {}),
+            "strategy_rationale": _strategy_rationale_for_pick(obj, pick_metrics),
+        })
+
+    # Resumen por versión (timeline)
+    timeline = []
+    for v in versions:
+        ts = v.get("run_at", "")
+        timeline.append({
+            "version": v.get("version"),
+            "phase": v.get("phase"),
+            "run_at_uy": _to_uy(ts) if ts else "",
+            "p_home": v.get("constraints", {}).get("p_home"),
+            "p_draw": v.get("constraints", {}).get("p_draw"),
+            "p_away": v.get("constraints", {}).get("p_away"),
+            "lambda_L": v.get("constraints", {}).get("lambda_L"),
+            "lambda_V": v.get("constraints", {}).get("lambda_V"),
+            "assignment": v.get("assignment") or [],
+            "qualitative": v.get("qualitative_adjustment") or {},
+            "assignment_meta": v.get("assignment_meta") or {},
+        })
+
+    # Diffs entre versiones consecutivas
+    diffs = []
+    for i in range(1, len(timeline)):
+        prev, cur = timeline[i - 1], timeline[i]
+        change_lines = []
+        # Cambios por penca
+        prev_by_pid = {a["penca_id"]: a for a in prev["assignment"]}
+        cur_by_pid = {a["penca_id"]: a for a in cur["assignment"]}
+        for pid, a in cur_by_pid.items():
+            pa = prev_by_pid.get(pid)
+            if pa:
+                if a["score"] != pa["score"] or a["objective"] != pa["objective"]:
+                    change_lines.append({
+                        "penca_id": pid,
+                        "old": f"{pa['objective']} {pa['score'][0]}-{pa['score'][1]}",
+                        "new": f"{a['objective']} {a['score'][0]}-{a['score'][1]}",
+                    })
+        # Cambios en probabilidades
+        def _delta(a, b, label, threshold=0.02):
+            if a is None or b is None:
+                return None
+            d = b - a
+            if abs(d) < threshold:
+                return None
+            return f"{label}: {a*100:.0f}% → {b*100:.0f}% ({d*100:+.1f}pp)"
+
+        ph = _delta(prev["p_home"], cur["p_home"], "P(local)")
+        pd = _delta(prev["p_draw"], cur["p_draw"], "P(empate)")
+        pa = _delta(prev["p_away"], cur["p_away"], "P(visit)")
+
+        # Cambios en LLM
+        llm_change = None
+        prev_dL = prev["qualitative"].get("delta_lambda_L", 0)
+        cur_dL = cur["qualitative"].get("delta_lambda_L", 0)
+        prev_dV = prev["qualitative"].get("delta_lambda_V", 0)
+        cur_dV = cur["qualitative"].get("delta_lambda_V", 0)
+        if abs(cur_dL - prev_dL) > 0.05 or abs(cur_dV - prev_dV) > 0.05:
+            llm_change = (
+                f"LLM ajuste: ΔλL {prev_dL:+.2f}→{cur_dL:+.2f}, "
+                f"ΔλV {prev_dV:+.2f}→{cur_dV:+.2f}"
+            )
+
+        diffs.append({
+            "from_phase": prev["phase"],
+            "to_phase": cur["phase"],
+            "from_version": prev["version"],
+            "to_version": cur["version"],
+            "from_run_at": prev["run_at_uy"],
+            "to_run_at": cur["run_at_uy"],
+            "pick_changes": change_lines,
+            "market_changes": [x for x in (ph, pd, pa) if x],
+            "llm_change": llm_change,
+            "cur_llm_reasoning": cur["qualitative"].get("reasoning"),
+        })
+
+    return {
+        "match_id": match_id,
+        "home": match_meta.get("home_name") or match_meta.get("home", "?"),
+        "away": match_meta.get("away_name") or match_meta.get("away", "?"),
+        "kickoff_uy": _to_uy(match_meta["kickoff_utc"]),
+        "venue": match_meta.get("venue"),
+        "group": match_meta.get("group"),
+        "stage": match_meta.get("stage", "?"),
+        "latest_constraints": latest.get("constraints", {}),
+        "latest_meta": latest.get("assignment_meta") or {},
+        "latest_qualitative": latest.get("qualitative_adjustment") or {},
+        "current_pencas": current_pencas,
+        "timeline": timeline,
+        "diffs": diffs,
+    }
+
+
 # ---------- pencas ranking vs pool ----------
 
 def load_my_pencas_standings() -> dict[str, Any]:

@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% set current_page = "matches" %}
+{% block title %}{{ data.match.home }} vs {{ data.match.away }} — Detalle{% endblock %}
+
+{% block content %}
+{% set strategy_emoji = {'ev':'🎯', 'differentiated':'📊', 'tail':'⚡', 'upset':'😲', 'variance':'📈'} %}
+{% set strategy_label = {'ev':'Favorito', 'differentiated':'Diferencial', 'tail':'Goleada', 'upset':'Sorpresa', 'variance':'Varianza'} %}
+{% set m = data.match %}
+
+<a href="/dash/{{ token }}/matches/" class="text-sm text-indigo-400 hover:underline">&larr; Volver a Partidos</a>
+
+<h1 class="text-2xl lg:text-3xl font-bold mt-2 mb-1">{{ m.home }} <span class="text-slate-500">vs</span> {{ m.away }}</h1>
+<div class="text-sm text-slate-400 mb-6">
+  📅 {{ m.kickoff_uy }}
+  {% if m.group %} · Grupo {{ m.group }}{% endif %}
+  {% if m.stage and m.stage != 'group' %} · {{ m.stage }}{% endif %}
+  {% if m.venue %} · 📍 {{ m.venue }}{% endif %}
+</div>
+
+{% if not m.current_pencas %}
+<section class="bg-slate-800 rounded-xl p-8 text-center text-slate-400">
+  Aún no hay predicciones para este partido. Los picks se generan en T-24h.
+</section>
+
+{% else %}
+
+{# ----------- Razón por penca ----------- #}
+<section class="bg-slate-800 rounded-xl p-5 shadow mb-5">
+  <h2 class="text-sm uppercase tracking-wider text-slate-400 mb-1">🎯 Decisión por penca</h2>
+  {% if m.latest_meta and m.latest_meta.objective == 'p_top_k' %}
+  <p class="text-xs text-slate-500 mb-4">Objetivo: maximizar P(top-3) — actualmente {{ (m.latest_meta.p_top_k_value * 100) | round(1) }}% · cutoff {{ m.latest_meta.threshold }}pts</p>
+  {% endif %}
+  <div class="space-y-3">
+    {% for p in m.current_pencas %}
+    <div class="bg-slate-900/40 rounded-lg p-4">
+      <div class="flex items-center justify-between flex-wrap gap-2">
+        <div class="flex items-center gap-3">
+          <span class="text-2xl">{{ strategy_emoji.get(p.objective, '•') }}</span>
+          <div>
+            <div class="font-bold text-lg">P{{ p.penca_id }}
+              <span class="text-slate-400 font-normal">— {{ strategy_label.get(p.objective, p.objective) }}</span>
+            </div>
+            {% if p.rank %}<div class="text-xs text-slate-500">posición actual: {{ p.rank }}°</div>{% endif %}
+          </div>
+        </div>
+        <div class="text-3xl font-bold">{{ p.score[0] }}<span class="text-slate-500 mx-1">-</span>{{ p.score[1] }}</div>
+      </div>
+      <div class="mt-3 space-y-2 text-sm">
+        <div class="text-slate-300">
+          <span class="text-slate-500 text-xs uppercase tracking-wider mr-1">por qué esta estrategia:</span><br>
+          {{ p.assignment_reason }}
+        </div>
+        <div class="text-slate-400 text-xs">
+          <span class="text-slate-500 uppercase tracking-wider">cómo produce el marcador:</span><br>
+          {{ p.strategy_rationale }}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+{# ----------- Análisis LLM ----------- #}
+{% if m.latest_qualitative and m.latest_qualitative.reasoning %}
+<section class="bg-slate-800 rounded-xl p-5 shadow mb-5">
+  <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
+    <h2 class="text-sm uppercase tracking-wider text-slate-400">🧠 Análisis LLM (última pasada)</h2>
+    <div class="text-xs text-slate-400 font-mono">
+      ΔλL {{ "%+.2f"|format(m.latest_qualitative.delta_lambda_L or 0) }}
+      · ΔλV {{ "%+.2f"|format(m.latest_qualitative.delta_lambda_V or 0) }}
+      · conf {{ "%.2f"|format(m.latest_qualitative.confidence or 0) }}
+    </div>
+  </div>
+  <p class="text-sm text-slate-300 leading-relaxed">{{ m.latest_qualitative.reasoning }}</p>
+</section>
+{% endif %}
+
+{# ----------- Timeline de pasadas + diffs ----------- #}
+<section class="bg-slate-800 rounded-xl p-5 shadow">
+  <h2 class="text-sm uppercase tracking-wider text-slate-400 mb-4">⏱ Timeline de pasadas</h2>
+
+  {% if m.timeline | length == 1 %}
+  <p class="text-sm text-slate-400">Solo se ejecutó <b>una pasada</b> ({{ m.timeline[0].phase }} · {{ m.timeline[0].run_at_uy }}). Los diffs aparecen cuando se ejecuten T-3h y T-30min.</p>
+  {% else %}
+
+  {# Lista de pasadas #}
+  <div class="space-y-3 mb-5">
+    {% for v in m.timeline %}
+    <details class="bg-slate-900/40 rounded-lg p-3 group" {% if loop.last %}open{% endif %}>
+      <summary class="cursor-pointer flex items-center justify-between text-sm">
+        <div class="flex items-center gap-2">
+          <span class="font-bold">{{ v.phase }}</span>
+          <span class="text-slate-500 text-xs">v{{ v.version }} · {{ v.run_at_uy }}</span>
+        </div>
+        <span class="text-xs text-slate-400">
+          {% if v.p_home %}P(L) {{ (v.p_home * 100) | round(0, 'common') | int }}%{% endif %}
+          {% if v.lambda_L %} · λ {{ "%.2f"|format(v.lambda_L) }}-{{ "%.2f"|format(v.lambda_V) }}{% endif %}
+        </span>
+      </summary>
+      <div class="mt-2 space-y-1">
+        {% for a in v.assignment %}
+        <div class="flex items-center justify-between text-xs bg-slate-900/60 rounded px-3 py-1.5">
+          <span class="flex items-center gap-2">
+            <span class="text-slate-500 w-12">P{{ a.penca_id }}</span>
+            <span>{{ strategy_emoji.get(a.objective, '•') }}</span>
+            <span class="text-slate-400">{{ a.objective }}</span>
+          </span>
+          <span class="font-bold">{{ a.score[0] }}-{{ a.score[1] }}</span>
+        </div>
+        {% endfor %}
+        {% if v.qualitative and v.qualitative.reasoning %}
+        <details class="mt-2 text-xs">
+          <summary class="cursor-pointer text-slate-400">LLM reasoning ({{ "%.2f"|format(v.qualitative.confidence or 0) }})</summary>
+          <p class="mt-1 text-slate-400 leading-relaxed pl-2">{{ v.qualitative.reasoning }}</p>
+        </details>
+        {% endif %}
+      </div>
+    </details>
+    {% endfor %}
+  </div>
+
+  {# Diffs #}
+  {% if m.diffs %}
+  <div class="border-t border-slate-700 pt-4">
+    <h3 class="text-sm uppercase tracking-wider text-slate-400 mb-3">🔁 Cambios entre pasadas</h3>
+    <div class="space-y-3">
+      {% for d in m.diffs %}
+      <div class="bg-slate-900/40 rounded-lg p-3 border-l-4 {% if d.pick_changes %}border-orange-500{% else %}border-slate-600{% endif %}">
+        <div class="flex items-center justify-between mb-2 flex-wrap gap-1">
+          <span class="text-sm font-medium">{{ d.from_phase }} → {{ d.to_phase }}</span>
+          <span class="text-xs text-slate-500">{{ d.from_run_at }} → {{ d.to_run_at }}</span>
+        </div>
+
+        {% if not d.pick_changes and not d.market_changes and not d.llm_change %}
+        <p class="text-sm text-slate-400">✓ Sin cambios significativos. Picks se mantienen.</p>
+        {% else %}
+
+        {% if d.pick_changes %}
+        <div class="mb-2">
+          <div class="text-xs uppercase text-orange-400 tracking-wider mb-1">Picks que cambiaron:</div>
+          {% for c in d.pick_changes %}
+          <div class="text-sm bg-slate-900/50 rounded px-3 py-1 mb-1">
+            <span class="text-slate-400">P{{ c.penca_id }}:</span>
+            <span class="line-through text-slate-500">{{ c.old }}</span>
+            <span class="text-slate-500 mx-1">→</span>
+            <span class="font-medium text-white">{{ c.new }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if d.market_changes %}
+        <div class="mb-2 text-xs text-slate-300">
+          <span class="text-slate-500 uppercase tracking-wider mr-2">Movimiento del mercado:</span>
+          {% for ch in d.market_changes %}<span class="bg-slate-700/40 rounded px-2 py-0.5 mr-1">{{ ch }}</span>{% endfor %}
+        </div>
+        {% endif %}
+
+        {% if d.llm_change %}
+        <div class="mb-2 text-xs text-purple-300">
+          <span class="text-slate-500 uppercase tracking-wider mr-2">LLM:</span> {{ d.llm_change }}
+        </div>
+        {% endif %}
+
+        {% if d.cur_llm_reasoning %}
+        <details class="text-xs mt-2">
+          <summary class="cursor-pointer text-slate-400">Reasoning del LLM en esta pasada</summary>
+          <p class="mt-1 text-slate-400 leading-relaxed pl-2">{{ d.cur_llm_reasoning }}</p>
+        </details>
+        {% endif %}
+
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% endif %}
+</section>
+
+{% endif %}
+{% endblock %}

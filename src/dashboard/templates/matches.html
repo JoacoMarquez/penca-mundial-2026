@@ -41,7 +41,7 @@
     {# Lista de partidos de ese día #}
     <div class="divide-y divide-slate-700/50">
       {% for m in day.matches %}
-      <div class="px-5 py-4 hover:bg-slate-900/30 transition">
+      <a href="/dash/{{ token }}/match/{{ m.match_id }}/" class="block px-5 py-4 hover:bg-slate-900/30 transition cursor-pointer">
 
         <div class="flex items-start gap-4">
           {# Hora UY #}
@@ -96,8 +96,9 @@
             <div class="mt-2 text-xs text-slate-500 italic">picks se generan en T-24h</div>
             {% endif %}
           </div>
+          <div class="text-slate-500 self-center">›</div>
         </div>
-      </div>
+      </a>
       {% endfor %}
     </div>
   </section>
