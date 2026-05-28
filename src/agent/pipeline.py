@@ -22,6 +22,9 @@ from typing import Any
 import yaml
 
 from src.meta.pool import PoolModelConfig
+from src.model.dossier import (
+    MatchDossier, build_dossier, dossier_to_llm_context_text, save_dossier_json,
+)
 from src.model.market_probs import BookQuote, aggregate, devig
 from src.model.poisson import MarketConstraints, fit_params, marginals, score_grid
 from src.model.qualitative import MatchContext, adjust_with_llm, apply_to_lambdas
@@ -277,27 +280,60 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
                 news_ctx = {}
                 espn_ctx = {}
 
+            # Construir Match Dossier consolidado (todas las fuentes en una ficha estructurada)
+            try:
+                import yaml
+                teams_yaml = yaml.safe_load((PROJECT_ROOT / "config" / "teams.yaml").read_text())
+                venues_yaml = yaml.safe_load((PROJECT_ROOT / "config" / "venues.yaml").read_text())
+            except Exception:
+                teams_yaml, venues_yaml = None, None
+            constraints_dict = {
+                "p_home": constraints.p_home_win,
+                "p_draw": constraints.p_draw,
+                "p_away": constraints.p_away_win,
+                "e_goals_L": m.expected_goals_L,
+                "e_goals_V": m.expected_goals_V,
+            }
+            all_fixtures_list = (
+                (fixtures.get("fase_grupos") or [])
+                + (fixtures.get("eliminatorias") or [])
+            )
+            dossier = build_dossier(
+                match=match,
+                constraints=constraints_dict,
+                teams_data=teams_yaml,
+                fapi_ctx=fapi_ctx,
+                espn_ctx=espn_ctx,
+                news_ctx=news_ctx,
+                weather_ctx=weather_ctx,
+                all_fixtures=all_fixtures_list,
+                venues_data=venues_yaml,
+            )
+            try:
+                save_dossier_json(dossier, DATA_DIR)
+            except Exception as e:
+                log.warning("save_dossier_json falló: %s", e)
+            structured_context = dossier_to_llm_context_text(dossier)
+
             ctx = MatchContext(
-                home_team=match.get("home_name") or match.get("home", "?"),
-                away_team=match.get("away_name") or match.get("away", "?"),
-                kickoff_local=_format_kickoff_local(match),
+                home_team=dossier.home.name,
+                away_team=dossier.away.name,
+                kickoff_local=dossier.kickoff_local_uy,
                 stage=match.get("stage", "group"),
                 market_p_home=constraints.p_home_win,
                 market_p_draw=constraints.p_draw,
                 market_p_away=constraints.p_away_win,
                 market_e_goals_L=m.expected_goals_L,
                 market_e_goals_V=m.expected_goals_V,
-                home_recent_form=fapi_ctx.get("home_recent_form"),
-                away_recent_form=fapi_ctx.get("away_recent_form"),
-                home_injuries=fapi_ctx.get("home_injuries"),
-                away_injuries=fapi_ctx.get("away_injuries"),
+                home_recent_form=dossier.home.recent_form,
+                away_recent_form=dossier.away.recent_form,
+                home_injuries=dossier.home.reported_absences or None,
+                away_injuries=dossier.away.reported_absences or None,
                 home_lineup_change=fapi_ctx.get("home_lineup_change"),
                 away_lineup_change=fapi_ctx.get("away_lineup_change"),
-                h2h_recent=fapi_ctx.get("h2h_recent") or espn_ctx.get("h2h_recent_espn"),
-                weather=weather_ctx.get("summary") if weather_ctx else None,
-                home_recent_form=fapi_ctx.get("home_recent_form") or espn_ctx.get("home_recent_form_espn"),
-                away_recent_form=fapi_ctx.get("away_recent_form") or espn_ctx.get("away_recent_form_espn"),
-                motivation_notes=espn_ctx.get("standings_context"),
+                h2h_recent=dossier.h2h_summary,
+                weather=dossier.weather_summary,
+                motivation_notes=structured_context,
                 home_news_summary=_combine_news(
                     news_ctx.get("home_news_summary"),
                     espn_ctx.get("espn_news"),
