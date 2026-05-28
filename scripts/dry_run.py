@@ -97,9 +97,10 @@ def main() -> int:
         d = asdict(run)
         print("\n--- Constraints (modelo) ---")
         c = d.get("constraints", {})
-        print(f"  P(home/draw/away) = {c.get('p_home',0):.3f} / {c.get('p_draw',0):.3f} / {c.get('p_away',0):.3f}")
-        print(f"  λ_local={c.get('lambda_L'):.3f}  λ_visit={c.get('lambda_V'):.3f}  λ12={c.get('lambda_12'):.3f}")
-        print(f"  P(O2.5)={c.get('p_over_2_5',0):.3f}  P(BTTS)={c.get('p_btts',0):.3f}")
+        def _f(v, fmt=".3f"): return format(v, fmt) if isinstance(v, (int, float)) else "—"
+        print(f"  P(home/draw/away) = {_f(c.get('p_home'))} / {_f(c.get('p_draw'))} / {_f(c.get('p_away'))}")
+        print(f"  λ_local={_f(c.get('lambda_L'))}  λ_visit={_f(c.get('lambda_V'))}  λ12={_f(c.get('lambda_12'))}")
+        print(f"  P(O2.5)={_f(c.get('p_over_2_5'))}  P(BTTS)={_f(c.get('p_btts'))}")
 
         if d.get("odds_anomaly"):
             print("\n--- ⚠️ Odds anomaly detectada ---")
@@ -108,7 +109,7 @@ def main() -> int:
         print("\n--- Portfolio (5 picks) ---")
         for p in d.get("portfolio", {}).get("picks", []):
             print(f"  [{p.get('objective'):<14}] {p.get('score')[0]}-{p.get('score')[1]}  "
-                  f"E[pts]={p.get('e_points',0):.3f}  Var={p.get('var_points',0):.3f}")
+                  f"E[pts]={_f(p.get('e_points'))}  Var={_f(p.get('var_points'))}")
 
         print("\n--- Asignación por penca ---")
         for a in d.get("assignment", []):
@@ -122,7 +123,7 @@ def main() -> int:
         qa = d.get("qualitative_adjustment")
         if qa:
             print(f"\n--- Capa 4 (LLM cualitativo) ---")
-            print(f"  ΔλL={qa.get('delta_lambda_L'):+.2f}  ΔλV={qa.get('delta_lambda_V'):+.2f}  conf={qa.get('confidence'):.2f}")
+            print(f"  ΔλL={_f(qa.get('delta_lambda_L'), '+.2f')}  ΔλV={_f(qa.get('delta_lambda_V'), '+.2f')}  conf={_f(qa.get('confidence'), '.2f')}")
             print(f"  reasoning: {(qa.get('reasoning') or '')[:200]}...")
 
         tc = d.get("tipster_consensus")
