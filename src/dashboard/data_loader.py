@@ -11,7 +11,8 @@ from typing import Any
 
 
 def _data_dir() -> Path:
-    return Path(os.environ.get("DATA_DIR", "data"))
+    from src.utils.env import get_str
+    return Path(get_str("DATA_DIR", "data"))
 
 
 UY_TZ = timezone(timedelta(hours=-3))
