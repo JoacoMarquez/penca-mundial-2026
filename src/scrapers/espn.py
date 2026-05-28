@@ -202,13 +202,20 @@ def collect_match_context_espn(home_name: str, away_name: str) -> dict[str, Any]
         else:
             out["away_squad_listed"] = ", ".join(names)
 
-    # News
-    news = summary.get("news", [])
-    if news:
+    # News (ESPN devuelve dict con "articles" key, no lista directa)
+    news = summary.get("news", {})
+    articles = news.get("articles", []) if isinstance(news, dict) else (news if isinstance(news, list) else [])
+    if articles:
         headlines = []
-        for n in news[:5]:
-            if isinstance(n, dict) and n.get("headline"):
-                headlines.append(f"[ESPN] {n['headline']}")
+        for n in articles[:5]:
+            if isinstance(n, dict):
+                h = n.get("headline") or n.get("title")
+                desc = n.get("description") or ""
+                if h:
+                    line = f"[ESPN] {h}"
+                    if desc:
+                        line += f"  →  {desc[:150]}"
+                    headlines.append(line)
         if headlines:
             out["espn_news"] = "\n".join(headlines)
 
