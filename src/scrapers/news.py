@@ -76,24 +76,49 @@ def search_news(query: str, max_items: int = 20, hl: str = "en-US", gl: str = "U
         return []
 
 
+def _team_in_title(team_name: str, title: str) -> bool:
+    """True si el nombre del equipo (o variantes) aparece en el título."""
+    import unicodedata
+    def norm(s: str) -> str:
+        s = unicodedata.normalize("NFKD", s)
+        return "".join(c for c in s if not unicodedata.combining(c)).lower()
+    n_team = norm(team_name)
+    n_title = norm(title)
+    # Variantes comunes
+    variants = {n_team}
+    if " " in n_team:
+        # ej "corea del sur" → también "corea"
+        variants.add(n_team.split()[0])
+    return any(v in n_title for v in variants if len(v) >= 4)
+
+
 def fetch_team_news(team_name: str, max_items: int = 10, lang: str = "es") -> list[NewsItem]:
-    """Búsqueda específica de noticias del equipo, priorizando lesiones/alineación."""
-    hl = "es-419" if lang == "es" else "en-US"
-    gl = "AR" if lang == "es" else "US"
-    queries = [
-        f"{team_name} mundial 2026 lesionados" if lang == "es" else f"{team_name} world cup 2026 injury",
-        f"{team_name} mundial 2026 alineación" if lang == "es" else f"{team_name} world cup 2026 lineup",
+    """Búsqueda específica + FILTRO por team_name en el título (descarta artículos genéricos)."""
+    # Buscar en ambos idiomas para equipos pequeños donde puede no haber prensa en español
+    queries_multi = [
+        # Español
+        (f"{team_name} mundial 2026 lesionados", "es-419", "AR"),
+        (f"{team_name} mundial 2026 alineación", "es-419", "AR"),
+        # Inglés
+        (f"{team_name} world cup 2026 injury", "en-US", "US"),
+        (f"{team_name} world cup 2026 lineup", "en-US", "US"),
     ]
     all_items: list[NewsItem] = []
     seen_titles = set()
-    for q in queries:
-        items = search_news(q, max_items=max_items // 2 + 1, hl=hl, gl=gl)
+    for q, hl, gl in queries_multi:
+        items = search_news(q, max_items=max_items, hl=hl, gl=gl)
         for it in items:
-            # dedupe por título normalizado
+            # Filtro: el equipo debe estar en el título
+            if not _team_in_title(team_name, it.title):
+                continue
             key = it.title[:80].lower()
             if key not in seen_titles:
                 seen_titles.add(key)
                 all_items.append(it)
+            if len(all_items) >= max_items:
+                break
+        if len(all_items) >= max_items:
+            break
     return all_items[:max_items]
 
 
