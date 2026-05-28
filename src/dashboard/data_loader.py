@@ -15,6 +15,22 @@ def _data_dir() -> Path:
     return Path(get_str("DATA_DIR", "data"))
 
 
+# Cache simple in-memory con TTL para evitar golpear APIs externas en cada request.
+_CACHE: dict[str, tuple[float, Any]] = {}
+
+
+def _cached(key: str, ttl_seconds: float, loader_fn):
+    """Memoize loader_fn por key con TTL. Thread-safe naive (FastAPI workers single-threaded por default)."""
+    import time
+    now = time.time()
+    entry = _CACHE.get(key)
+    if entry and (now - entry[0]) < ttl_seconds:
+        return entry[1]
+    value = loader_fn()
+    _CACHE[key] = (now, value)
+    return value
+
+
 UY_TZ = timezone(timedelta(hours=-3))
 
 
@@ -426,6 +442,11 @@ def load_match_detail(match_id) -> dict | None:
 # ---------- pencas ranking vs pool ----------
 
 def load_my_pencas_standings() -> dict[str, Any]:
+    """Wrapper cached (30s TTL) sobre el leaderboard real."""
+    return _cached("standings", 30.0, _load_my_pencas_standings_uncached)
+
+
+def _load_my_pencas_standings_uncached() -> dict[str, Any]:
     """Lee leaderboard real de la penca. Filtra mis 5 pencas."""
     import httpx
     base = os.environ.get("PENCA_API_BASE_URL", "").rstrip("/")
@@ -506,7 +527,12 @@ def load_recent_postmortems(limit: int = 5) -> list[dict]:
 # ---------- system health + costos ----------
 
 def load_system_health() -> dict[str, Any]:
-    """Stub de health — para versión completa usar lógica del heartbeat."""
+    """Wrapper cached (60s TTL): health no necesita ser super fresh."""
+    return _cached("health", 60.0, _load_system_health_uncached)
+
+
+def _load_system_health_uncached() -> dict[str, Any]:
+    """Calcula health desde JSONL + APIs externas."""
     out: dict[str, Any] = {}
     # Conteo de predicciones
     pred_dir = _data_dir() / "predictions"

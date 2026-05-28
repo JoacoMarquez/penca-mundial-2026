@@ -215,6 +215,7 @@ class PipelineRun:
     assignment_meta: dict[str, Any] | None = None
     tipster_consensus: dict[str, Any] | None = None
     dossier_summary_text: str | None = None    # versión resumida del dossier para Telegram
+    odds_anomaly: dict[str, Any] | None = None  # flag si las odds se movieron >5pp vs versión previa
 
 
 def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
@@ -235,6 +236,43 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
     lam_L, lam_V, lam12 = fit_params(constraints)
     grid = score_grid(lam_L, lam_V, lam12, max_goals=7)
     m = marginals(grid)
+
+    # 3-ANOMALY: Comparar odds vs versión previa. Si se mueve >5pp, flag + alerta.
+    odds_anomaly = None
+    try:
+        from src.model.anomaly import compare_market_probs
+        previous_versions = load_previous_predictions(match_id)
+        if previous_versions:
+            prev_constraints = previous_versions[-1].get("constraints", {})
+            current_probs = {
+                "p_home": constraints.p_home_win,
+                "p_draw": constraints.p_draw,
+                "p_away": constraints.p_away_win,
+            }
+            anomaly = compare_market_probs(prev_constraints, current_probs)
+            if anomaly:
+                odds_anomaly = {
+                    "delta_home_pp": anomaly.delta_home_pp,
+                    "delta_draw_pp": anomaly.delta_draw_pp,
+                    "delta_away_pp": anomaly.delta_away_pp,
+                    "max_abs_delta_pp": anomaly.max_abs_delta_pp,
+                    "direction": anomaly.direction,
+                    "summary": anomaly.summary,
+                }
+                log.warning("ODDS ANOMALY: %s", anomaly.summary)
+                # Alerta Telegram inmediata
+                try:
+                    from src.notifier.telegram import TelegramNotifier, TelegramConfig
+                    notif = TelegramNotifier(TelegramConfig.from_env())
+                    label = _format_match_label(match)
+                    notif.send_error(
+                        f"odds anomaly {label}",
+                        anomaly.summary,
+                    )
+                except Exception:
+                    pass
+    except Exception as e:
+        log.exception("anomaly check falló: %s", e)
 
     # 3a. Capa 3: tipsters consensus (si hay ANTHROPIC_API_KEY y solo en T-24h para ahorrar costos)
     tipster_consensus: dict | None = None
@@ -428,6 +466,7 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
         assignment_meta=assignment_meta or None,
         tipster_consensus=tipster_consensus,
         dossier_summary_text=locals().get("dossier_summary_for_telegram"),
+        odds_anomaly=locals().get("odds_anomaly"),
     )
     output_path.write_text(json.dumps(asdict(run), indent=2, default=str))
     log.info("pipeline DONE | v=%d wrote=%s", version, output_path)
