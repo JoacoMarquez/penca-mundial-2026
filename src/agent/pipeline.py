@@ -371,11 +371,8 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
     )
 
     # 4b. Asignación adaptativa: penca con más puntos → estrategia más conservadora
-    penca_ids_raw = [x.strip() for x in os.environ.get("PENCA_IDS", "").split(",") if x.strip()]
-    try:
-        penca_ids = [int(x) for x in penca_ids_raw]
-    except ValueError:
-        penca_ids = []
+    from src.utils.env import get_int_list
+    penca_ids = get_int_list("PENCA_IDS")
     standings = fetch_my_pencas_standings(
         api_base_url=os.environ.get("PENCA_API_BASE_URL", ""),
         api_key=os.environ.get("PENCA_API_KEY", ""),

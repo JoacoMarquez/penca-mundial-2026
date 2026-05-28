@@ -122,8 +122,8 @@ def load_my_pencas_standings() -> dict[str, Any]:
     import httpx
     base = os.environ.get("PENCA_API_BASE_URL", "").rstrip("/")
     key = os.environ.get("PENCA_API_KEY", "")
-    my_ids_raw = os.environ.get("PENCA_IDS", "")
-    my_ids = set(int(x.strip()) for x in my_ids_raw.split(",") if x.strip().isdigit())
+    from src.utils.env import get_int_list
+    my_ids = set(get_int_list("PENCA_IDS"))
     if not base or not key or not my_ids:
         return {"error": "API o PENCA_IDS no configurados", "pencas": []}
     try:
