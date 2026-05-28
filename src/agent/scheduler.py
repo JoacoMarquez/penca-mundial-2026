@@ -78,17 +78,67 @@ def main() -> int:
     )
     fixtures = load_fixtures()
     pending = matches_in_window(fixtures)
-    if not pending:
+
+    # Pipeline para partidos en ventana
+    if pending:
+        log.info("scheduler tick — %d tarea(s): %s", len(pending), pending)
+        for match_id, phase in pending:
+            try:
+                run_match_pipeline(match_id, phase)
+            except Exception:
+                log.exception("error corriendo pipeline | match=%s phase=%s", match_id, phase.value)
+                _notify_error("pipeline", f"match={match_id} phase={phase.value}")
+
+    # Postmortems para partidos terminados sin reporte aún
+    try:
+        from src.agent.postmortem import (
+            find_finished_matches_pending_postmortem,
+            compute_postmortem,
+            save_postmortem,
+        )
+        from src.notifier.telegram import TelegramNotifier, TelegramConfig
+        pm_pending = find_finished_matches_pending_postmortem(fixtures)
+        if pm_pending:
+            log.info("scheduler tick — %d postmortem(s) pendiente(s): %s", len(pm_pending), pm_pending)
+            try:
+                notifier = TelegramNotifier(TelegramConfig.from_env())
+            except Exception:
+                notifier = None
+            for mid in pm_pending:
+                try:
+                    report = compute_postmortem(mid)
+                    if not report:
+                        continue
+                    save_postmortem(report)
+                    if notifier:
+                        notifier.send_postmortem(report)
+                    log.info("Postmortem completado para match %s", mid)
+                except Exception:
+                    log.exception("error en postmortem | match=%s", mid)
+                    _notify_error("postmortem", f"match={mid}")
+    except Exception:
+        log.exception("error general en postmortem block")
+
+    if not pending and not _has_pending_postmortems(fixtures):
         log.info("scheduler tick — nada que hacer")
-        return 0
-    log.info("scheduler tick — %d tarea(s): %s", len(pending), pending)
-    for match_id, phase in pending:
-        try:
-            run_match_pipeline(match_id, phase)
-        except Exception:
-            log.exception("error corriendo pipeline | match=%s phase=%s", match_id, phase.value)
-            # TODO: notificar via Telegram.send_error
     return 0
+
+
+def _has_pending_postmortems(fixtures: dict) -> bool:
+    try:
+        from src.agent.postmortem import find_finished_matches_pending_postmortem
+        return bool(find_finished_matches_pending_postmortem(fixtures))
+    except Exception:
+        return False
+
+
+def _notify_error(context: str, detail: str) -> None:
+    """Best-effort Telegram alert on internal errors."""
+    try:
+        from src.notifier.telegram import TelegramNotifier, TelegramConfig
+        TelegramNotifier(TelegramConfig.from_env()).send_error(context, detail)
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":

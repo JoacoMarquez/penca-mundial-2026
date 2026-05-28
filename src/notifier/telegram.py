@@ -243,6 +243,50 @@ class TelegramNotifier:
         )
         self.send(text)
 
+    def send_postmortem(self, report: Any) -> int:
+        """Manda el postmortem de un partido finalizado."""
+        actual = f"{report.actual_home}-{report.actual_away}"
+        label = f"{report.home_team} vs {report.away_team}"
+
+        # Header
+        header = (
+            f"📋 <b>POSTMORTEM</b>\n"
+            f"⚽ {_esc(label)}  ·  <b>{_esc(actual)}</b>"
+        )
+
+        # Resultados por penca
+        sep = "━━━━━━━━━━━━━━━"
+        lines = [f"{sep}", "<b>🎯 Tus pencas</b>"]
+        for r in report.pencas_results:
+            emoji_pts = "🎉" if r.points_earned == 5 else ("✅" if r.points_earned >= 3 else ("〰️" if r.points_earned > 0 else "❌"))
+            human_obj = HUMAN_OBJECTIVE_LABELS.get(r.strategy_used, ("•", r.strategy_used))[1]
+            score_str = f"{r.predicted_score[0]}-{r.predicted_score[1]}"
+            lines.append(
+                f"  {emoji_pts} P{r.penca_id} {_esc(human_obj):<12}  pick {_esc(score_str)}  → <b>{r.points_earned} pts</b>"
+            )
+
+        # Pool comparison
+        pool_lines = [sep, "<b>📊 vs Pool</b>"]
+        if report.pool_top_points is not None:
+            pool_lines.append(
+                f"  Pool top: {report.pool_top_points}pts  ·  mediana: {report.pool_median_points:.0f}pts"
+            )
+        if report.our_best_rank_in_pool is not None:
+            pool_lines.append(f"  Mejor penca en pos. <b>{report.our_best_rank_in_pool}°</b>")
+        pool_lines.append(
+            f"  Mejor penca: {report.portfolio_max_points} pts  ·  suma: {report.portfolio_total_points} pts"
+        )
+
+        # Insights
+        insight_lines = []
+        if report.insights:
+            insight_lines = [sep, "<b>🧐 Análisis</b>"]
+            for ins in report.insights[:5]:
+                insight_lines.append(f"  · {ins}")
+
+        text = "\n".join([header] + lines + pool_lines + insight_lines)
+        return self.send(text)
+
     def send_error(self, context: str, error: str) -> None:
         """Texto plano (sin parse_mode) para garantizar entrega aun con caracteres raros."""
         text = f"❌ ERROR ({context})\n\n{error[:1500]}"
