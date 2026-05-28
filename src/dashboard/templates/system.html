@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% set current_page = "system" %}
+{% block title %}Sistema — Penca JMLM 2026{% endblock %}
+
+{% block content %}
+{% set h = data.health %}
+
+<h1 class="text-2xl lg:text-3xl font-bold mb-1">⚙️ Sistema</h1>
+<p class="text-sm text-slate-400 mb-5">Estado del agente, costos y métricas operacionales</p>
+
+{# Modo de operación #}
+<section class="bg-slate-800 rounded-xl p-5 shadow mb-4">
+  <div class="flex items-center justify-between">
+    <div>
+      <h2 class="text-sm uppercase tracking-wider text-slate-400">Modo</h2>
+      <p class="text-2xl font-bold mt-1">
+        {% if h.dry_run %}
+        <span class="text-yellow-400">🔧 DRY_RUN</span>
+        {% else %}
+        <span class="text-green-400">🟢 LIVE</span>
+        {% endif %}
+      </p>
+      <p class="text-xs text-slate-400 mt-1">
+        {% if h.dry_run %}No publica predicciones, solo loguea.{% else %}Publica automáticamente al T-30min.{% endif %}
+      </p>
+    </div>
+    {% if h.scheduler_last_log_uy %}
+    <div class="text-right">
+      <div class="text-xs uppercase tracking-wider text-slate-400">Último scheduler</div>
+      <div class="text-2xl font-bold mt-1">{{ h.scheduler_last_log_uy }}</div>
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+{# Costos #}
+<section class="bg-slate-800 rounded-xl p-5 shadow mb-4">
+  <h2 class="text-sm uppercase tracking-wider text-slate-400 mb-3">💵 Costos</h2>
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
+    <div class="bg-slate-900/40 rounded-lg p-4">
+      <div class="flex items-baseline justify-between">
+        <span class="text-xs text-slate-500">🧠 Anthropic (total)</span>
+        <span class="text-xs text-slate-500">{{ h.anthropic_calls_total }} calls</span>
+      </div>
+      <div class="text-3xl font-bold mt-1">${{ "%.4f"|format(h.anthropic_cost_total) }}</div>
+      <div class="text-xs text-slate-400 mt-1">${{ "%.4f"|format(h.anthropic_cost_24h) }} en 24h</div>
+    </div>
+    {% if h.do_month_to_date is defined and h.do_month_to_date is not none %}
+    <div class="bg-slate-900/40 rounded-lg p-4">
+      <div class="text-xs text-slate-500">🌊 DigitalOcean (mes)</div>
+      <div class="text-3xl font-bold mt-1">${{ "%.2f"|format(h.do_month_to_date) }}</div>
+      <div class="text-xs text-slate-400 mt-1">droplet $0.009/h prorrateado</div>
+    </div>
+    {% endif %}
+    <div class="bg-slate-900/40 rounded-lg p-4">
+      <div class="text-xs text-slate-500">📊 Total acumulado</div>
+      {% set total_cost = (h.anthropic_cost_total or 0) + (h.do_month_to_date or 0) %}
+      <div class="text-3xl font-bold mt-1">${{ "%.2f"|format(total_cost) }}</div>
+      <div class="text-xs text-slate-400 mt-1">Anthropic + DO</div>
+    </div>
+  </div>
+</section>
+
+{# Actividad del pipeline #}
+<section class="bg-slate-800 rounded-xl p-5 shadow mb-4">
+  <h2 class="text-sm uppercase tracking-wider text-slate-400 mb-3">📊 Pipeline</h2>
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div class="bg-slate-900/40 rounded-lg p-4">
+      <div class="text-xs text-slate-500">Predicciones (total)</div>
+      <div class="text-3xl font-bold mt-1">{{ h.predictions_total }}</div>
+    </div>
+    <div class="bg-slate-900/40 rounded-lg p-4">
+      <div class="text-xs text-slate-500">En últimas 24h</div>
+      <div class="text-3xl font-bold mt-1">{{ h.predictions_24h }}</div>
+    </div>
+    <div class="bg-slate-900/40 rounded-lg p-4">
+      <div class="text-xs text-slate-500">LLM calls totales</div>
+      <div class="text-3xl font-bold mt-1">{{ h.anthropic_calls_total }}</div>
+    </div>
+    <div class="bg-slate-900/40 rounded-lg p-4">
+      <div class="text-xs text-slate-500">$/llamada LLM</div>
+      <div class="text-3xl font-bold mt-1">
+        {% if h.anthropic_calls_total > 0 %}
+          ${{ "%.4f"|format(h.anthropic_cost_total / h.anthropic_calls_total) }}
+        {% else %}-{% endif %}
+      </div>
+    </div>
+  </div>
+</section>
+
+{# Endpoints y links útiles #}
+<section class="bg-slate-800 rounded-xl p-5 shadow">
+  <h2 class="text-sm uppercase tracking-wider text-slate-400 mb-3">🔧 Operación</h2>
+  <div class="space-y-2 text-sm">
+    <div class="flex items-center justify-between bg-slate-900/40 rounded-lg px-4 py-2">
+      <span>API endpoint (JSON)</span>
+      <code class="text-xs text-slate-400">/dash/&lt;token&gt;/api/data</code>
+    </div>
+    <div class="flex items-center justify-between bg-slate-900/40 rounded-lg px-4 py-2">
+      <span>VPS</span>
+      <code class="text-xs text-slate-400">68.183.52.166</code>
+    </div>
+    <div class="flex items-center justify-between bg-slate-900/40 rounded-lg px-4 py-2">
+      <span>Anthropic console</span>
+      <a href="https://console.anthropic.com/" target="_blank" class="text-xs text-indigo-400 hover:underline">console.anthropic.com →</a>
+    </div>
+    <div class="flex items-center justify-between bg-slate-900/40 rounded-lg px-4 py-2">
+      <span>DigitalOcean dashboard</span>
+      <a href="https://cloud.digitalocean.com/projects" target="_blank" class="text-xs text-indigo-400 hover:underline">cloud.digitalocean.com →</a>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

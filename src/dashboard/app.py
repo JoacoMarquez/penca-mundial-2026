@@ -1,6 +1,12 @@
-"""FastAPI dashboard — mobile-first, sin auth (URL secreta).
+"""FastAPI dashboard — multi-page, mobile-first + desktop full-width.
 
 Run local: uvicorn src.dashboard.app:app --host 0.0.0.0 --port 8000 --reload
+Páginas:
+    /dash/<token>/             → Próximo partido (home)
+    /dash/<token>/pencas/      → Tus 5 pencas vs pool
+    /dash/<token>/history/     → Postmortems
+    /dash/<token>/system/      → Health + costos
+    /dash/<token>/api/data     → JSON con todo (debug)
 """
 
 from __future__ import annotations
@@ -35,27 +41,52 @@ def _check_token(token: str) -> None:
 
 @app.get("/")
 def root():
-    """Root no expone nada — sirve solo como sanity check."""
     return {"status": "ok", "hint": "use /dash/<token>/"}
 
 
 @app.get("/dash/{token}/", response_class=HTMLResponse)
-def dashboard_html(request: Request, token: str):
+def page_home(request: Request, token: str):
     _check_token(token)
-    data = _gather()
+    data = {
+        "next_match": load_next_match_data(),
+        "health": load_system_health(),
+    }
     return templates.TemplateResponse(request, "index.html", {"data": data, "token": token})
 
 
-@app.get("/dash/{token}/api/data")
-def dashboard_data(token: str):
+@app.get("/dash/{token}/pencas/", response_class=HTMLResponse)
+def page_pencas(request: Request, token: str):
     _check_token(token)
-    return JSONResponse(_gather())
-
-
-def _gather() -> dict:
-    return {
-        "next_match": load_next_match_data(),
+    data = {
         "standings": load_my_pencas_standings(),
-        "postmortems": load_recent_postmortems(limit=5),
         "health": load_system_health(),
     }
+    return templates.TemplateResponse(request, "pencas.html", {"data": data, "token": token})
+
+
+@app.get("/dash/{token}/history/", response_class=HTMLResponse)
+def page_history(request: Request, token: str):
+    _check_token(token)
+    data = {
+        "postmortems": load_recent_postmortems(limit=20),
+        "health": load_system_health(),
+    }
+    return templates.TemplateResponse(request, "history.html", {"data": data, "token": token})
+
+
+@app.get("/dash/{token}/system/", response_class=HTMLResponse)
+def page_system(request: Request, token: str):
+    _check_token(token)
+    data = {"health": load_system_health()}
+    return templates.TemplateResponse(request, "system.html", {"data": data, "token": token})
+
+
+@app.get("/dash/{token}/api/data")
+def api_data(token: str):
+    _check_token(token)
+    return JSONResponse({
+        "next_match": load_next_match_data(),
+        "standings": load_my_pencas_standings(),
+        "postmortems": load_recent_postmortems(limit=20),
+        "health": load_system_health(),
+    })

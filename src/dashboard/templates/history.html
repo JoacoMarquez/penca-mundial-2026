@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% set current_page = "history" %}
+{% block title %}Historial — Penca JMLM 2026{% endblock %}
+
+{% block content %}
+{% set strategy_emoji = {'ev':'🎯', 'differentiated':'📊', 'tail':'⚡', 'upset':'😲', 'variance':'📈'} %}
+{% set strategy_label = {'ev':'Favorito', 'differentiated':'Diferencial', 'tail':'Goleada', 'upset':'Sorpresa', 'variance':'Varianza'} %}
+
+<h1 class="text-2xl lg:text-3xl font-bold mb-1">📋 Historial</h1>
+<p class="text-sm text-slate-400 mb-5">Postmortems de los partidos terminados</p>
+
+{% if not data.postmortems %}
+<section class="bg-slate-800 rounded-xl p-8 text-center text-slate-400">
+  Todavía no hay partidos terminados. Vas a ver acá el resumen automático
+  apenas se complete el primer partido del Mundial.
+</section>
+{% else %}
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+  {% for pm in data.postmortems %}
+  <article class="bg-slate-800 rounded-xl p-5 shadow">
+
+    {# Header con resultado #}
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <div class="text-xs uppercase tracking-wider text-slate-400">{{ pm.match_id }}</div>
+        <h3 class="text-lg font-bold mt-1">{{ pm.home_team }} <span class="text-slate-500">vs</span> {{ pm.away_team }}</h3>
+      </div>
+      <div class="text-3xl font-bold">{{ pm.final_score }}</div>
+    </div>
+
+    {# Resultados por penca #}
+    <div class="space-y-1 mb-4">
+      {% for r in pm.pencas_results %}
+      {% set obj = r.strategy_used %}
+      <div class="flex items-center justify-between text-sm bg-slate-900/40 rounded-lg px-3 py-1.5">
+        <span class="flex items-center gap-2">
+          {% if r.points_earned == 5 %}<span>🎉</span>
+          {% elif r.points_earned >= 3 %}<span>✅</span>
+          {% elif r.points_earned > 0 %}<span>〰️</span>
+          {% else %}<span class="opacity-50">❌</span>{% endif %}
+          <span class="text-slate-400 w-12 text-xs">P{{ r.penca_id }}</span>
+          <span>{{ strategy_emoji.get(obj, '•') }}</span>
+          <span class="text-slate-300">{{ strategy_label.get(obj, obj) }}</span>
+          <span class="text-slate-500 text-xs">pick {{ r.predicted_score[0] }}-{{ r.predicted_score[1] }}</span>
+        </span>
+        <span class="font-bold {% if r.points_earned >= 4 %}text-green-400{% elif r.points_earned >= 3 %}text-yellow-400{% endif %}">{{ r.points_earned }} pts</span>
+      </div>
+      {% endfor %}
+    </div>
+
+    {# Métricas #}
+    <div class="grid grid-cols-3 gap-2 text-center text-xs">
+      <div class="bg-slate-900/40 rounded-lg p-2">
+        <div class="text-slate-500">Mejor</div>
+        <div class="text-xl font-bold">{{ pm.portfolio_max_points }}</div>
+      </div>
+      <div class="bg-slate-900/40 rounded-lg p-2">
+        <div class="text-slate-500">Suma</div>
+        <div class="text-xl font-bold">{{ pm.portfolio_total_points }}</div>
+      </div>
+      <div class="bg-slate-900/40 rounded-lg p-2">
+        <div class="text-slate-500">Rank pool</div>
+        <div class="text-xl font-bold">
+          {% if pm.our_best_rank_in_pool %}{{ pm.our_best_rank_in_pool }}°{% else %}-{% endif %}
+        </div>
+      </div>
+    </div>
+
+    {# Insights #}
+    {% if pm.insights %}
+    <details class="mt-3">
+      <summary class="text-xs text-slate-400 cursor-pointer hover:text-slate-300">🧐 Insights ({{ pm.insights | length }})</summary>
+      <ul class="mt-2 space-y-1 text-xs text-slate-400">
+        {% for i in pm.insights %}
+        <li class="leading-relaxed">· {{ i | safe }}</li>
+        {% endfor %}
+      </ul>
+    </details>
+    {% endif %}
+  </article>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% endblock %}

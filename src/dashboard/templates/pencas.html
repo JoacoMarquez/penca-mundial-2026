@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% set current_page = "pencas" %}
+{% block title %}Pencas — Penca JMLM 2026{% endblock %}
+
+{% block content %}
+{% set s = data.standings %}
+{% set strategy_emoji = {'ev':'🎯', 'differentiated':'📊', 'tail':'⚡', 'upset':'😲', 'variance':'📈'} %}
+{% set strategy_label = {'ev':'Favorito', 'differentiated':'Diferencial', 'tail':'Goleada', 'upset':'Sorpresa', 'variance':'Varianza'} %}
+
+<h1 class="text-2xl lg:text-3xl font-bold mb-1">📊 Tus pencas</h1>
+{% if s.pool_size %}
+<p class="text-sm text-slate-400 mb-5">
+  Pool de {{ s.pool_size }} pencas
+  {% if s.pool_top %} · top {{ s.pool_top.points_total }}pts{% endif %}
+  · mediana {{ s.pool_median_points }}pts
+</p>
+{% endif %}
+
+{% if s.error %}
+<section class="bg-red-900/20 border border-red-700/40 rounded-xl p-5">
+  <p class="text-red-300">Error consultando leaderboard: {{ s.error }}</p>
+</section>
+
+{% elif s.pencas %}
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+  {% for p in s.pencas %}
+  <div class="bg-slate-800 rounded-xl p-5 shadow">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="text-3xl">
+          {% if p.rank == 1 %}🥇{% elif p.rank == 2 %}🥈{% elif p.rank == 3 %}🥉{% else %}<span class="text-slate-500 font-mono text-2xl">{{ p.rank }}°</span>{% endif %}
+        </div>
+        <div class="min-w-0">
+          <div class="font-bold text-lg truncate">{{ p.penca_name }}</div>
+          <div class="text-xs text-slate-400">ID {{ p.penca_id }}</div>
+        </div>
+      </div>
+      <div class="text-right">
+        <div class="text-3xl font-bold">{{ p.points }}<span class="text-sm text-slate-500 ml-1">pts</span></div>
+      </div>
+    </div>
+
+    <div class="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
+      <div class="bg-slate-900/50 rounded-lg p-2">
+        <div class="text-yellow-400 font-bold text-lg">{{ p.exact_scores }}<span class="text-yellow-500 text-xs">★</span></div>
+        <div class="text-slate-500">marcador</div>
+      </div>
+      <div class="bg-slate-900/50 rounded-lg p-2">
+        <div class="text-green-400 font-bold text-lg">{{ p.correct_winners }}<span class="text-green-500 text-xs">✓</span></div>
+        <div class="text-slate-500">ganador</div>
+      </div>
+      <div class="bg-slate-900/50 rounded-lg p-2">
+        <div class="font-bold text-lg">{{ p.predictions_made }}</div>
+        <div class="text-slate-500">predichas</div>
+      </div>
+    </div>
+
+    {% if p.next_strategy %}
+    <div class="mt-4 bg-indigo-900/30 border border-indigo-700/40 rounded-lg p-3 text-sm">
+      <span class="text-indigo-300 text-xs uppercase tracking-wider">Próximo partido</span>
+      <div class="mt-1 flex items-center gap-2">
+        <span class="text-xl">{{ strategy_emoji.get(p.next_strategy, '•') }}</span>
+        <span class="font-medium">{{ strategy_label.get(p.next_strategy, p.next_strategy) }}</span>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+{# Resumen del portfolio #}
+<section class="mt-6 bg-slate-800 rounded-xl p-5 shadow">
+  <h2 class="text-sm uppercase tracking-wider text-slate-400 mb-3">Portfolio</h2>
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 text-center">
+    <div class="bg-slate-900/50 rounded-lg p-3">
+      <div class="text-xs text-slate-400">Mejor penca</div>
+      <div class="text-xl font-bold">{{ s.pencas | map(attribute='points') | max }}<span class="text-xs text-slate-500 ml-1">pts</span></div>
+    </div>
+    <div class="bg-slate-900/50 rounded-lg p-3">
+      <div class="text-xs text-slate-400">Promedio</div>
+      <div class="text-xl font-bold">{{ ((s.pencas | map(attribute='points') | sum) / (s.pencas | length)) | round(1) }}<span class="text-xs text-slate-500 ml-1">pts</span></div>
+    </div>
+    <div class="bg-slate-900/50 rounded-lg p-3">
+      <div class="text-xs text-slate-400">Total exactos</div>
+      <div class="text-xl font-bold text-yellow-400">{{ s.pencas | map(attribute='exact_scores') | sum }}</div>
+    </div>
+    <div class="bg-slate-900/50 rounded-lg p-3">
+      <div class="text-xs text-slate-400">Total ganadores</div>
+      <div class="text-xl font-bold text-green-400">{{ s.pencas | map(attribute='correct_winners') | sum }}</div>
+    </div>
+  </div>
+</section>
+
+{% else %}
+<section class="bg-slate-800 rounded-xl p-8 text-center text-slate-400">
+  Sin data de pencas todavía. Las pencas aparecen acá cuando el leaderboard tenga entries.
+</section>
+{% endif %}
+
+{% endblock %}
