@@ -116,6 +116,91 @@ def _load_latest_dossier(match_id: Any) -> dict | None:
     return json.loads(files[-1].read_text())
 
 
+# ---------- matches agrupados por día ----------
+
+def load_matches_by_day(days_back: int = 2, days_ahead: int = 21) -> list[dict]:
+    """Devuelve lista de días con sus partidos. Cada partido tiene picks/resultado si aplica.
+
+    Returns: [{"date_uy": "Jue 11/06", "iso_date": "2026-06-11", "is_today": bool, "matches": [...]}, ...]
+    """
+    import yaml
+    try:
+        fixtures_path = Path(__file__).resolve().parents[2] / "config" / "fixtures.yaml"
+        fixtures = yaml.safe_load(fixtures_path.read_text()) or {}
+    except Exception:
+        return []
+
+    all_matches = (fixtures.get("fase_grupos") or []) + (fixtures.get("eliminatorias") or [])
+    now = datetime.now(timezone.utc)
+    cutoff_back = now - timedelta(days=days_back)
+    cutoff_ahead = now + timedelta(days=days_ahead)
+
+    by_day: dict[str, dict] = {}
+    for m in all_matches:
+        if not m.get("kickoff_utc"):
+            continue
+        try:
+            ko = datetime.fromisoformat(m["kickoff_utc"].replace("Z", "+00:00"))
+        except Exception:
+            continue
+        if ko < cutoff_back or ko > cutoff_ahead:
+            continue
+        ko_uy = ko - timedelta(hours=3)
+        iso_date = ko_uy.strftime("%Y-%m-%d")
+        if iso_date not in by_day:
+            by_day[iso_date] = {
+                "iso_date": iso_date,
+                "date_uy": ko_uy.strftime("%a %d/%m"),
+                "is_today": iso_date == (now - timedelta(hours=3)).strftime("%Y-%m-%d"),
+                "matches": [],
+            }
+        # Status
+        if ko > now + timedelta(minutes=2):
+            status = "upcoming"
+        elif ko + timedelta(minutes=150) > now:
+            status = "live"
+        else:
+            status = "finished"
+
+        # Cargar predicción más reciente (si hay)
+        pred = _load_latest_prediction(m["id"])
+        assignment = pred.get("assignment") if pred else None
+
+        # Postmortem (si terminó)
+        pm = None
+        if status == "finished":
+            pm_path = _data_dir() / "postmortems" / f"{m['id']}.json"
+            if pm_path.exists():
+                try:
+                    pm = json.loads(pm_path.read_text())
+                except Exception:
+                    pm = None
+
+        by_day[iso_date]["matches"].append({
+            "match_id": m["id"],
+            "home": m.get("home_name") or m.get("home", "?"),
+            "away": m.get("away_name") or m.get("away", "?"),
+            "kickoff_utc": m["kickoff_utc"],
+            "kickoff_uy_time": ko_uy.strftime("%H:%M"),
+            "status": status,
+            "group": m.get("group"),
+            "stage": m.get("stage", "?"),
+            "venue": m.get("venue"),
+            "assignment": assignment,
+            "postmortem": {
+                "final_score": pm.get("final_score"),
+                "portfolio_max_points": pm.get("portfolio_max_points"),
+                "portfolio_total_points": pm.get("portfolio_total_points"),
+            } if pm else None,
+        })
+
+    # Ordenar por iso_date y dentro de cada día por kickoff
+    days_sorted = sorted(by_day.values(), key=lambda d: d["iso_date"])
+    for d in days_sorted:
+        d["matches"].sort(key=lambda m: m["kickoff_uy_time"])
+    return days_sorted
+
+
 # ---------- pencas ranking vs pool ----------
 
 def load_my_pencas_standings() -> dict[str, Any]:
