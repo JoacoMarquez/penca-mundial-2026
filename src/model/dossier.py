@@ -149,6 +149,32 @@ def _compute_rest_days(
     return (target_kickoff_utc - last).days
 
 
+# Países anfitriones del Mundial 2026 — para determinar ventaja de localía
+HOST_NATIONS_BY_CODE: dict[str, set[str]] = {
+    "MEX": {"México", "Mexico"},
+    "USA": {"USA", "United States", "Estados Unidos", "EE.UU."},
+    "CAN": {"Canadá", "Canada"},
+}
+
+
+def _determine_home_status(home_code: str, away_code: str, venue_country: str | None) -> str:
+    """Devuelve 'home' | 'away' | 'neutral'.
+
+    - 'home' si el local juega en una sede de su país.
+    - 'away' si por algún motivo el visitante juega en su país (raro).
+    - 'neutral' en todos los demás casos (mayoría de partidos del Mundial).
+    """
+    if not venue_country:
+        return "neutral"
+    home_countries = HOST_NATIONS_BY_CODE.get(home_code, set())
+    if venue_country in home_countries:
+        return "home"
+    away_countries = HOST_NATIONS_BY_CODE.get(away_code, set())
+    if venue_country in away_countries:
+        return "away"
+    return "neutral"
+
+
 def _importance_score(stage: str) -> float:
     mapping = {
         "group": 0.55,
@@ -317,7 +343,7 @@ def build_dossier(
         venue_country=venue_data.get("country"),
         venue_elevation_m=venue_data.get("elevation_m"),
         venue_indoor=venue_data.get("indoor"),
-        home_advantage_status="neutral" if venue_data.get("country") not in (home_meta.get("country"), None) else "home",
+        home_advantage_status=_determine_home_status(home_code, away_code, venue_data.get("country")),
         home=home_profile,
         away=away_profile,
         rest_days_home=rest_home,
@@ -413,6 +439,71 @@ def dossier_to_llm_context_text(dossier: MatchDossier) -> str:
         lines.append("--- FLAGS A REVISAR ---")
         for f in dossier.info_edge_flags:
             lines.append(f"  ⚠️ {f}")
+
+    return "\n".join(lines)
+
+
+def dossier_to_telegram_summary(dossier: MatchDossier) -> str:
+    """Versión compacta del dossier para incluir en mensajes de Telegram (HTML mode).
+
+    Limita a las señales más útiles para el ojo humano. Si una sección no aplica, la omite.
+    """
+    import html
+    def esc(s: Any) -> str:
+        return html.escape(str(s), quote=False)
+
+    lines = []
+
+    # Sede + altura/indoor
+    if dossier.venue_name:
+        sede = dossier.venue_name
+        if dossier.venue_city:
+            sede += f", {dossier.venue_city}"
+        flags = []
+        if dossier.venue_elevation_m and dossier.venue_elevation_m > 1500:
+            flags.append(f"⛰️ {dossier.venue_elevation_m}m")
+        if dossier.venue_indoor:
+            flags.append("🏟 indoor")
+        if dossier.home_advantage_status == "home":
+            flags.append("🏠 local-host")
+        elif dossier.home_advantage_status == "neutral":
+            flags.append("⚖️ neutral")
+        flags_str = "  ·  ".join(flags)
+        lines.append(f"📍 {esc(sede)}" + (f"  ·  {esc(flags_str)}" if flags_str else ""))
+
+    # Forma reciente
+    form_parts = []
+    if dossier.home.recent_form:
+        form_parts.append(f"{esc(dossier.home.name)}: <b>{esc(dossier.home.recent_form)}</b>")
+    if dossier.away.recent_form:
+        form_parts.append(f"{esc(dossier.away.name)}: <b>{esc(dossier.away.recent_form)}</b>")
+    if form_parts:
+        lines.append(f"📊 Forma: {'  ·  '.join(form_parts)}")
+
+    # Descanso
+    if dossier.rest_days_home is not None or dossier.rest_days_away is not None:
+        rh = f"{dossier.rest_days_home}d" if dossier.rest_days_home is not None else "?"
+        ra = f"{dossier.rest_days_away}d" if dossier.rest_days_away is not None else "?"
+        lines.append(f"😴 Descanso: home {esc(rh)}  ·  away {esc(ra)}")
+
+    # Bajas reportadas
+    abs_h = dossier.home.reported_absences[:3]
+    abs_a = dossier.away.reported_absences[:3]
+    if abs_h or abs_a:
+        if abs_h:
+            lines.append(f"🩹 <b>{esc(dossier.home.name)}</b> bajas: {esc(', '.join(abs_h))}")
+        if abs_a:
+            lines.append(f"🩹 <b>{esc(dossier.away.name)}</b> bajas: {esc(', '.join(abs_a))}")
+
+    # Info edge flags
+    if dossier.info_edge_flags:
+        lines.append("⚠️ <b>Señales a revisar:</b>")
+        for f in dossier.info_edge_flags[:3]:
+            lines.append(f"   · {esc(f[:140])}")
+
+    # Sources
+    if dossier.sources_used:
+        lines.append(f"<i>📡 fuentes: {esc(', '.join(dossier.sources_used))}</i>")
 
     return "\n".join(lines)
 

@@ -214,6 +214,7 @@ class PipelineRun:
     assignment: list[dict[str, Any]] | None = None
     assignment_meta: dict[str, Any] | None = None
     tipster_consensus: dict[str, Any] | None = None
+    dossier_summary_text: str | None = None    # versión resumida del dossier para Telegram
 
 
 def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
@@ -314,6 +315,9 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
             except Exception as e:
                 log.warning("save_dossier_json falló: %s", e)
             structured_context = dossier_to_llm_context_text(dossier)
+            # Versión compacta para Telegram (HTML)
+            from src.model.dossier import dossier_to_telegram_summary
+            dossier_summary_for_telegram = dossier_to_telegram_summary(dossier)
 
             ctx = MatchContext(
                 home_team=dossier.home.name,
@@ -426,6 +430,7 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
         ],
         assignment_meta=assignment_meta or None,
         tipster_consensus=tipster_consensus,
+        dossier_summary_text=locals().get("dossier_summary_for_telegram"),
     )
     output_path.write_text(json.dumps(asdict(run), indent=2, default=str))
     log.info("pipeline DONE | v=%d wrote=%s", version, output_path)
@@ -502,6 +507,7 @@ def _notify_and_publish(
             qualitative=run.qualitative_adjustment,
             assignment_meta=run.assignment_meta,
             tipster_consensus=run.tipster_consensus,
+            dossier_summary=run.dossier_summary_text,
         )
 
     elif phase == Phase.T_3H and notifier:

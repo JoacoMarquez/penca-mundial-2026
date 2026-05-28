@@ -110,6 +110,7 @@ class TelegramNotifier:
         phase_label: str = "T-24h",
         assignment_meta: dict | None = None,
         tipster_consensus: dict | None = None,
+        dossier_summary: str | None = None,
     ) -> int:
         """Primer aviso del partido, 24h antes (o etiqueta personalizable)."""
         fav_pct, fav_side = _favorite(model_summary)
@@ -165,6 +166,11 @@ class TelegramNotifier:
 
         sep = "━━━━━━━━━━━━━━━"
         parts = [header, sep, picks_block]
+
+        # Ficha del partido (dossier resumido)
+        if dossier_summary:
+            parts.append(sep)
+            parts.append(f"<b>📋 Ficha del partido</b>\n{dossier_summary}")
 
         # Consenso de tipsters (si encontró alguno)
         if tipster_consensus and tipster_consensus.get("n_tipsters_picked", 0) > 0:
