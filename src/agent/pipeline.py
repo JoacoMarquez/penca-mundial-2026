@@ -29,12 +29,13 @@ from src.model.market_probs import BookQuote, aggregate, devig
 from src.model.poisson import MarketConstraints, fit_params, marginals, score_grid
 from src.model.qualitative import MatchContext, adjust_with_llm, apply_to_lambdas
 from src.notifier.telegram import TelegramConfig, TelegramNotifier
-from src.strategy.portfolio import PortfolioResult, generate_portfolio
+from src.strategy.portfolio import (
+    PortfolioResult, generate_portfolio, generate_candidates, picks_to_dicts,
+)
 from src.strategy.assignment import (
     fetch_my_pencas_standings,
     fetch_pool_top_k_threshold,
-    optimal_assignment,
-    optimal_assignment_p_top_k,
+    greedy_assignment,
 )
 from src.publisher.penca_api import (
     PredictionPayload,
@@ -408,17 +409,32 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
         pool_config=PoolModelConfig(),
     )
 
-    # 4b. Asignación adaptativa: penca con más puntos → estrategia más conservadora
+    # 4b. Asignación adaptativa a N pencas (voraz, con repetición/exposición).
+    #     Penca líder → ancla conservadora; las demás cubren outcomes aún no ganados.
     from src.utils.env import get_int_list
     penca_ids = get_int_list("PENCA_IDS")
     standings = fetch_my_pencas_standings(
         api_base_url=os.environ.get("PENCA_API_BASE_URL", ""),
         api_key=os.environ.get("PENCA_API_KEY", ""),
         my_penca_ids=penca_ids,
-    ) if len(penca_ids) == 5 else {}
+    ) if penca_ids else {}
     assignment_list: list[tuple[int, dict, int | None]] = []
     assignment_meta: dict[str, Any] = {}
-    if len(penca_ids) == 5:
+    if penca_ids:
+        # Menú de candidatos: cap chico a propósito. Con el objetivo e_max (sin datos de
+        # pool, ej. primera fecha) un menú grande hace que el voraz gaste pencas en
+        # marcadores absurdos (4-3, 4-2) para "cubrir" colas de muchos goles. 8 cubre lo
+        # sensato sin diluir. Tunear con Monte Carlo del pool cuando esté.
+        max_candidates = int(os.environ.get("PENCA_MAX_CANDIDATES", "10"))
+        candidate_dicts = picks_to_dicts(
+            generate_candidates(
+                grid,
+                market_p_home=constraints.p_home_win,
+                market_p_away=constraints.p_away_win,
+                pool_config=PoolModelConfig(),
+                max_candidates=max_candidates,
+            )
+        )
         try:
             from src.meta.pool import pool_pick_distribution, PoolModelConfig as _PC
             pool_q_for_assignment = pool_pick_distribution(grid, _PC())
@@ -427,17 +443,20 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
                 api_key=os.environ.get("PENCA_API_KEY", ""),
                 k=3,
             )
-            log.info("Asignación: pool top-3 threshold=%s", top_k_threshold)
-            assignment_list, assignment_meta = optimal_assignment_p_top_k(
-                portfolio.to_dict()["picks"], penca_ids, grid, standings,
+            log.info(
+                "Asignación: %d pencas, %d candidatos, pool top-3 threshold=%s",
+                len(penca_ids), len(candidate_dicts), top_k_threshold,
+            )
+            assignment_list, assignment_meta = greedy_assignment(
+                candidate_dicts, penca_ids, grid, standings,
                 pool_top_k_threshold=top_k_threshold,
                 pool_q=pool_q_for_assignment,
             )
         except Exception as e:
-            log.exception("optimal_assignment falló, usando mapeo fijo: %s", e)
+            log.exception("greedy_assignment falló, usando mapeo cíclico: %s", e)
             assignment_list = [
-                (pid, pick, None)
-                for pid, pick in zip(penca_ids, portfolio.to_dict()["picks"])
+                (pid, candidate_dicts[i % len(candidate_dicts)], None)
+                for i, pid in enumerate(penca_ids)
             ]
 
     # 5. Persistir versionado
@@ -523,19 +542,10 @@ def _notify_and_publish(
     }
     picks = run.portfolio["picks"]
 
-    # Anotar picks con info de asignación (penca_id real, rank entre tus pencas)
-    if run.assignment:
-        assigned_by_obj = {a["objective"]: a for a in run.assignment}
-        picks_annotated = []
-        for p in picks:
-            assignment_info = assigned_by_obj.get(p["objective"])
-            ann = dict(p)
-            if assignment_info:
-                ann["assigned_penca_id"] = assignment_info["penca_id"]
-                ann["assigned_rank"] = assignment_info["rank"]
-            picks_annotated.append(ann)
-    else:
-        picks_annotated = list(picks)
+    # Menú de picks (objetivos canónicos) para la notif. Con N pencas la asignación real
+    # es con repetición, así que la exposición por marcador va en assignment_meta["exposure"]
+    # en vez de anotar 1:1 cada pick con una penca.
+    picks_annotated = list(picks)
 
     if phase == Phase.T_24H and notifier:
         notifier.send_t24h_picks(
@@ -577,7 +587,7 @@ def _notify_and_publish(
             log.warning("Sin asignación — skip publish")
 
         if notifier:
-            notifier.send_lockin(label, picks_annotated)
+            notifier.send_lockin(label, picks_annotated, assignment_meta=run.assignment_meta)
 
 
 def _last_picks_from_predictions(match_id: str, exclude_version: int) -> list[dict] | None:

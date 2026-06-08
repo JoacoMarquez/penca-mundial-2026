@@ -24,9 +24,27 @@
 
 {% else %}
 
+{# ----------- Exposición agregada ----------- #}
+{% if m.exposure %}
+<section class="bg-slate-800 rounded-xl p-5 shadow mb-5">
+  <h2 class="text-sm uppercase tracking-wider text-slate-400 mb-3">📋 Exposición — {{ m.total_pencas }} pencas</h2>
+  <div class="space-y-1.5">
+    {% for e in m.exposure %}
+    <div class="flex items-center gap-3 bg-slate-900/40 rounded-lg px-4 py-2.5">
+      <span class="font-bold text-2xl w-20">{{ e.score.split('-')[0] }}<span class="text-slate-500 mx-1">-</span>{{ e.score.split('-')[1] }}</span>
+      <div class="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden">
+        <div class="h-full bg-emerald-500" style="width: {{ (e.count / m.total_pencas * 100) | round(0, 'common') | int }}%"></div>
+      </div>
+      <span class="text-sm text-slate-300 w-16 text-right">×{{ e.count }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
 {# ----------- Razón por penca ----------- #}
 <section class="bg-slate-800 rounded-xl p-5 shadow mb-5">
-  <h2 class="text-sm uppercase tracking-wider text-slate-400 mb-1">🎯 Decisión por penca</h2>
+  <h2 class="text-sm uppercase tracking-wider text-slate-400 mb-1">🎯 Decisión por penca{% if m.total_pencas %} <span class="text-slate-500 normal-case font-normal">({{ m.total_pencas }})</span>{% endif %}</h2>
   {% if m.latest_meta and m.latest_meta.objective == 'p_top_k' %}
   <p class="text-xs text-slate-500 mb-4">Objetivo: maximizar P(top-3) — actualmente {{ (m.latest_meta.p_top_k_value * 100) | round(1) }}% · cutoff {{ m.latest_meta.threshold }}pts</p>
   {% endif %}
