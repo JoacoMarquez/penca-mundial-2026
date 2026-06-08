@@ -331,6 +331,92 @@ def generate_portfolio(
     return PortfolioResult(picks=picks)
 
 
+def _metric_to_pick(objective: str, m: dict, grid: np.ndarray) -> PickWithMetrics:
+    gL, gV = m["pick"]
+    return PickWithMetrics(
+        score_local=gL,
+        score_visit=gV,
+        objective=objective,
+        e_points=m["e_points"],
+        e_pool_points=m["e_pool_points"],
+        uplift=m["uplift"],
+        variance=m["variance"],
+        pool_popularity=m["pool_popularity"],
+        p_scoreline=m.get("p_scoreline", float(grid[gL, gV])),
+    )
+
+
+def picks_to_dicts(picks: list[PickWithMetrics]) -> list[dict]:
+    """Serializa picks a dicts con `score`/`objective` para el asignador."""
+    return [
+        {
+            "objective": p.objective,
+            "score": [p.score_local, p.score_visit],
+            "e_points": p.e_points,
+            "e_pool_points": p.e_pool_points,
+            "uplift": p.uplift,
+            "variance": p.variance,
+            "pool_popularity": p.pool_popularity,
+            "p_scoreline": p.p_scoreline,
+        }
+        for p in picks
+    ]
+
+
+def generate_candidates(
+    grid: np.ndarray,
+    market_p_home: float,
+    market_p_away: float,
+    pool_config: PoolModelConfig | None = None,
+    points_rule=jmlm_points,
+    max_candidates: int = 8,
+) -> list[PickWithMetrics]:
+    """Menú de scorelines DISTINTAS para alimentar el asignador a N pencas.
+
+    No es "una pick por penca": es el conjunto de candidatos sensatos (los 5 objetivos
+    canónicos + alternativas por EV) sobre el que el asignador reparte las N pencas CON
+    repetición. La diversidad del portfolio vive a lo largo de los partidos (exposición),
+    no forzando N marcadores distintos en un mismo partido (no existen tantos sensatos).
+
+    Devuelve entre 1 y `max_candidates` picks distintas, ordenadas por prioridad
+    (ev primero → alternativas al final).
+    """
+    if pool_config is None:
+        pool_config = PoolModelConfig()
+    pool_q = pool_pick_distribution(grid, pool_config)
+    metrics = all_picks_with_metrics(grid, pool_q, points_rule)
+
+    chosen: list[tuple[str, dict]] = []
+    used: set[tuple[int, int]] = set()
+
+    def _add(objective: str, m: dict | None) -> None:
+        if m is None or m["pick"] in used:
+            return
+        chosen.append((objective, m))
+        used.add(m["pick"])
+
+    _add("ev", pick_ev(metrics))
+    _add("differentiated", pick_differentiated(metrics, excluded=set(used)))
+    _add("tail", pick_tail(grid, pool_q, points_rule=points_rule, excluded=set(used)))
+
+    m4 = pick_upset(metrics, market_p_home, market_p_away)
+    if m4["pick"] in used:
+        ev_winner = winner_of(chosen[0][1]["pick"]) if chosen else None
+        alt = [d for d in metrics if d["pick"] not in used and winner_of(d["pick"]) != ev_winner]
+        m4 = alt[0] if alt else None
+    _add("upset", m4)
+
+    _add("variance", pick_variance_diversified(metrics, set(used)))
+
+    # Rellenar con alternativas por EV hasta max_candidates
+    for m in metrics:
+        if len(chosen) >= max_candidates:
+            break
+        _add("alt", m)
+
+    return [_metric_to_pick(obj, m, grid) for obj, m in chosen[:max_candidates]]
+
+
 if __name__ == "__main__":
     # Smoke: España vs Cabo Verde
     from src.model.poisson import score_grid, marginals

@@ -106,14 +106,20 @@ def main() -> int:
             print("\n--- ⚠️ Odds anomaly detectada ---")
             print(json.dumps(d["odds_anomaly"], indent=2))
 
-        print("\n--- Portfolio (5 picks) ---")
+        print("\n--- Portfolio (menú de objetivos) ---")
         for p in d.get("portfolio", {}).get("picks", []):
             print(f"  [{p.get('objective'):<14}] {p.get('score')[0]}-{p.get('score')[1]}  "
-                  f"E[pts]={_f(p.get('e_points'))}  Var={_f(p.get('var_points'))}")
+                  f"E[pts]={_f(p.get('e_points'))}  Var={_f(p.get('variance'))}  pop={_f(p.get('pool_popularity'))}")
 
         print("\n--- Asignación por penca ---")
         for a in d.get("assignment", []):
             print(f"  penca={a['penca_id']}  rank={a.get('rank')}  → {a['objective']} {a['score']}")
+
+        meta_exp = (d.get("assignment_meta") or {}).get("exposure")
+        if meta_exp:
+            print("\n--- Exposición por marcador ---")
+            for score, count in sorted(meta_exp.items(), key=lambda kv: (-kv[1], kv[0])):
+                print(f"  {score}  ×{count}")
 
         meta = d.get("assignment_meta") or {}
         if meta:

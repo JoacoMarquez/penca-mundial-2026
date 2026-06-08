@@ -238,7 +238,12 @@ STRATEGY_RATIONALE: dict[str, str] = {
 }
 
 
-def _assignment_reason(penca_rank: int | None, objective: str, assignment_meta: dict) -> str:
+def _assignment_reason(
+    penca_rank: int | None,
+    objective: str,
+    assignment_meta: dict,
+    total_pencas: int | None = None,
+) -> str:
     """Por qué a esta penca le tocó esta estrategia en esta pasada."""
     obj_label = {
         "ev": "Favorito 🎯",
@@ -251,22 +256,23 @@ def _assignment_reason(penca_rank: int | None, objective: str, assignment_meta: 
     if not penca_rank:
         return f"Estrategia: {obj_label} (sin ranking aún)."
 
-    pos = f"rank {penca_rank}"
+    pos = f"rank {penca_rank}" + (f" de {total_pencas}" if total_pencas else "")
+    base_obj = (assignment_meta or {}).get("objective", "")
+    goal = "maximizar P(top-3)" if base_obj.startswith("p_top_k") else "maximizar E[máximo del portfolio]"
+
     if penca_rank == 1:
         return (
-            f"Penca actualmente {pos} (puntera). "
-            f"Recibe {obj_label} porque el optimizer maximiza P(top-3) y, dada su ventaja, "
-            "asignarle el marcador más sólido preserva la posición."
+            f"Penca {pos} (puntera). Recibe {obj_label}: el optimizer voraz ({goal}) le da "
+            "una pick sólida para preservar la ventaja."
         )
-    if penca_rank == 5:
+    if total_pencas and penca_rank == total_pencas:
         return (
-            f"Penca {pos} (última). "
-            f"Recibe {obj_label}: el optimizer detectó que necesita una jugada con mayor varianza "
-            "para tener chance real de remontar al cutoff de top-3."
+            f"Penca {pos} (última). Recibe {obj_label}: el optimizer la usa para cubrir un "
+            "escenario que las demás pencas no cubren, buscando que alguna llegue al cutoff."
         )
     return (
-        f"Penca {pos}. Recibe {obj_label} porque la combinación de su score actual + esa estrategia "
-        "es la que más aporta al objetivo global de meter a alguna penca en top-3."
+        f"Penca {pos}. Recibe {obj_label}: es la pick que más aporta al objetivo global "
+        f"({goal}) dado lo que ya cubren las otras pencas."
     )
 
 
@@ -331,12 +337,23 @@ def load_match_detail(match_id) -> dict | None:
         return None
 
     latest = versions[-1]
-    # Construir lista de pencas con razón por estrategia
-    portfolio_picks = {p["objective"]: p for p in (latest.get("portfolio") or {}).get("picks", [])}
+    # Construir lista de pencas con razón por estrategia.
+    # Con N pencas hay objetivos repetidos (ev×k, alt×k) → mapeamos métricas por MARCADOR
+    # (que identifica único la pick), con fallback por objetivo.
+    menu = (latest.get("portfolio") or {}).get("picks", [])
+    portfolio_by_obj = {p["objective"]: p for p in menu}
+    portfolio_by_score = {
+        f'{p["score"][0]}-{p["score"][1]}': p for p in menu
+    }
+    latest_assignment = latest.get("assignment") or []
+    total_pencas = len(latest_assignment)
+    latest_meta = latest.get("assignment_meta") or {}
+
     current_pencas = []
-    for a in latest.get("assignment") or []:
+    for a in latest_assignment:
         obj = a["objective"]
-        pick_metrics = portfolio_picks.get(obj, {})
+        score_key = f'{a["score"][0]}-{a["score"][1]}'
+        pick_metrics = portfolio_by_score.get(score_key) or portfolio_by_obj.get(obj, {})
         current_pencas.append({
             "penca_id": a["penca_id"],
             "rank": a.get("rank"),
@@ -345,9 +362,19 @@ def load_match_detail(match_id) -> dict | None:
             "p_scoreline": pick_metrics.get("p_scoreline"),
             "e_points": pick_metrics.get("e_points"),
             "pool_popularity": pick_metrics.get("pool_popularity"),
-            "assignment_reason": _assignment_reason(a.get("rank"), obj, latest.get("assignment_meta") or {}),
+            "assignment_reason": _assignment_reason(a.get("rank"), obj, latest_meta, total_pencas),
             "strategy_rationale": _strategy_rationale_for_pick(obj, pick_metrics),
         })
+
+    # Exposición agregada por marcador (cuántas pencas en cada scoreline), orden por frecuencia.
+    from collections import Counter
+    exposure_counter = Counter(
+        f'{a["score"][0]}-{a["score"][1]}' for a in latest_assignment
+    )
+    exposure = [
+        {"score": s, "count": c}
+        for s, c in sorted(exposure_counter.items(), key=lambda kv: (-kv[1], kv[0]))
+    ]
 
     # Resumen por versión (timeline)
     timeline = []
@@ -431,9 +458,11 @@ def load_match_detail(match_id) -> dict | None:
         "group": match_meta.get("group"),
         "stage": match_meta.get("stage", "?"),
         "latest_constraints": latest.get("constraints", {}),
-        "latest_meta": latest.get("assignment_meta") or {},
+        "latest_meta": latest_meta,
         "latest_qualitative": latest.get("qualitative_adjustment") or {},
         "current_pencas": current_pencas,
+        "total_pencas": total_pencas,
+        "exposure": exposure,
         "timeline": timeline,
         "diffs": diffs,
     }

@@ -52,7 +52,7 @@ def test_marginals_1x2_complete():
     ((1, 0), (2, 0), 4),   # ganador local correcto + goles visit correctos (ambos eran 0)
     ((3, 1), (2, 0), 3),   # solo ganador (ambos local)
     ((1, 1), (2, 2), 3),   # ambos empate
-    ((0, 2), (1, 2), 1),   # goles visit correctos pero perdió la wd
+    ((2, 2), (1, 2), 1),   # goles visit correctos (2) pero ganador equivocado (empate vs visitante)
     ((0, 0), (1, 2), 0),   # nada
 ])
 def test_jmlm_points(pick, actual, expected):

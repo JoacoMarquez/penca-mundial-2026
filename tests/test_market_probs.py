@@ -30,13 +30,16 @@ def test_devig_shin_sums_to_one():
 
 
 def test_devig_shin_vs_proportional_favorite_bias():
-    """Shin debería dar prob ligeramente MENOR al favorito que proportional
-    (Shin descuenta por insider traders que apuestan al fav)."""
+    """Shin corrige el favorite-longshot bias: da prob MAYOR al favorito y MENOR al
+    longshot que proportional (los insiders apuestan al fav → su cuota subestima la prob real)."""
     odds = {"H": 1.50, "D": 4.00, "A": 7.00}  # favorito fuerte
     p_prop = devig_proportional(odds)
     p_shin = devig_shin(odds)
-    assert p_shin["H"] < p_prop["H"], (
-        f"Shin debería bajar el favorito vs proportional: shin={p_shin['H']:.3f} prop={p_prop['H']:.3f}"
+    assert p_shin["H"] > p_prop["H"], (
+        f"Shin debería subir el favorito vs proportional: shin={p_shin['H']:.3f} prop={p_prop['H']:.3f}"
+    )
+    assert p_shin["A"] < p_prop["A"], (
+        f"Shin debería bajar el longshot vs proportional: shin={p_shin['A']:.3f} prop={p_prop['A']:.3f}"
     )
 
 

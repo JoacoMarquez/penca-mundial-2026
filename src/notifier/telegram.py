@@ -167,6 +167,12 @@ class TelegramNotifier:
         sep = "━━━━━━━━━━━━━━━"
         parts = [header, sep, picks_block]
 
+        # Exposición real por marcador (N pencas con repetición)
+        exposure_block = _exposure_block(assignment_meta)
+        if exposure_block:
+            parts.append(sep)
+            parts.append(exposure_block)
+
         # Ficha del partido (dossier resumido)
         if dossier_summary:
             parts.append(sep)
@@ -229,8 +235,27 @@ class TelegramNotifier:
             lines.append(f"  P{c['penca_index']}: {old} → <b>{new_}</b>  <i>{reason}</i>")
         self.send("\n".join(lines))
 
-    def send_lockin(self, match_label: str, picks: Iterable[dict]) -> None:
-        """Confirmación final cuando se publica."""
+    def send_lockin(
+        self,
+        match_label: str,
+        picks: Iterable[dict],
+        assignment_meta: dict | None = None,
+    ) -> None:
+        """Confirmación final cuando se publica.
+
+        Con N pencas muestra la exposición por marcador; si no hay exposición (fallback),
+        lista el menú de objetivos canónicos.
+        """
+        exposure_block = _exposure_block(assignment_meta)
+        if exposure_block:
+            total = sum((assignment_meta or {}).get("exposure", {}).values())
+            text = (
+                f"🔒 <b>LOCK-IN — {total} predicciones publicadas</b>\n"
+                f"⚽ {_esc(match_label)}\n\n"
+                f"{exposure_block}"
+            )
+            self.send(text)
+            return
         picks_lines = []
         for p in picks:
             gL, gV = p["score"]
@@ -419,6 +444,26 @@ def send_hello() -> None:
     """Smoke check."""
     notif = TelegramNotifier(TelegramConfig.from_env())
     notif.send(f"✅ Penca Mundial 2026 — conectado {_esc(datetime.now().strftime('%H:%M:%S'))}")
+
+
+def _exposure_block(assignment_meta: dict | None) -> str | None:
+    """Renderiza la exposición por marcador (cuántas pencas juegan cada scoreline).
+
+    Es la vista correcta cuando hay N pencas con repetición: en vez de listar N filas,
+    muestra cuántas pencas caen en cada marcador, ordenado por frecuencia.
+    """
+    if not assignment_meta:
+        return None
+    exposure = assignment_meta.get("exposure")
+    if not exposure:
+        return None
+    total = sum(exposure.values())
+    items = sorted(exposure.items(), key=lambda kv: (-kv[1], kv[0]))
+    lines = [f"<b>📋 Exposición — {total} pencas</b>"]
+    for score, count in items:
+        bar = "▰" * min(count, 12)
+        lines.append(f"  <b>{_esc(score)}</b>  ×{count}  {bar}")
+    return "\n".join(lines)
 
 
 def _favorite(model_summary: dict) -> tuple[str, str]:
