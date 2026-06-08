@@ -28,7 +28,6 @@ PHASE_OFFSETS_MIN = {
     Phase.T_3H: 3 * 60,
     Phase.T_30MIN: 30,
 }
-WINDOW_HALF_MIN = 2.5   # ±2.5 min alrededor del target → emparejar con timer de 5 min
 
 
 def parse_kickoff(iso: str) -> datetime:
@@ -53,20 +52,39 @@ def phase_already_ran(match_id: str, phase: Phase) -> bool:
 
 
 def matches_in_window(fixtures: dict, now: datetime | None = None) -> list[tuple[str, Phase]]:
-    """Devuelve (match_id, phase) que deberían correrse AHORA dentro de la ventana ±2.5 min."""
+    """Devuelve (match_id, phase) que deberían correrse AHORA, con CATCH-UP.
+
+    Para cada partido aún no jugado (now < kickoff), una fase está "pendiente" si su target
+    (kickoff − offset) ya pasó y todavía no corrió. Devolvemos la fase pendiente MÁS TARDÍA
+    (la más cercana al kickoff): si nos atrasamos o se saltó un slot del timer, igual disparamos
+    la pasada relevante en el próximo despertar — sin ventana fija de ±N min que se pueda perder.
+
+    Garantía clave: T-30min (la que PUBLICA) corre sí o sí mientras el scheduler despierte al
+    menos una vez entre su target y el kickoff. `phase_already_ran` evita duplicados.
+    """
     now = now or datetime.now(timezone.utc)
     out = []
 
     all_matches = (fixtures.get("fase_grupos") or []) + (fixtures.get("eliminatorias") or [])
     for m in all_matches:
         kickoff = parse_kickoff(m["kickoff_utc"])
-        for phase, offset_min in PHASE_OFFSETS_MIN.items():
-            target = kickoff - timedelta(minutes=offset_min)
-            delta_min = (now - target).total_seconds() / 60.0
-            if abs(delta_min) <= WINDOW_HALF_MIN:
-                if phase_already_ran(m["id"], phase):
-                    continue
-                out.append((m["id"], phase))
+        if now >= kickoff:
+            continue  # partido ya arrancó (la web bloquea predicciones) → demasiado tarde
+
+        # Fases cuyo target (kickoff − offset) ya pasó
+        due = [
+            (phase, offset_min)
+            for phase, offset_min in PHASE_OFFSETS_MIN.items()
+            if kickoff - timedelta(minutes=offset_min) <= now
+        ]
+        if not due:
+            continue
+        # La pasada MÁS RELEVANTE = la de target más tardío = menor offset (más cerca del
+        # kickoff). Solo la emitimos si todavía no corrió. Si ya corrió, no hay nada que
+        # hacer — NO volvemos a fases anteriores (ya publicamos / es agua pasada).
+        latest_phase = min(due, key=lambda p: p[1])[0]
+        if not phase_already_ran(m["id"], latest_phase):
+            out.append((m["id"], latest_phase))
 
     return out
 
