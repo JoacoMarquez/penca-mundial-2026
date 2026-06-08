@@ -476,7 +476,7 @@ def load_my_pencas_standings() -> dict[str, Any]:
 
 
 def _load_my_pencas_standings_uncached() -> dict[str, Any]:
-    """Lee leaderboard real de la penca. Filtra mis 5 pencas."""
+    """Lee leaderboard real de la penca. Filtra mis pencas."""
     import httpx
     base = os.environ.get("PENCA_API_BASE_URL", "").rstrip("/")
     key = os.environ.get("PENCA_API_KEY", "")

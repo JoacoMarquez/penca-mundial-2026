@@ -401,7 +401,7 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
     else:
         log.info("ANTHROPIC_API_KEY no configurada — skip Capa 4")
 
-    # 4. Generar las 5 picks
+    # 4. Generar el portfolio (menú de objetivos canónicos para mostrar/persistir)
     portfolio = generate_portfolio(
         grid,
         market_p_home=constraints.p_home_win,
