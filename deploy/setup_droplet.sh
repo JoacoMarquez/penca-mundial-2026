@@ -26,6 +26,15 @@ echo "==> Carpetas"
 mkdir -p "$INSTALL_DIR" "$DATA_DIR" "$ENV_DIR"
 mkdir -p "$DATA_DIR"/{raw,processed,predictions,logs}
 
+echo "==> Swap (1GB de RAM es justo para scipy/Chromium — evita OOM)"
+if [ ! -f /swapfile ]; then
+    fallocate -l 2G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=2048
+    chmod 600 /swapfile
+    mkswap /swapfile
+    swapon /swapfile
+    grep -q '^/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+fi
+
 echo "==> Clonar repo (o pull si existe)"
 if [ -d "$INSTALL_DIR/.git" ]; then
     cd "$INSTALL_DIR" && git pull
@@ -46,6 +55,8 @@ echo "==> .env"
 if [ ! -f "$ENV_DIR/env" ]; then
     cp "$INSTALL_DIR/.env.example" "$ENV_DIR/env"
     chmod 600 "$ENV_DIR/env"
+    # En el droplet la data vive en /var/lib/penca, no en ./data (relativo a /opt/penca)
+    sed -i 's#^DATA_DIR=.*#DATA_DIR=/var/lib/penca#' "$ENV_DIR/env"
     echo ""
     echo "!! AHORA edita $ENV_DIR/env con tus secrets reales (TELEGRAM, ANTHROPIC, PENCA, etc.)"
     echo "!! Después correr de nuevo este script o:"
@@ -54,12 +65,20 @@ if [ ! -f "$ENV_DIR/env" ]; then
 fi
 
 echo "==> systemd units"
+# scheduler (poll cada 5 min) + failure-notify (lo dispara OnFailure del scheduler) +
+# heartbeat (resumen diario). Sin failure-notify, las alertas de error NO se disparan.
 cp "$INSTALL_DIR/deploy/penca-scheduler.service" /etc/systemd/system/
 cp "$INSTALL_DIR/deploy/penca-scheduler.timer" /etc/systemd/system/
+cp "$INSTALL_DIR/deploy/penca-failure-notify.service" /etc/systemd/system/
+cp "$INSTALL_DIR/deploy/penca-heartbeat.service" /etc/systemd/system/
+cp "$INSTALL_DIR/deploy/penca-heartbeat.timer" /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable --now penca-scheduler.timer
+systemctl enable --now penca-heartbeat.timer
+# failure-notify NO se enablea: es oneshot que dispara el OnFailure del scheduler.
 
 echo ""
 echo "✅ Setup completo."
-echo "   Logs:  journalctl -u penca-scheduler -f"
-echo "   Status: systemctl status penca-scheduler.timer"
+echo "   Scheduler: journalctl -u penca-scheduler -f"
+echo "   Heartbeat: systemctl status penca-heartbeat.timer"
+echo "   Timers:    systemctl list-timers 'penca-*'"
