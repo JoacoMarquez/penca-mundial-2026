@@ -3,7 +3,7 @@
 Run local: uvicorn src.dashboard.app:app --host 0.0.0.0 --port 8000 --reload
 Páginas:
     /dash/<token>/             → Próximo partido (home)
-    /dash/<token>/pencas/      → Tus 5 pencas vs pool
+    /dash/<token>/pencas/      → Tus pencas vs pool
     /dash/<token>/history/     → Postmortems
     /dash/<token>/system/      → Health + costos
     /dash/<token>/api/data     → JSON con todo (debug)
