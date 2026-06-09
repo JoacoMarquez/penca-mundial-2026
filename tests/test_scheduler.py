@@ -36,6 +36,27 @@ def test_recent_phase_counts(tmp_path, monkeypatch):
     assert sched.phase_already_ran("105", Phase.T_30MIN, KICKOFF) is True
 
 
+def test_t30min_failed_publish_does_not_count(tmp_path, monkeypatch):
+    """Un T-30min cuya publicación FALLÓ (published=False) no cuenta → el scheduler reintenta."""
+    monkeypatch.setattr(sched, "PREDICTIONS_DIR", tmp_path)
+    md = tmp_path / "105"
+    md.mkdir(parents=True)
+    (md / "v1_20260611T183000Z.json").write_text(
+        json.dumps({"phase": "T_30min", "run_at": RECENT.isoformat(), "published": False})
+    )
+    assert sched.phase_already_ran("105", Phase.T_30MIN, KICKOFF) is False
+
+
+def test_t30min_successful_publish_counts(tmp_path, monkeypatch):
+    monkeypatch.setattr(sched, "PREDICTIONS_DIR", tmp_path)
+    md = tmp_path / "105"
+    md.mkdir(parents=True)
+    (md / "v1_20260611T183000Z.json").write_text(
+        json.dumps({"phase": "T_30min", "run_at": RECENT.isoformat(), "published": True})
+    )
+    assert sched.phase_already_ran("105", Phase.T_30MIN, KICKOFF) is True
+
+
 def test_inaugural_match_not_blocked_by_stale_prediction(tmp_path, monkeypatch):
     """Escenario real: el 105 tiene un T_30min de prueba de mayo. NO debe saltearse la
     publicación del partido real del 11/6."""

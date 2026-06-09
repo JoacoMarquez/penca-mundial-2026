@@ -55,6 +55,9 @@ def phase_already_ran(match_id: str, phase: Phase, kickoff: datetime | None = No
             continue
         if data.get("phase") != phase.value and data.get("phase") != phase:
             continue
+        # T-30min cuya publicación FALLÓ no cuenta como "ya corrió" → el scheduler reintenta.
+        if phase == Phase.T_30MIN and data.get("published") is False:
+            continue
         if cutoff is not None:
             ra = data.get("run_at")
             try:

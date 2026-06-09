@@ -151,13 +151,10 @@ def fetch_odds(match_id: str) -> OddsSnapshot:
     # Betfair — desactivado por decisión del usuario
 
     if not odds_by_book:
-        log.error("Ninguna casa devolvió odds para %s — usando MOCK fallback", match_id)
-        odds_by_book = {
-            "pinnacle": {
-                "1x2": {"H": 2.10, "D": 3.40, "A": 3.50},
-                "ou_2_5": {"over": 2.00, "under": 1.85},
-            }
-        }
+        # NO inventamos odds acá. El caller decide el fallback (versión previa con odds
+        # reales, y solo como último recurso un mock + alerta). Publicar con cuotas
+        # inventadas a T-30min sería peor que usar las reales de hace unas horas.
+        log.error("Ninguna casa devolvió odds para %s — odds_by_book vacío", match_id)
 
     return OddsSnapshot(
         match_id=match_id,
@@ -201,6 +198,52 @@ def build_market_constraints(snapshot: OddsSnapshot, books_config: dict) -> Mark
     )
 
 
+# Constraints neutras de último recurso (solo si no hay odds en vivo NI versión previa).
+MOCK_CONSTRAINTS = MarketConstraints(p_home_win=0.40, p_draw=0.30, p_away_win=0.30)
+
+
+def _best_effort_alert(context: str, message: str) -> None:
+    """Manda una alerta a Telegram, best-effort (no rompe el pipeline si Telegram falla)."""
+    try:
+        TelegramNotifier(TelegramConfig.from_env()).send_error(context, message)
+    except Exception:
+        pass
+
+
+def build_constraints_with_fallback(
+    snapshot: OddsSnapshot, books_config: dict, match_id: str, match_label: str,
+) -> tuple[MarketConstraints, str]:
+    """Constraints del mercado, con fallback si no hay odds en vivo.
+
+    Orden: (1) odds en vivo; (2) constraints de la última versión previa con odds reales
+    (de hace horas); (3) último recurso: MOCK + alerta fuerte. Nunca publicamos sobre odds
+    inventadas si tenemos unas reales de antes. Devuelve (constraints, source).
+    """
+    if snapshot.odds_by_book:
+        return build_market_constraints(snapshot, books_config), "live"
+
+    for prev in reversed(load_previous_predictions(match_id)):
+        c = prev.get("constraints") or {}
+        if c.get("p_home") is not None and prev.get("odds_source") != "mock":
+            log.warning("Sin odds en vivo para %s — uso constraints de la versión previa v%s",
+                        match_id, prev.get("version"))
+            _best_effort_alert(
+                f"odds caídas {match_label}",
+                "No hubo odds en vivo; uso las de la versión anterior (reales, de hace horas).",
+            )
+            return MarketConstraints(
+                p_home_win=c["p_home"], p_draw=c["p_draw"], p_away_win=c["p_away"],
+                p_over_2_5=c.get("p_over_2_5"), p_btts=c.get("p_btts"),
+            ), "previous"
+
+    log.error("Sin odds en vivo NI previas para %s — usando MOCK", match_id)
+    _best_effort_alert(
+        f"⚠️ SIN ODDS {match_label}",
+        "No hubo odds en vivo ni versión previa. Uso MOCK neutro — REVISAR manualmente.",
+    )
+    return MOCK_CONSTRAINTS, "mock"
+
+
 # -------------------- pipeline --------------------
 
 @dataclass
@@ -218,6 +261,8 @@ class PipelineRun:
     tipster_consensus: dict[str, Any] | None = None
     dossier_summary_text: str | None = None    # versión resumida del dossier para Telegram
     odds_anomaly: dict[str, Any] | None = None  # flag si las odds se movieron >5pp vs versión previa
+    odds_source: str = "live"          # live | previous | mock — de dónde salieron las constraints
+    published: bool | None = None      # solo T-30min: True=publicó ok, False=falló (→ retry), None=n/a
 
 
 def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
@@ -230,9 +275,11 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
     # 1. Scrape odds
     snapshot = fetch_odds(match_id)
 
-    # 2. Construir constraints del mercado
+    # 2. Construir constraints (con fallback a la versión previa si no hay odds en vivo)
     books_config = load_books_config()
-    constraints = build_market_constraints(snapshot, books_config)
+    constraints, odds_source = build_constraints_with_fallback(
+        snapshot, books_config, match_id, _format_match_label(match)
+    )
 
     # 3. Fit Poisson bivariada + score grid
     lam_L, lam_V, lam12 = fit_params(constraints)
@@ -460,7 +507,14 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
                 for i, pid in enumerate(penca_ids)
             ]
 
-    # 5. Persistir versionado
+    # 5. Publicar (solo T-30min) ANTES de persistir, para registrar el resultado. Un
+    #    T-30min sin publicación exitosa NO cuenta como "ya corrió" → el scheduler reintenta.
+    published: bool | None = None
+    publish_detail: str | None = None
+    if phase == Phase.T_30MIN and assignment_list:
+        published, publish_detail = _publish_assignment(match_id, assignment_list)
+
+    # 6. Persistir versionado
     output_path, version = next_version_path(match_id)
     run = PipelineRun(
         match_id=match_id,
@@ -487,12 +541,15 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
         tipster_consensus=tipster_consensus,
         dossier_summary_text=locals().get("dossier_summary_for_telegram"),
         odds_anomaly=locals().get("odds_anomaly"),
+        odds_source=odds_source,
+        published=published,
     )
     output_path.write_text(json.dumps(asdict(run), indent=2, default=str))
-    log.info("pipeline DONE | v=%d wrote=%s", version, output_path)
+    log.info("pipeline DONE | v=%d phase=%s odds=%s published=%s",
+             version, phase.value, odds_source, published)
 
-    # 6. Notificar y publicar según la fase
-    _notify_and_publish(match, run, portfolio, phase)
+    # 7. Notificar según la fase
+    _notify_and_publish(match, run, portfolio, phase, publish_detail=publish_detail)
 
     return run
 
@@ -522,10 +579,35 @@ def _format_kickoff_local(match: dict) -> str:
     return dt_uy.strftime("%a %d/%m %H:%M") + " UY"
 
 
+def _publish_assignment(match_id: str, assignment_list) -> tuple[bool, str | None]:
+    """Publica las picks asignadas vía la API. Devuelve (todas_ok, detalle_error_o_None).
+
+    Se llama ANTES de persistir el JSON para registrar `published`; si falla, el scheduler
+    reintenta en el próximo tick (un T-30min sin publicación exitosa no cuenta como corrido).
+    """
+    publisher = get_publisher_from_env()
+    payloads = [
+        PredictionPayload(
+            match_id=match_id, penca_id=str(pid),
+            score_local=pick["score"][0], score_visit=pick["score"][1],
+        )
+        for pid, pick, _rank in assignment_list
+    ]
+    results = publisher.publish_batch(payloads)
+    failed = [r for r in results if not r.ok]
+    if not failed:
+        log.info("publish T-30min OK | %d picks", len(results))
+        return True, None
+    detail = f"{len(failed)}/{len(results)} fallaron: {failed[0].detail}"
+    log.error("publish T-30min FALLÓ | %s", detail)
+    return False, detail
+
+
 def _notify_and_publish(
-    match: dict, run: PipelineRun, portfolio: PortfolioResult, phase: Phase
+    match: dict, run: PipelineRun, portfolio: PortfolioResult, phase: Phase,
+    publish_detail: str | None = None,
 ) -> None:
-    """Manda la notif por Telegram. Publica solo en T_30MIN (lock-in)."""
+    """Manda la notif por Telegram. (La publicación T-30min ya se hizo en run_match_pipeline.)"""
     try:
         notifier = TelegramNotifier(TelegramConfig.from_env())
     except RuntimeError as e:
@@ -566,26 +648,15 @@ def _notify_and_publish(
                 notifier.send_diff(label, "T-3h: alineaciones probables", diffs)
 
     elif phase == Phase.T_30MIN:
-        pubpsher = get_publisher_from_env()
-        if run.assignment:
-            payloads = [
-                PredictionPayload(
-                    match_id=run.match_id,
-                    penca_id=str(a["penca_id"]),
-                    score_local=a["score"][0],
-                    score_visit=a["score"][1],
-                )
-                for a in run.assignment
-            ]
-            results = pubpsher.publish_batch(payloads)
-            failed = [r for r in results if not r.ok]
-            if failed and notifier:
-                notifier.send_error(
-                    "publish T-30min",
-                    f"{len(failed)}/{len(results)} fallaron: {failed[0].detail}",
-                )
-        else:
-            log.warning("Sin asignación — skip publish")
+        # La publicación ya se hizo en run_match_pipeline (antes de persistir, para registrar
+        # el resultado). Acá solo notificamos.
+        if run.published is False and notifier:
+            notifier.send_error(
+                "publish T-30min",
+                (publish_detail or "publicación falló") + " — el scheduler reintentará antes del kickoff.",
+            )
+        elif not run.assignment:
+            log.warning("Sin asignación — no se publicó (¿PENCA_IDS vacío?)")
 
         if notifier:
             notifier.send_lockin(label, picks_annotated, assignment_meta=run.assignment_meta)
