@@ -55,8 +55,8 @@ footer, el sistema NO publica predicciones — verificar `/etc/penca/env`.
 
 ### Ver picks de un partido específico
 ```bash
-ssh root@<VPS_IP> 'ls /var/lib/penca/predictions/<MATCH_ID>/'
-ssh root@<VPS_IP> 'cat /var/lib/penca/predictions/<MATCH_ID>/v3_*.json | jq .portfolio.picks'
+ssh root@<VPS_IP> 'ls /opt/penca/data/predictions/<MATCH_ID>/'
+ssh root@<VPS_IP> 'cat /opt/penca/data/predictions/<MATCH_ID>/v3_*.json | jq .portfolio.picks'
 ```
 
 ### Forzar una pasada manualmente (sin esperar al timer)

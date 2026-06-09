@@ -55,8 +55,9 @@ echo "==> .env"
 if [ ! -f "$ENV_DIR/env" ]; then
     cp "$INSTALL_DIR/.env.example" "$ENV_DIR/env"
     chmod 600 "$ENV_DIR/env"
-    # En el droplet la data vive en /var/lib/penca, no en ./data (relativo a /opt/penca)
-    sed -i 's#^DATA_DIR=.*#DATA_DIR=/var/lib/penca#' "$ENV_DIR/env"
+    # Normalizar DATA_DIR a un valor limpio (defensa por si quedó algún comentario inline).
+    # ./data es relativo a WorkingDirectory=/opt/penca → /opt/penca/data (lo que usa el droplet).
+    sed -i 's#^DATA_DIR=.*#DATA_DIR=./data#' "$ENV_DIR/env"
     echo ""
     echo "!! AHORA edita $ENV_DIR/env con tus secrets reales (TELEGRAM, ANTHROPIC, PENCA, etc.)"
     echo "!! Después correr de nuevo este script o:"
