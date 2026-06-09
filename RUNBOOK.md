@@ -55,8 +55,8 @@ footer, el sistema NO publica predicciones — verificar `/etc/penca/env`.
 
 ### Ver picks de un partido específico
 ```bash
-ssh root@<VPS_IP> 'ls /opt/penca/data/predictions/<MATCH_ID>/'
-ssh root@<VPS_IP> 'cat /opt/penca/data/predictions/<MATCH_ID>/v3_*.json | jq .portfolio.picks'
+ssh root@<VPS_IP> 'ls /var/lib/penca/predictions/<MATCH_ID>/'
+ssh root@<VPS_IP> 'cat /var/lib/penca/predictions/<MATCH_ID>/v3_*.json | jq .portfolio.picks'
 ```
 
 ### Forzar una pasada manualmente (sin esperar al timer)
@@ -98,7 +98,7 @@ ssh root@<VPS_IP> 'sed -i "s/^DRY_RUN=.*/DRY_RUN=true/" /etc/penca/env && system
 | Pipeline crashea con `ValueError teams.yaml` | fixture sin alias en `teams.yaml` | agregar alias en aliases ES→EN |
 | `429 Too Many Requests` (Anthropic) | rate limit | esperar; reducir frecuencia de pasadas |
 | Pinnacle 503/blocked | guest API caída | el sistema cae a sólo capa 2 — aceptar y monitorear |
-| Picks idénticos en 2 pencas | bug de assignment o portfolio | revisar `optimal_assignment_p_top_k`; correr `python -m pytest tests/test_assignment.py` |
+| Demasiadas pencas con el mismo marcador | exposición mal calibrada | revisar `greedy_assignment` / `PENCA_MAX_CANDIDATES`; correr `python -m pytest tests/test_assignment.py` |
 | Dashboard 500 | cache stale o data_loader bug | `systemctl restart penca-dashboard.service` |
 | `odds_anomaly` detectada | Pinnacle se movió >5pp entre pasadas | leer el alert en Telegram; investigar manualmente (lesión? suspensión?) — el sistema ya re-corrió |
 | Heartbeat muestra `predicciones=0` | scheduler nunca disparó | revisar `kickoff_utc` en fixtures.yaml; chequear timezone |
@@ -108,7 +108,7 @@ ssh root@<VPS_IP> 'sed -i "s/^DRY_RUN=.*/DRY_RUN=true/" /etc/penca/env && system
 
 ## 5. Flujo por partido (lo esperado)
 
-1. **T-24h:** llega Telegram con los 5 picks + dossier. *Tu opción:* revisar el dashboard; si algo te chirría, ssh al VPS y editás manualmente el último JSON antes del T-30min.
+1. **T-24h:** llega Telegram con el menú de objetivos + la **exposición de las N pencas por marcador** + dossier. *Tu opción:* revisar el dashboard; si algo te chirría, ssh al VPS y editás manualmente el último JSON antes del T-30min.
 2. **T-3h:** si hubo cambio de alineación o movimiento de odds, llega notif con diff. Si no, silencio.
 3. **T-30min:** lock-in. Llega notif "PUBLISHED" con las picks finales que el publisher mandó a la API.
 4. **Post-match:** postmortem automático al detectar resultado final. Aparece en `/dash/<token>/history`.
