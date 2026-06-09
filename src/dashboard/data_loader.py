@@ -9,6 +9,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+from src.utils.versions import latest_version, sort_versions
+
 
 def _data_dir() -> Path:
     from src.utils.env import get_str
@@ -126,20 +128,20 @@ def _load_latest_prediction(match_id: Any) -> dict | None:
     pdir = _data_dir() / "predictions" / str(match_id)
     if not pdir.exists():
         return None
-    files = sorted(pdir.glob("v*_*.json"))
-    if not files:
+    latest = latest_version(pdir.glob("v*_*.json"))
+    if latest is None:
         return None
-    return json.loads(files[-1].read_text())
+    return json.loads(latest.read_text())
 
 
 def _load_latest_dossier(match_id: Any) -> dict | None:
     ddir = _data_dir() / "dossiers" / str(match_id)
     if not ddir.exists():
         return None
-    files = sorted(ddir.glob("v*.json"))
-    if not files:
+    latest = latest_version(ddir.glob("v*.json"))
+    if latest is None:
         return None
-    return json.loads(files[-1].read_text())
+    return json.loads(latest.read_text())
 
 
 # ---------- matches agrupados por día ----------
@@ -324,7 +326,7 @@ def load_match_detail(match_id) -> dict | None:
             "diffs": [],
         }
 
-    files = sorted(pdir.glob("v*_*.json"))
+    files = sort_versions(pdir.glob("v*_*.json"))
     versions = []
     for f in files:
         try:

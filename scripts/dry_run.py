@@ -138,9 +138,10 @@ def main() -> int:
             print(f"  n={tc.get('n_tipsters')}  consensus_1X2={tc.get('consensus_1x2')}")
 
         # Última versión escrita
-        latest = sorted((PROJECT_ROOT / "data" / "predictions" / match_id).glob("v*.json"))
+        from src.utils.versions import latest_version
+        latest = latest_version((PROJECT_ROOT / "data" / "predictions" / match_id).glob("v*.json"))
         if latest:
-            print(f"\n📝 JSON versionado: {latest[-1]}")
+            print(f"\n📝 JSON versionado: {latest}")
 
         print(f"\n{'='*70}\n✅ Dry-run OK (sin publicar a la penca)\n{'='*70}\n")
         return 0

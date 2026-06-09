@@ -35,19 +35,36 @@ def parse_kickoff(iso: str) -> datetime:
     return datetime.fromisoformat(iso.replace("Z", "+00:00"))
 
 
-def phase_already_ran(match_id: str, phase: Phase) -> bool:
-    """Chequea en data/predictions/{match_id}/ si ya hay alguna versión con esa fase."""
+def phase_already_ran(match_id: str, phase: Phase, kickoff: datetime | None = None) -> bool:
+    """¿Ya corrió esta fase para este partido, en una pasada RECIENTE?
+
+    Solo cuentan corridas dentro de la ventana real del partido (`run_at` ≥ kickoff − 72h).
+    Una predicción vieja —de un test o de otra edición con el mismo id— NO puede marcar la
+    fase como "ya corrió"; si lo hiciera, el scheduler se saltaría la pasada (y la publicación)
+    del partido real. Sin `kickoff` (modo legacy) cuenta cualquier corrida.
+    """
+    import json
     match_dir = PREDICTIONS_DIR / match_id
     if not match_dir.exists():
         return False
+    cutoff = (kickoff - timedelta(hours=72)) if kickoff is not None else None
     for f in match_dir.glob("v*_*.json"):
         try:
-            import json
             data = json.loads(f.read_text())
-            if data.get("phase") == phase.value or data.get("phase") == phase:
-                return True
         except Exception:
             continue
+        if data.get("phase") != phase.value and data.get("phase") != phase:
+            continue
+        if cutoff is not None:
+            ra = data.get("run_at")
+            try:
+                run_at = datetime.fromisoformat(str(ra).replace("Z", "+00:00")) if ra else None
+            except Exception:
+                run_at = None
+            # Sin fecha o más vieja que kickoff−72h → corrida stale, no cuenta.
+            if run_at is None or run_at < cutoff:
+                continue
+        return True
     return False
 
 
@@ -83,7 +100,7 @@ def matches_in_window(fixtures: dict, now: datetime | None = None) -> list[tuple
         # kickoff). Solo la emitimos si todavía no corrió. Si ya corrió, no hay nada que
         # hacer — NO volvemos a fases anteriores (ya publicamos / es agua pasada).
         latest_phase = min(due, key=lambda p: p[1])[0]
-        if not phase_already_ran(m["id"], latest_phase):
+        if not phase_already_ran(m["id"], latest_phase, kickoff):
             out.append((m["id"], latest_phase))
 
     return out
