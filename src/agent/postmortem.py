@@ -29,6 +29,7 @@ from typing import Any
 import httpx
 
 from src.model.poisson import jmlm_points
+from src.utils.versions import latest_version
 
 log = logging.getLogger(__name__)
 
@@ -94,10 +95,10 @@ def _latest_prediction(match_id: str | int) -> dict | None:
     pdir = _data_dir() / "predictions" / str(match_id)
     if not pdir.exists():
         return None
-    files = sorted(pdir.glob("v*_*.json"))
-    if not files:
+    latest = latest_version(pdir.glob("v*_*.json"))
+    if latest is None:
         return None
-    return json.loads(files[-1].read_text())
+    return json.loads(latest.read_text())
 
 
 def _fetch_match_status(match_id: str | int) -> dict | None:

@@ -41,6 +41,7 @@ from src.publisher.penca_api import (
     PredictionPayload,
     get_publisher_from_env,
 )
+from src.utils.versions import sort_versions
 
 log = logging.getLogger(__name__)
 
@@ -98,7 +99,7 @@ def load_previous_predictions(match_id: str) -> list[dict]:
     if not match_dir.exists():
         return []
     out = []
-    for p in sorted(match_dir.glob("v*_*.json")):
+    for p in sort_versions(match_dir.glob("v*_*.json")):
         out.append(json.loads(p.read_text()))
     return out
 
@@ -595,7 +596,7 @@ def _last_picks_from_predictions(match_id: str, exclude_version: int) -> list[di
     match_dir = PREDICTIONS_DIR / match_id
     if not match_dir.exists():
         return None
-    versions = sorted(match_dir.glob("v*_*.json"))
+    versions = sort_versions(match_dir.glob("v*_*.json"))
     for f in reversed(versions):
         try:
             data = json.loads(f.read_text())
