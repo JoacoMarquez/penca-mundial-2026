@@ -539,6 +539,68 @@ def _load_my_pencas_standings_uncached() -> dict[str, Any]:
     }
 
 
+# ---------- detalle por penca ----------
+
+def load_penca_detail(penca_id) -> dict:
+    """Detalle de UNA penca: sus picks partido por partido + su standing en el pool."""
+    import yaml
+    pid = int(penca_id)
+
+    standings = load_my_pencas_standings()
+    me = next((p for p in (standings.get("pencas") or []) if int(p["penca_id"]) == pid), None)
+
+    try:
+        fixtures = yaml.safe_load(
+            (Path(__file__).resolve().parents[2] / "config" / "fixtures.yaml").read_text()
+        ) or {}
+    except Exception:
+        fixtures = {}
+    all_matches = (fixtures.get("fase_grupos") or []) + (fixtures.get("eliminatorias") or [])
+    meta = {str(m.get("id")): m for m in all_matches}
+
+    picks = []
+    pred_dir = _data_dir() / "predictions"
+    if pred_dir.exists():
+        for mdir in sorted(pred_dir.iterdir()):
+            if not mdir.is_dir() or mdir.name.startswith("_"):
+                continue
+            latest = latest_version(mdir.glob("v*_*.json"))
+            if latest is None:
+                continue
+            try:
+                data = json.loads(latest.read_text())
+            except Exception:
+                continue
+            entry = next(
+                (a for a in (data.get("assignment") or []) if int(a.get("penca_id", -1)) == pid),
+                None,
+            )
+            if entry is None:
+                continue
+            m = meta.get(str(mdir.name), {})
+            sc = entry.get("score") or [None, None]
+            # Puntos reales si el partido ya tiene resultado en fixtures
+            points = None
+            hs, as_ = m.get("home_score"), m.get("away_score")
+            if hs is not None and as_ is not None and sc[0] is not None:
+                from src.model.poisson import jmlm_points
+                points = jmlm_points((int(sc[0]), int(sc[1])), (int(hs), int(as_)))
+            picks.append({
+                "match_id": mdir.name,
+                "home": m.get("home_name") or m.get("home") or "?",
+                "away": m.get("away_name") or m.get("away") or "?",
+                "kickoff_uy": _to_uy(m["kickoff_utc"]) if m.get("kickoff_utc") else "",
+                "kickoff_raw": m.get("kickoff_utc", ""),
+                "score": sc,
+                "objective": entry.get("objective"),
+                "phase": data.get("phase"),
+                "actual": [hs, as_] if hs is not None and as_ is not None else None,
+                "points": points,
+            })
+    picks.sort(key=lambda p: p.get("kickoff_raw") or "")
+    return {"penca": me, "penca_id": pid, "picks": picks}
+
+
 # ---------- postmortems ----------
 
 def load_recent_postmortems(limit: int = 5) -> list[dict]:
