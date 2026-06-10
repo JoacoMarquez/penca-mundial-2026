@@ -44,7 +44,7 @@ def phase_already_ran(match_id: str, phase: Phase, kickoff: datetime | None = No
     del partido real. Sin `kickoff` (modo legacy) cuenta cualquier corrida.
     """
     import json
-    match_dir = PREDICTIONS_DIR / match_id
+    match_dir = PREDICTIONS_DIR / str(match_id)
     if not match_dir.exists():
         return False
     cutoff = (kickoff - timedelta(hours=72)) if kickoff is not None else None

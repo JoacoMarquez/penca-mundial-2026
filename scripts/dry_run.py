@@ -139,7 +139,7 @@ def main() -> int:
 
         # Última versión escrita
         from src.utils.versions import latest_version
-        latest = latest_version((PROJECT_ROOT / "data" / "predictions" / match_id).glob("v*.json"))
+        latest = latest_version((PROJECT_ROOT / "data" / "predictions" / str(match_id)).glob("v*.json"))
         if latest:
             print(f"\n📝 JSON versionado: {latest}")
 
