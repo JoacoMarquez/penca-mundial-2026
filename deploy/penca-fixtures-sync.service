@@ -1,0 +1,15 @@
+[Unit]
+Description=Penca Mundial 2026 — sync de fixtures desde la API de la penca
+After=network-online.target
+Wants=network-online.target
+OnFailure=penca-failure-notify.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/penca/env
+Environment="PYTHONPATH=/opt/penca"
+WorkingDirectory=/opt/penca
+ExecStart=/opt/penca/.venv/bin/python -m src.scrapers.penca_fixtures
+StandardOutput=append:/var/lib/penca/logs/fixtures-sync.log
+StandardError=append:/var/lib/penca/logs/fixtures-sync.err
+User=root

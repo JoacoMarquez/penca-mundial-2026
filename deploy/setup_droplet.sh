@@ -73,9 +73,12 @@ cp "$INSTALL_DIR/deploy/penca-scheduler.timer" /etc/systemd/system/
 cp "$INSTALL_DIR/deploy/penca-failure-notify.service" /etc/systemd/system/
 cp "$INSTALL_DIR/deploy/penca-heartbeat.service" /etc/systemd/system/
 cp "$INSTALL_DIR/deploy/penca-heartbeat.timer" /etc/systemd/system/
+cp "$INSTALL_DIR/deploy/penca-fixtures-sync.service" /etc/systemd/system/
+cp "$INSTALL_DIR/deploy/penca-fixtures-sync.timer" /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable --now penca-scheduler.timer
 systemctl enable --now penca-heartbeat.timer
+systemctl enable --now penca-fixtures-sync.timer
 # failure-notify NO se enablea: es oneshot que dispara el OnFailure del scheduler.
 
 echo ""
