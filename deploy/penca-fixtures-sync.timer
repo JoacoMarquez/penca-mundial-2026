@@ -1,0 +1,11 @@
+[Unit]
+Description=Sync de fixtures 2x/día (09:00 y 21:00 UTC) — actualiza equipos de eliminatorias
+Requires=penca-fixtures-sync.service
+
+[Timer]
+OnCalendar=*-*-* 09,21:00:00
+Persistent=true
+AccuracySec=2min
+
+[Install]
+WantedBy=timers.target
