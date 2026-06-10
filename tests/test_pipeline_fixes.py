@@ -4,7 +4,7 @@ import os
 
 import src.agent.pipeline as pipeline
 from src.agent.pipeline import (
-    OddsSnapshot, MOCK_CONSTRAINTS, build_constraints_with_fallback, _publish_assignment,
+    OddsSnapshot, MOCK_CONSTRAINTS, Phase, build_constraints_with_fallback, _publish_assignment,
 )
 
 
@@ -56,5 +56,7 @@ def test_fallback_toma_la_mas_reciente(monkeypatch):
 def test_publish_dry_run_ok(monkeypatch):
     monkeypatch.setenv("DRY_RUN", "true")
     assignment = [(101, {"score": [1, 0]}, 1), (102, {"score": [2, 1]}, 2)]
-    ok, detail = _publish_assignment("105", assignment)
-    assert ok is True and detail is None
+    # Se publica en cualquier pasada (red de seguridad), no solo en T-30min.
+    for ph in (Phase.T_24H, Phase.T_3H, Phase.T_30MIN):
+        ok, detail = _publish_assignment("105", ph, assignment)
+        assert ok is True and detail is None

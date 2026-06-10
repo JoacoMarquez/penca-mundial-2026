@@ -507,12 +507,20 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
                 for i, pid in enumerate(penca_ids)
             ]
 
-    # 5. Publicar (solo T-30min) ANTES de persistir, para registrar el resultado. Un
-    #    T-30min sin publicación exitosa NO cuenta como "ya corrió" → el scheduler reintenta.
+    # 5. Publicar en CADA pasada (upsert) ANTES de persistir — red de seguridad: si una
+    #    pasada tardía falla o el droplet se cae cerca del kickoff, ya hay algo publicado.
+    #    El T-30min con published=False no cuenta como corrido → el scheduler lo reintenta.
     published: bool | None = None
     publish_detail: str | None = None
-    if phase == Phase.T_30MIN and assignment_list:
-        published, publish_detail = _publish_assignment(match_id, assignment_list)
+    if assignment_list:
+        published, publish_detail = _publish_assignment(match_id, phase, assignment_list)
+        if published is False:
+            tail = (" — el scheduler reintentará." if phase == Phase.T_30MIN
+                    else " — se reintenta en la próxima pasada.")
+            _best_effort_alert(
+                f"publish {phase.value} {_format_match_label(match)}",
+                (publish_detail or "publicación falló") + tail,
+            )
 
     # 6. Persistir versionado
     output_path, version = next_version_path(match_id)
@@ -549,7 +557,7 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
              version, phase.value, odds_source, published)
 
     # 7. Notificar según la fase
-    _notify_and_publish(match, run, portfolio, phase, publish_detail=publish_detail)
+    _notify_and_publish(match, run, portfolio, phase)
 
     return run
 
@@ -579,11 +587,12 @@ def _format_kickoff_local(match: dict) -> str:
     return dt_uy.strftime("%a %d/%m %H:%M") + " UY"
 
 
-def _publish_assignment(match_id: str, assignment_list) -> tuple[bool, str | None]:
-    """Publica las picks asignadas vía la API. Devuelve (todas_ok, detalle_error_o_None).
+def _publish_assignment(match_id: str, phase: Phase, assignment_list) -> tuple[bool, str | None]:
+    """Publica las picks asignadas vía la API (upsert). Devuelve (todas_ok, detalle_o_None).
 
-    Se llama ANTES de persistir el JSON para registrar `published`; si falla, el scheduler
-    reintenta en el próximo tick (un T-30min sin publicación exitosa no cuenta como corrido).
+    Se publica en CADA pasada como red de seguridad: si una pasada tardía falla o el droplet
+    se cae cerca del kickoff, ya hay una predicción publicada. La API hace upsert por
+    (partido, penca), así que el estado final es el del T-30min si llega a correr.
     """
     publisher = get_publisher_from_env()
     payloads = [
@@ -596,18 +605,17 @@ def _publish_assignment(match_id: str, assignment_list) -> tuple[bool, str | Non
     results = publisher.publish_batch(payloads)
     failed = [r for r in results if not r.ok]
     if not failed:
-        log.info("publish T-30min OK | %d picks", len(results))
+        log.info("publish %s OK | %d picks", phase.value, len(results))
         return True, None
     detail = f"{len(failed)}/{len(results)} fallaron: {failed[0].detail}"
-    log.error("publish T-30min FALLÓ | %s", detail)
+    log.error("publish %s FALLÓ | %s", phase.value, detail)
     return False, detail
 
 
 def _notify_and_publish(
     match: dict, run: PipelineRun, portfolio: PortfolioResult, phase: Phase,
-    publish_detail: str | None = None,
 ) -> None:
-    """Manda la notif por Telegram. (La publicación T-30min ya se hizo en run_match_pipeline.)"""
+    """Manda la notif por Telegram. (La publicación ya se hizo en run_match_pipeline.)"""
     try:
         notifier = TelegramNotifier(TelegramConfig.from_env())
     except RuntimeError as e:
@@ -648,16 +656,10 @@ def _notify_and_publish(
                 notifier.send_diff(label, "T-3h: alineaciones probables", diffs)
 
     elif phase == Phase.T_30MIN:
-        # La publicación ya se hizo en run_match_pipeline (antes de persistir, para registrar
-        # el resultado). Acá solo notificamos.
-        if run.published is False and notifier:
-            notifier.send_error(
-                "publish T-30min",
-                (publish_detail or "publicación falló") + " — el scheduler reintentará antes del kickoff.",
-            )
-        elif not run.assignment:
+        # La publicación (y la alerta si falló) ya se hicieron en run_match_pipeline. Acá
+        # solo el lock-in.
+        if not run.assignment:
             log.warning("Sin asignación — no se publicó (¿PENCA_IDS vacío?)")
-
         if notifier:
             notifier.send_lockin(label, picks_annotated, assignment_meta=run.assignment_meta)
 
