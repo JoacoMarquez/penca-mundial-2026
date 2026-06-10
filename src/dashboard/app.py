@@ -95,7 +95,7 @@ def page_pencas(request: Request, token: str):
 def page_penca_detail(request: Request, token: str, penca_id: int):
     _check_token(token)
     data = load_penca_detail(penca_id)
-    return templates.TemplateResponse(request, "penca_detail.html", {"data": data, "token": token})
+    return templates.TemplateResponse(request, "penca_detail.html", {"data": data, "token": token, "penca_labels": build_penca_labels()})
 
 
 @app.get("/dash/{token}/history/", response_class=HTMLResponse)
