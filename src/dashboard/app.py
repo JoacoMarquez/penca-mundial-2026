@@ -24,6 +24,7 @@ from src.dashboard.data_loader import (
     load_matches_by_day,
     load_my_pencas_standings,
     load_next_match_data,
+    load_penca_detail,
     load_recent_postmortems,
     load_system_health,
 )
@@ -88,6 +89,13 @@ def page_pencas(request: Request, token: str):
         "health": load_system_health(),
     }
     return templates.TemplateResponse(request, "pencas.html", {"data": data, "token": token, "penca_labels": build_penca_labels()})
+
+
+@app.get("/dash/{token}/penca/{penca_id}/", response_class=HTMLResponse)
+def page_penca_detail(request: Request, token: str, penca_id: int):
+    _check_token(token)
+    data = load_penca_detail(penca_id)
+    return templates.TemplateResponse(request, "penca_detail.html", {"data": data, "token": token})
 
 
 @app.get("/dash/{token}/history/", response_class=HTMLResponse)

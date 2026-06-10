@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% set current_page = "pencas" %}
+{% block title %}Penca {{ data.penca_id }} — Penca JMLM 2026{% endblock %}
+
+{% block content %}
+{% set p = data.penca %}
+{% set strategy_emoji = {'ev':'🎯','differentiated':'📊','tail':'⚡','upset':'😲','variance':'📈','alt':'🔸'} %}
+{% set strategy_label = {'ev':'Favorito','differentiated':'Diferencial','tail':'Goleada','upset':'Sorpresa','variance':'Varianza','alt':'Alternativa'} %}
+
+<a href="/dash/{{ token }}/pencas/" class="text-sm text-slate-400 hover:text-slate-200">← Tus pencas</a>
+
+<h1 class="text-2xl lg:text-3xl font-bold mt-2 mb-1">
+  {% if p %}{{ p.penca_name }}{% else %}Penca {{ data.penca_id }}{% endif %}
+</h1>
+<p class="text-xs text-slate-400 mb-5">ID {{ data.penca_id }}</p>
+
+{% if p %}
+<section class="bg-slate-800 rounded-xl p-5 shadow mb-5">
+  <div class="flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="text-3xl">{% if p.rank == 1 %}🥇{% elif p.rank == 2 %}🥈{% elif p.rank == 3 %}🥉{% else %}<span class="text-slate-500 font-mono text-2xl">{{ p.rank }}°</span>{% endif %}</div>
+      <div class="text-xs text-slate-400">en el pool</div>
+    </div>
+    <div class="text-3xl font-bold">{{ p.points }}<span class="text-sm text-slate-500 ml-1">pts</span></div>
+  </div>
+  <div class="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
+    <div class="bg-slate-900/50 rounded-lg p-2"><div class="text-yellow-400 font-bold text-lg">{{ p.exact_scores }}<span class="text-yellow-500">★</span></div><div class="text-slate-500">marcador</div></div>
+    <div class="bg-slate-900/50 rounded-lg p-2"><div class="text-green-400 font-bold text-lg">{{ p.correct_winners }}<span class="text-green-500">✓</span></div><div class="text-slate-500">ganador</div></div>
+    <div class="bg-slate-900/50 rounded-lg p-2"><div class="font-bold text-lg">{{ p.predictions_made }}</div><div class="text-slate-500">predichas</div></div>
+  </div>
+</section>
+{% endif %}
+
+<h2 class="text-sm uppercase tracking-wider text-slate-400 mb-3">Picks por partido ({{ data.picks | length }})</h2>
+{% if data.picks %}
+<div class="space-y-2">
+  {% for pk in data.picks %}
+  <a href="/dash/{{ token }}/match/{{ pk.match_id }}/" class="block bg-slate-800 rounded-xl p-4 shadow hover:bg-slate-700/60 transition">
+    <div class="flex items-center justify-between gap-3">
+      <div class="min-w-0">
+        <div class="font-medium truncate">{{ pk.home }} <span class="text-slate-500">vs</span> {{ pk.away }}</div>
+        <div class="text-xs text-slate-500">{{ pk.kickoff_uy }}</div>
+      </div>
+      <div class="flex items-center gap-3 shrink-0">
+        <span class="text-lg" title="{{ strategy_label.get(pk.objective, pk.objective) }}">{{ strategy_emoji.get(pk.objective, '🔸') }}</span>
+        <span class="text-2xl font-bold">{{ pk.score[0] }}<span class="text-slate-500 mx-1">-</span>{{ pk.score[1] }}</span>
+        {% if pk.actual %}
+        <span class="text-xs text-slate-400">real {{ pk.actual[0] }}-{{ pk.actual[1] }}</span>
+        <span class="text-sm font-bold w-12 text-right {% if pk.points == 5 %}text-yellow-400{% elif pk.points and pk.points >= 3 %}text-green-400{% elif pk.points %}text-slate-300{% else %}text-slate-600{% endif %}">{{ pk.points }}pts</span>
+        {% endif %}
+      </div>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<section class="bg-slate-800 rounded-xl p-8 text-center text-slate-400">
+  Sin picks todavía para esta penca. Aparecen cuando el pipeline genere predicciones.
+</section>
+{% endif %}
+{% endblock %}
