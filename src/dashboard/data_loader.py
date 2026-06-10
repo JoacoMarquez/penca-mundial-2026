@@ -541,8 +541,40 @@ def _load_my_pencas_standings_uncached() -> dict[str, Any]:
 
 # ---------- detalle por penca ----------
 
+def _pick_metrics(constraints: dict, score) -> dict:
+    """Recomputa métricas del pick desde los λ persistidos: E[pts], P(marcador), popularidad,
+    y si es el marcador modal (más probable)."""
+    if score is None or score[0] is None:
+        return {}
+    ll, lv = constraints.get("lambda_L"), constraints.get("lambda_V")
+    l12 = constraints.get("lambda_12", 0.1)
+    if ll is None or lv is None:
+        return {}
+    try:
+        import numpy as np
+        from src.model.poisson import score_grid, jmlm_points
+        from src.meta.pool import pool_pick_distribution, PoolModelConfig
+        grid = score_grid(ll, lv, l12, max_goals=7)
+        n = grid.shape[0]
+        gL, gV = int(score[0]), int(score[1])
+        if gL >= n or gV >= n:
+            return {}
+        pool_q = pool_pick_distribution(grid, PoolModelConfig())
+        e_pts = float(sum(grid[i, j] * jmlm_points((gL, gV), (i, j)) for i in range(n) for j in range(n)))
+        modal = np.unravel_index(int(np.argmax(grid)), grid.shape)
+        return {
+            "p_scoreline": float(grid[gL, gV]),
+            "e_points": e_pts,
+            "pool_popularity": float(pool_q[gL, gV]),
+            "is_modal": (gL, gV) == (int(modal[0]), int(modal[1])),
+        }
+    except Exception:
+        return {}
+
+
 def load_penca_detail(penca_id) -> dict:
-    """Detalle de UNA penca: sus picks partido por partido + su standing en el pool."""
+    """Detalle de UNA penca: standing + picks con métricas + resumen de rol + diferenciación
+    + evolución (puntos por jornada cuando hay resultados)."""
     import yaml
     pid = int(penca_id)
 
@@ -579,7 +611,11 @@ def load_penca_detail(penca_id) -> dict:
                 continue
             m = meta.get(str(mdir.name), {})
             sc = entry.get("score") or [None, None]
-            # Puntos reales si el partido ya tiene resultado en fixtures
+            mx = _pick_metrics(data.get("constraints", {}), sc)
+            obj = entry.get("objective")
+            rank = entry.get("rank")
+            total_pencas = len(data.get("assignment") or [])
+            assignment_meta = data.get("assignment_meta") or {}
             points = None
             hs, as_ = m.get("home_score"), m.get("away_score")
             if hs is not None and as_ is not None and sc[0] is not None:
@@ -592,13 +628,48 @@ def load_penca_detail(penca_id) -> dict:
                 "kickoff_uy": _to_uy(m["kickoff_utc"]) if m.get("kickoff_utc") else "",
                 "kickoff_raw": m.get("kickoff_utc", ""),
                 "score": sc,
-                "objective": entry.get("objective"),
+                "objective": obj,
+                "rank": rank,
                 "phase": data.get("phase"),
                 "actual": [hs, as_] if hs is not None and as_ is not None else None,
                 "points": points,
+                "assignment_reason": _assignment_reason(rank, obj, assignment_meta, total_pencas),
+                "strategy_rationale": _strategy_rationale_for_pick(obj, mx),
+                **mx,
             })
     picks.sort(key=lambda p: p.get("kickoff_raw") or "")
-    return {"penca": me, "penca_id": pid, "picks": picks}
+
+    # ----- Resumen / rol -----
+    from collections import Counter
+    metricked = [p for p in picks if p.get("p_scoreline") is not None]
+    n = len(picks)
+    n_modal = sum(1 for p in picks if p.get("is_modal"))
+    deviations = [p for p in picks if p.get("p_scoreline") is not None and not p.get("is_modal")]
+    chalk_frac = (n_modal / n) if n else 0
+    summary = {
+        "n_picks": n,
+        "e_total": round(sum(p["e_points"] for p in metricked), 1) if metricked else None,
+        "avg_popularity": round(sum(p["pool_popularity"] for p in metricked) / len(metricked), 3) if metricked else None,
+        "n_modal": n_modal,
+        "n_deviations": len(deviations),
+        "lean": "chalk" if chalk_frac >= 0.6 else ("contrarian" if chalk_frac < 0.3 else "balanceada"),
+        "strategies": dict(Counter(p["objective"] for p in picks)),
+    }
+    # Diferenciación: picks que se apartan del modal, ordenados por menor popularidad (más contrarian)
+    differentiation = sorted(deviations, key=lambda p: p["pool_popularity"])
+
+    # Evolución: solo partidos jugados (con puntos), acumulado
+    played = [p for p in picks if p.get("points") is not None]
+    evolution = []
+    cum = 0
+    for p in played:
+        cum += p["points"]
+        evolution.append({"home": p["home"], "away": p["away"], "points": p["points"], "cumulative": cum})
+
+    return {
+        "penca": me, "penca_id": pid, "picks": picks,
+        "summary": summary, "differentiation": differentiation, "evolution": evolution,
+    }
 
 
 # ---------- postmortems ----------
