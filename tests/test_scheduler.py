@@ -112,6 +112,20 @@ def test_no_rerun_and_no_fallback_when_latest_ran(monkeypatch):
     assert out == []
 
 
+def test_handles_int_match_id(tmp_path, monkeypatch):
+    """Los fixtures reales traen IDs ENTEROS (105). No debe crashear armando rutas
+    (regresión: PREDICTIONS_DIR / int → TypeError)."""
+    monkeypatch.setattr(sched, "PREDICTIONS_DIR", tmp_path)
+    # phase_already_ran con int directo
+    ko = datetime(2026, 6, 11, 19, 0, 0, tzinfo=timezone.utc)
+    assert sched.phase_already_ran(105, Phase.T_30MIN, ko) is False
+    # matches_in_window con fixture de id entero
+    fx = {"fase_grupos": [{"id": 105, "kickoff_utc": "2026-06-11T19:00:00Z"}], "eliminatorias": []}
+    now = datetime(2026, 6, 11, 18, 40, 0, tzinfo=timezone.utc)
+    out = sched.matches_in_window(fx, now=now)
+    assert (105, Phase.T_30MIN) in out
+
+
 def test_nothing_after_kickoff(no_runs):
     out = sched.matches_in_window(_fixtures(NOW - timedelta(minutes=1)), now=NOW)
     assert out == []

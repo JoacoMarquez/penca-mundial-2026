@@ -86,7 +86,7 @@ def find_match(fixtures: dict, match_id: str) -> dict:
 
 def next_version_path(match_id: str) -> tuple[Path, int]:
     """Devuelve la siguiente versión disponible: vN_<timestamp>.json."""
-    match_dir = PREDICTIONS_DIR / match_id
+    match_dir = PREDICTIONS_DIR / str(match_id)
     match_dir.mkdir(parents=True, exist_ok=True)
     existing = sorted(match_dir.glob("v*_*.json"))
     n = len(existing) + 1
@@ -95,7 +95,7 @@ def next_version_path(match_id: str) -> tuple[Path, int]:
 
 
 def load_previous_predictions(match_id: str) -> list[dict]:
-    match_dir = PREDICTIONS_DIR / match_id
+    match_dir = PREDICTIONS_DIR / str(match_id)
     if not match_dir.exists():
         return []
     out = []
@@ -269,6 +269,8 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
     """Ejecuta una pasada de la pipeline para un partido en una fase dada."""
     log.info("pipeline START | match=%s phase=%s", match_id, phase.value)
 
+    # Los fixtures reales traen IDs enteros (105…); normalizamos a str para rutas y payload.
+    match_id = str(match_id)
     fixtures = load_fixtures()
     match = find_match(fixtures, match_id)
 
@@ -666,7 +668,7 @@ def _notify_and_publish(
 
 def _last_picks_from_predictions(match_id: str, exclude_version: int) -> list[dict] | None:
     """Lee la versión más reciente anterior a `exclude_version` para hacer diff."""
-    match_dir = PREDICTIONS_DIR / match_id
+    match_dir = PREDICTIONS_DIR / str(match_id)
     if not match_dir.exists():
         return None
     versions = sort_versions(match_dir.glob("v*_*.json"))
