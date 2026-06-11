@@ -17,6 +17,92 @@
   {% if m.venue %} · 📍 {{ m.venue }}{% endif %}
 </div>
 
+{# ----------- Ficha del partido (dossier) ----------- #}
+{% set d = m.dossier %}
+{% if d %}
+<section class="bg-slate-800 rounded-xl p-5 shadow mb-5">
+  <h2 class="text-sm uppercase tracking-wider text-slate-400 mb-4">📋 Ficha del partido</h2>
+
+  {# Contexto: sede, altura, descanso, importancia #}
+  <div class="flex flex-wrap gap-2 mb-4 text-xs">
+    {% if d.venue_name %}<span class="bg-slate-900/50 rounded-lg px-3 py-1.5">📍 {{ d.venue_name }}{% if d.venue_city %} · {{ d.venue_city }}{% endif %}</span>{% endif %}
+    {% if d.venue_elevation_m and d.venue_elevation_m > 1500 %}<span class="bg-amber-900/30 text-amber-300 rounded-lg px-3 py-1.5">⛰️ Altura {{ d.venue_elevation_m }}m</span>{% endif %}
+    {% if d.venue_indoor %}<span class="bg-slate-900/50 rounded-lg px-3 py-1.5">🏟️ Techado</span>{% endif %}
+    {% if d.home_advantage_status == 'home' %}<span class="bg-green-900/30 text-green-300 rounded-lg px-3 py-1.5">🏠 Localía {{ d.home.name }}</span>
+    {% elif d.home_advantage_status == 'neutral' %}<span class="bg-slate-900/50 rounded-lg px-3 py-1.5">⚖️ Sede neutral</span>{% endif %}
+    {% if d.importance_score is not none %}<span class="bg-slate-900/50 rounded-lg px-3 py-1.5">🔥 Importancia {{ (d.importance_score * 100) | round(0, 'common') | int }}%</span>{% endif %}
+    {% if d.rest_days_home is not none %}<span class="bg-slate-900/50 rounded-lg px-3 py-1.5">😴 Descanso {{ d.home.name }} {{ d.rest_days_home }}d{% if d.rest_days_away is not none %} · {{ d.away.name }} {{ d.rest_days_away }}d{% endif %}</span>{% endif %}
+  </div>
+
+  {# Dos equipos lado a lado #}
+  <div class="grid grid-cols-2 gap-4">
+    {% for t in [d.home, d.away] %}
+    <div class="bg-slate-900/40 rounded-lg p-3">
+      <div class="font-bold mb-2 truncate">{{ t.name }}{% if t.confederation %} <span class="text-xs text-slate-500 font-normal">{{ t.confederation }}</span>{% endif %}</div>
+
+      {% if t.recent_form %}
+      <div class="text-xs mb-2">
+        <span class="text-slate-500">Forma:</span>
+        {% for r in t.recent_form %}<span class="inline-block w-4 text-center font-mono font-bold rounded {% if r == 'W' %}text-green-400{% elif r == 'L' %}text-red-400{% else %}text-slate-400{% endif %}">{{ r }}</span>{% endfor %}
+        {% if t.last_n_gf is not none %}<span class="text-slate-500 ml-1">({{ t.last_n_gf }} GF / {{ t.last_n_ga }} GC)</span>{% endif %}
+      </div>
+      {% endif %}
+
+      {% if t.standings_rank is not none or t.qualification_status %}
+      <div class="text-xs text-slate-400 mb-2">
+        {% if t.standings_rank is not none %}#{{ t.standings_rank }}{% if t.standings_points is not none %} · {{ t.standings_points }}pts{% endif %}{% endif %}
+        {% if t.qualification_status %} · {{ t.qualification_status }}{% endif %}
+      </div>
+      {% endif %}
+
+      {% if t.key_players_listed %}
+      <div class="text-xs mb-2">
+        <span class="text-slate-500">⭐ Figuras:</span> {{ t.key_players_listed[:4] | join(', ') }}
+      </div>
+      {% endif %}
+
+      {% if t.reported_absences %}
+      <div class="text-xs mb-2 text-amber-200/90">
+        <span class="text-amber-400/70">🩹 Bajas:</span> {{ t.reported_absences[:4] | join(', ') }}
+      </div>
+      {% endif %}
+
+      {% if t.notable_news_headlines %}
+      <div class="text-[11px] text-slate-500 space-y-0.5 pt-1 border-t border-slate-700/50">
+        {% for h in t.notable_news_headlines[:2] %}<div class="truncate">📰 {{ h }}</div>{% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if d.h2h_summary %}
+  <div class="mt-3 text-sm text-slate-300 bg-slate-900/40 rounded-lg p-3">
+    <span class="text-slate-500 text-xs uppercase tracking-wider">🆚 Historial</span><br>
+    {{ d.h2h_summary }}
+  </div>
+  {% endif %}
+
+  {% if d.weather_summary %}
+  <div class="mt-3 text-sm text-slate-400"><span class="text-slate-500">🌦️ Clima:</span> {{ d.weather_summary }}</div>
+  {% endif %}
+
+  {% if d.sources_used %}
+  <div class="mt-3 text-[11px] text-slate-600">Fuentes: {{ d.sources_used | join(' · ') }}</div>
+  {% endif %}
+</section>
+
+{# Señales a revisar (info edge) #}
+{% if d.info_edge_flags %}
+<section class="bg-amber-900/20 border border-amber-700/40 rounded-xl p-4 shadow mb-5">
+  <h2 class="text-sm uppercase tracking-wider text-amber-300 mb-2">⚠️ Señales a revisar</h2>
+  <ul class="space-y-1.5 text-xs text-amber-200">
+    {% for f in d.info_edge_flags %}<li class="leading-relaxed">· {{ f }}</li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% endif %}
+
 {% if not m.current_pencas %}
 <section class="bg-slate-800 rounded-xl p-8 text-center text-slate-400">
   Aún no hay predicciones para este partido. Los picks se generan en T-24h.
@@ -78,18 +164,66 @@
   </div>
 </section>
 
-{# ----------- Análisis LLM ----------- #}
-{% if m.latest_qualitative and m.latest_qualitative.reasoning %}
+{# ----------- Análisis LLM + impacto en el pick ----------- #}
+{% set li = m.llm_impact %}
+{% if li and li.ran %}
 <section class="bg-slate-800 rounded-xl p-5 shadow mb-5">
   <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
-    <h2 class="text-sm uppercase tracking-wider text-slate-400">🧠 Análisis LLM (última pasada)</h2>
+    <h2 class="text-sm uppercase tracking-wider text-slate-400">🧠 Análisis LLM (Capa 4)</h2>
     <div class="text-xs text-slate-400 font-mono">
-      ΔλL {{ "%+.2f"|format(m.latest_qualitative.delta_lambda_L or 0) }}
-      · ΔλV {{ "%+.2f"|format(m.latest_qualitative.delta_lambda_V or 0) }}
-      · conf {{ "%.2f"|format(m.latest_qualitative.confidence or 0) }}
+      ΔλL {{ "%+.2f"|format(li.delta_lambda_L or 0) }}
+      · ΔλV {{ "%+.2f"|format(li.delta_lambda_V or 0) }}
+      {% if li.confidence is not none %} · conf {{ "%.2f"|format(li.confidence) }}{% endif %}
     </div>
   </div>
-  <p class="text-sm text-slate-300 leading-relaxed">{{ m.latest_qualitative.reasoning }}</p>
+  {% if li.reasoning %}<p class="text-sm text-slate-300 leading-relaxed mb-4">{{ li.reasoning }}</p>{% endif %}
+
+  {# Veredicto: ¿cambió el pick? #}
+  {% if not li.moved_lambda %}
+  <div class="bg-slate-900/40 rounded-lg px-4 py-2.5 text-sm text-slate-400">
+    🟰 El LLM no movió λ — <b class="text-slate-300">no cambió ningún pick</b>. El mercado ya descontaba todo.
+  </div>
+  {% elif li.n_changed == 0 %}
+  <div class="bg-slate-900/40 rounded-lg px-4 py-2.5 text-sm text-slate-400">
+    🟰 El LLM movió λ ({{ "%+.2f"|format(li.delta_lambda_L) }}/{{ "%+.2f"|format(li.delta_lambda_V) }})
+    pero <b class="text-slate-300">no alcanzó a cambiar ningún pick</b> del menú — solo corrió probabilidades.
+  </div>
+  {% else %}
+  <div class="bg-indigo-900/30 border border-indigo-700/40 rounded-lg px-4 py-2.5 text-sm text-indigo-200">
+    ✳️ El LLM <b>cambió {{ li.n_changed }} de {{ li.rows | length }}</b> picks del menú.
+  </div>
+  {% endif %}
+
+  {# Probabilidades 1X2 sin → con LLM #}
+  {% if li.probs %}
+  <div class="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+    {% for k, lbl in [('p_home','Local'), ('p_draw','Empate'), ('p_away','Visit')] %}
+    <div class="bg-slate-900/50 rounded-lg p-2">
+      <div class="text-slate-500">{{ lbl }}</div>
+      <div class="font-mono">{{ (li.probs.pre[k]*100) | round(0,'common') | int }}%
+        <span class="text-slate-500">→</span>
+        <b class="{% if li.probs.post[k] > li.probs.pre[k] + 0.005 %}text-green-400{% elif li.probs.post[k] < li.probs.pre[k] - 0.005 %}text-red-400{% else %}text-slate-300{% endif %}">{{ (li.probs.post[k]*100) | round(0,'common') | int }}%</b>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {# Menú por objetivo: sin LLM → con LLM #}
+  {% if li.rows %}
+  <div class="mt-3 space-y-1">
+    <div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Pick por objetivo · sin LLM → con LLM</div>
+    {% for r in li.rows %}
+    <div class="flex items-center justify-between text-sm {% if r.changed %}bg-indigo-900/20{% else %}bg-slate-900/40{% endif %} rounded-lg px-3 py-1.5">
+      <span class="text-slate-400">{{ strategy_emoji.get(r.objective,'•') }} {{ r.label }}</span>
+      <span class="font-mono">
+        <span class="{% if r.changed %}text-slate-500 line-through{% else %}text-slate-300{% endif %}">{{ r.pre[0] }}-{{ r.pre[1] }}</span>
+        {% if r.changed %}<span class="text-slate-500 mx-1">→</span><b class="text-indigo-300">{{ r.post[0] }}-{{ r.post[1] }}</b>{% endif %}
+      </span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
 </section>
 {% endif %}
 
