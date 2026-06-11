@@ -467,6 +467,8 @@ def load_match_detail(match_id) -> dict | None:
         "exposure": exposure,
         "timeline": timeline,
         "diffs": diffs,
+        "dossier": _load_latest_dossier(match_id),
+        "llm_impact": llm_counterfactual(latest),
     }
 
 
@@ -540,6 +542,75 @@ def _load_my_pencas_standings_uncached() -> dict[str, Any]:
 
 
 # ---------- detalle por penca ----------
+
+def llm_counterfactual(pred: dict) -> dict:
+    """¿El ajuste cualitativo (Capa 4) cambió la predicción?
+
+    Reconstruye los λ SIN LLM (λ_post − δ) y regenera el menú de 5 objetivos en los dos
+    escenarios. Devuelve, por objetivo, el pick sin/ con LLM y si cambió, más el shift de
+    probabilidades 1X2. Read-only: no toca el pipeline, solo compara lo ya persistido.
+    """
+    qa = pred.get("qualitative_adjustment") or {}
+    c = pred.get("constraints") or {}
+    dL = float(qa.get("delta_lambda_L", 0.0) or 0.0)
+    dV = float(qa.get("delta_lambda_V", 0.0) or 0.0)
+    out = {
+        "ran": bool(qa),
+        "delta_lambda_L": dL,
+        "delta_lambda_V": dV,
+        "confidence": qa.get("confidence"),
+        "reasoning": qa.get("reasoning"),
+        "moved_lambda": (abs(dL) > 1e-6 or abs(dV) > 1e-6),
+        "rows": [],
+        "n_changed": 0,
+        "probs": None,
+    }
+    post_L, post_V = c.get("lambda_L"), c.get("lambda_V")
+    l12 = c.get("lambda_12", 0.1)
+    if post_L is None or post_V is None or not out["moved_lambda"]:
+        return out
+    try:
+        import numpy as np
+        from src.model.poisson import score_grid, marginals
+        from src.strategy.portfolio import generate_portfolio
+        from src.meta.pool import PoolModelConfig
+
+        pre_L = max(0.1, post_L - dL)
+        pre_V = max(0.1, post_V - dV)
+        p_home = c.get("p_home")
+        p_away = c.get("p_away")
+        grid_pre = score_grid(pre_L, pre_V, l12, max_goals=7)
+        grid_post = score_grid(post_L, post_V, l12, max_goals=7)
+        port_pre = generate_portfolio(grid_pre, p_home, p_away, PoolModelConfig())
+        port_post = generate_portfolio(grid_post, p_home, p_away, PoolModelConfig())
+
+        label = {"ev": "Favorito", "differentiated": "Diferencial", "tail": "Goleada",
+                 "upset": "Sorpresa", "variance": "Varianza"}
+        rows, n_changed = [], 0
+        for a, b in zip(port_pre.picks, port_post.picks):
+            pre = (a.score_local, a.score_visit)
+            post = (b.score_local, b.score_visit)
+            changed = pre != post
+            n_changed += int(changed)
+            rows.append({
+                "objective": a.objective,
+                "label": label.get(a.objective, a.objective),
+                "pre": list(pre), "post": list(post), "changed": changed,
+            })
+
+        def _winp(grid):
+            m = marginals(grid)
+            return {"p_home": float(m.p_home_win), "p_draw": float(m.p_draw), "p_away": float(m.p_away_win)}
+
+        out["rows"] = rows
+        out["n_changed"] = n_changed
+        out["pre_lambda"] = [round(pre_L, 2), round(pre_V, 2)]
+        out["post_lambda"] = [round(post_L, 2), round(post_V, 2)]
+        out["probs"] = {"pre": _winp(grid_pre), "post": _winp(grid_post)}
+    except Exception:
+        pass
+    return out
+
 
 def _pick_metrics(constraints: dict, score) -> dict:
     """Recomputa métricas del pick desde los λ persistidos: E[pts], P(marcador), popularidad,
