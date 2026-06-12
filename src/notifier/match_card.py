@@ -26,6 +26,26 @@ from src.notifier.telegram import HUMAN_OBJECTIVE_LABELS, TelegramNotifier, _esc
 log = logging.getLogger(__name__)
 
 PHASE_LABELS = {"T_24h": "T-24h", "T_3h": "T-3h", "T_30min": "T-30min"}
+PHASE_ORDER = ["T_24h", "T_3h", "T_30min"]
+
+
+def _latest_per_phase(versions: list[dict]) -> dict[str, dict]:
+    """Última versión de cada fase (las versiones vienen en orden cronológico).
+
+    Si una fase corrió dos veces (ej. una re-pasada manual), nos quedamos con la última.
+    """
+    out: dict[str, dict] = {}
+    for v in versions:
+        out[v.get("phase", "?")] = v
+    return out
+
+
+def _truncate(text: str, limit: int = 320) -> str:
+    """Corta en el último espacio antes del límite y agrega …, sin partir una palabra."""
+    text = (text or "").strip()
+    if len(text) <= limit:
+        return text
+    return text[:limit].rsplit(" ", 1)[0].rstrip(",.;:") + "…"
 
 
 def _data_dir() -> Path:
@@ -71,10 +91,19 @@ def _exposure_of(version: dict) -> dict[str, int]:
 
 
 def _portfolio_diff_lines(versions: list[dict]) -> list[str]:
-    """Diff de cobertura entre las dos últimas pasadas, a nivel portfolio."""
-    if len(versions) < 2:
+    """Diff de cobertura entre las dos últimas FASES (no versiones), a nivel portfolio.
+
+    Compara la última fase contra la anterior usando la última versión de cada una, así
+    una re-pasada de la misma fase no genera un diff confuso 'T-3h vs T-3h'.
+    """
+    latest = _latest_per_phase(versions)
+    ran = [latest[ph] for ph in PHASE_ORDER if ph in latest]
+    if len(ran) < 2:
         return []
-    prev, cur = versions[-2], versions[-1]
+    prev, cur = ran[-2], ran[-1]
+    from_lbl = PHASE_LABELS.get(prev.get("phase", ""), "?")
+    to_lbl = PHASE_LABELS.get(cur.get("phase", ""), "?")
+
     e_prev, e_cur = _exposure_of(prev), _exposure_of(cur)
     removed = sorted(set(e_prev) - set(e_cur))
     added = sorted(set(e_cur) - set(e_prev))
@@ -90,26 +119,26 @@ def _portfolio_diff_lines(versions: list[dict]) -> list[str]:
         1 for pid in cur_by_pid if pid in prev_by_pid and prev_by_pid[pid] != cur_by_pid[pid]
     )
 
-    lines = []
-    parts = []
-    if removed:
-        parts.append("−" + " −".join(removed))
+    header = f"🔁 <b>Qué cambió de {from_lbl} a {to_lbl}:</b>"
+    detail = []
     if added:
-        parts.append("+" + " +".join(added))
-    if moved:
-        parts.append(" ".join(f"{s} ×{a}→×{b}" for s, (a, b) in sorted(moved.items())))
-    label = PHASE_LABELS.get(cur.get("phase", ""), cur.get("phase", "?"))
-    if parts:
-        lines.append(f"🔁 <b>Cambios {label}:</b> {_esc(' · '.join(parts))}")
+        detail.append(f"➕ Entró: {', '.join(added)}")
+    if removed:
+        detail.append(f"➖ Salió: {', '.join(removed)}")
+    for s, (a, b) in sorted(moved.items()):
+        verb = "más" if b > a else "menos"
+        detail.append(f"• {s}: {a}→{b} pencas ({verb} cobertura)")
+
+    lines = [header]
+    if detail:
+        lines.extend("   " + d for d in detail)
         if n_reshuffled:
-            lines.append(f"   <i>(+{n_reshuffled} pencas reasignadas por ranking, cobertura igual)</i>")
+            lines.append(f"   <i>({n_reshuffled} pencas más cambiaron de marcador por su "
+                         "posición en la tabla, sin mover la cobertura)</i>")
     elif n_reshuffled:
-        lines.append(
-            f"🔁 <b>{label}:</b> <i>cobertura sin cambios — {n_reshuffled} pencas "
-            "reasignadas por ranking</i>"
-        )
+        lines.append(f"   <i>Misma cobertura; {n_reshuffled} pencas se reordenaron por ranking.</i>")
     else:
-        lines.append(f"🔁 <b>{label}:</b> <i>sin cambios</i>")
+        lines.append("   <i>Sin cambios.</i>")
     return lines
 
 
@@ -161,9 +190,11 @@ def build_match_card(
     qa = latest.get("qualitative_adjustment") or {}
     if qa and (abs(qa.get("delta_lambda_L", 0)) > 1e-6 or abs(qa.get("delta_lambda_V", 0)) > 1e-6):
         lines.append(
-            f"🧠 LLM: δL {qa['delta_lambda_L']:+.2f} δV {qa['delta_lambda_V']:+.2f} "
-            f"(conf {qa.get('confidence', 0):.2f}) — {_esc((qa.get('reasoning') or '')[:150])}"
+            f"🧠 <b>LLM:</b> δL {qa['delta_lambda_L']:+.2f} δV {qa['delta_lambda_V']:+.2f} "
+            f"(conf {qa.get('confidence', 0):.2f})"
         )
+        if qa.get("reasoning"):
+            lines.append(f"   {_esc(_truncate(qa['reasoning']))}")
     elif qa:
         lines.append("🧠 LLM: sin ajuste (mercado eficiente)")
 
@@ -184,12 +215,17 @@ def build_match_card(
             lines.append("")
             lines.extend(diff_lines)
 
-    # Timeline de fases
+    # Timeline: una entrada por fase canónica (✓ con hora si corrió, ⏳ si falta).
+    # Sin postmortem mostramos las pendientes; con resultado, solo las que corrieron.
     lines.append("")
+    ran = _latest_per_phase(versions)
     phase_bits = []
-    for v in versions:
-        label = PHASE_LABELS.get(v.get("phase", ""), v.get("phase", "?"))
-        phase_bits.append(f"{label} ✓ {_hhmm_uy(v.get('run_at', ''))}")
+    for ph in PHASE_ORDER:
+        label = PHASE_LABELS[ph]
+        if ph in ran:
+            phase_bits.append(f"{label} ✓ {_hhmm_uy(ran[ph].get('run_at', ''))}")
+        elif not postmortem:
+            phase_bits.append(f"{label} ⏳")
     lines.append("⏱ " + " · ".join(phase_bits))
     if latest.get("published"):
         lines.append(f"🔒 Publicado ({sum(_exposure_of(latest).values())} picks)")

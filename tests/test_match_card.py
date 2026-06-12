@@ -48,24 +48,58 @@ def test_card_diff_portfolio_level_not_per_penca():
     v2 = _version("T_3h", {"1-0": 10, "0-2": 1, "1-1": 1}, a2)
     lines = _portfolio_diff_lines([v1, v2])
     joined = "\n".join(lines)
-    # nivel portfolio: marcadores que entran/salen
-    assert "2-0" in joined and "3-0" in joined          # salieron
-    assert "0-2" in joined and "1-1" in joined          # entraron
-    # los enroques se resumen en una nota, no en 11 líneas
-    assert "reasignadas por ranking" in joined
-    assert len(lines) <= 3
+    # encabezado nombra las dos fases comparadas
+    assert "de T-24h a T-3h" in joined
+    # nivel portfolio: marcadores que entran/salen, en lenguaje claro
+    assert "Salió" in joined and "2-0" in joined and "3-0" in joined
+    assert "Entró" in joined and "0-2" in joined and "1-1" in joined
+    # los enroques se resumen en una nota, no en una línea por penca
+    assert "por su posición en la tabla" in joined or "se reordenaron" in joined
 
 
 def test_card_diff_reshuffle_only():
-    """Mismos marcadores, otras pencas → una sola línea de 'sin cambios + reasignadas'."""
+    """Mismos marcadores, otras pencas → encabezado + nota de reordenamiento (2 líneas)."""
     a1 = [{"penca_id": 1, "score": [1, 0]}, {"penca_id": 2, "score": [0, 2]}]
     a2 = [{"penca_id": 1, "score": [0, 2]}, {"penca_id": 2, "score": [1, 0]}]
     v1 = _version("T_24h", {"1-0": 1, "0-2": 1}, a1)
     v2 = _version("T_3h", {"1-0": 1, "0-2": 1}, a2)
     lines = _portfolio_diff_lines([v1, v2])
-    assert len(lines) == 1
-    assert "cobertura sin cambios" in lines[0]
-    assert "2 pencas" in lines[0]
+    joined = "\n".join(lines)
+    assert "Misma cobertura" in joined
+    assert "2 pencas se reordenaron" in joined
+
+
+def test_card_diff_compares_phases_not_versions():
+    """Dos T-3h (re-pasada) no generan un diff 'T-3h vs T-3h'; compara T-24h→T-3h."""
+    v_24 = _version("T_24h", {"1-0": 2}, [{"penca_id": 1, "score": [1, 0]}, {"penca_id": 2, "score": [1, 0]}])
+    v_3a = _version("T_3h", {"1-0": 1, "2-0": 1}, [{"penca_id": 1, "score": [1, 0]}, {"penca_id": 2, "score": [2, 0]}])
+    v_3b = _version("T_3h", {"1-0": 1, "2-1": 1}, [{"penca_id": 1, "score": [1, 0]}, {"penca_id": 2, "score": [2, 1]}])
+    lines = _portfolio_diff_lines([v_24, v_3a, v_3b])
+    joined = "\n".join(lines)
+    assert "de T-24h a T-3h" in joined   # compara contra la fase anterior, no la re-pasada
+    assert "2-1" in joined               # usa la ÚLTIMA versión de T-3h (v_3b)
+
+
+def test_timeline_dedupes_phases_and_shows_pending():
+    v_24 = _version("T_24h", {"1-0": 1}, [{"penca_id": 1, "score": [1, 0]}])
+    v_3a = _version("T_3h", {"1-0": 1}, [{"penca_id": 1, "score": [1, 0]}])
+    v_3b = _version("T_3h", {"1-0": 1}, [{"penca_id": 1, "score": [1, 0]}])
+    text = build_match_card("A vs B", "hoy", [v_24, v_3a, v_3b])
+    # una sola entrada por fase (no T-3h dos veces) y T-30min como pendiente
+    assert text.count("T-3h ✓") == 1
+    assert "T-30min ⏳" in text
+
+
+def test_card_llm_reasoning_not_truncated_midword():
+    long_reason = ("Múltiples fuentes mencionan dudas sobre Alphonso Davies, "
+                   "lo que representaría una baja relevante para Canadá en el mediocampo "
+                   "ofensivo y justifica una reducción moderada del lambda local segun el analisis.")
+    qa = {"delta_lambda_L": -0.12, "delta_lambda_V": 0.0, "confidence": 0.35, "reasoning": long_reason}
+    v = _version("T_30min", {"1-0": 6}, qa=qa)
+    text = build_match_card("Canadá vs Bosnia", "hoy", [v])
+    # no corta a mitad de palabra: termina en … tras una palabra completa, o entra entero
+    assert long_reason in text or text.split("Davies")[1] != ""  # aparece el texto, no "representari…"
+    assert "representari" not in text  # el corte feo del bug original no aparece
 
 
 def test_card_with_postmortem_shows_result_on_top():
