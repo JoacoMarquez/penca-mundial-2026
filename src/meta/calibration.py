@@ -129,33 +129,53 @@ def _fetch_leaderboard_entries() -> list[dict] | None:
 
 @dataclass(frozen=True)
 class Observation:
-    """Lo observado del pool en UN partido."""
+    """Lo observado del pool en UN partido — TRES canales:
+    shares de clases de puntos + fracción de exactos + fracción de ganadores."""
     match_id: str
     actual: tuple[int, int]
     shares: dict[int, float]        # clase de puntos → proporción observada (suman 1)
     n_entries: int
     grid: np.ndarray                # grid Poisson del partido (modelo nuestro)
+    exact_frac: float | None = None    # fracción que clavó el marcador (delta exact_scores)
+    winner_frac: float | None = None   # fracción que acertó el ganador (delta correct_winners)
 
 
-def _points_delta_shares(prev_entries: list[dict] | None, cur_entries: list[dict]) -> tuple[dict[int, float], int]:
-    """Shares de puntos ganados entre dos snapshots. prev=None → baseline 0 para todos.
+def _points_delta_shares(
+    prev_entries: list[dict] | None, cur_entries: list[dict],
+) -> tuple[dict[int, float], int, float | None, float | None]:
+    """Shares de puntos + fracción de exactos + fracción de ganadores entre dos snapshots.
 
-    Excluye entries con predictions_made == 0 en el snapshot actual (no-shows totales).
-    Deltas que no son clases válidas (entró tarde al pool, doble jornada) se descartan.
+    prev=None → baseline 0 para todos. Excluye entries con predictions_made == 0
+    (no-shows totales). Deltas de puntos fuera de las clases válidas (entró tarde,
+    doble jornada) se descartan; los deltas válidos de exactos/ganadores son {0, 1}.
     """
-    prev_pts = {e["penca_id"]: e["points_total"] for e in (prev_entries or [])}
+    prev_by = {e["penca_id"]: e for e in (prev_entries or [])}
     counts: dict[int, int] = {c: 0 for c in POINT_CLASSES}
     n = 0
+    exact_hits = exact_n = 0
+    winner_hits = winner_n = 0
     for e in cur_entries:
         if not e.get("predictions_made"):
             continue
-        delta = e["points_total"] - prev_pts.get(e["penca_id"], 0)
+        prev = prev_by.get(e["penca_id"], {})
+        delta = e["points_total"] - prev.get("points_total", 0)
         if delta in counts:
             counts[delta] += 1
             n += 1
+        d_exact = e.get("exact_scores", 0) - prev.get("exact_scores", 0)
+        if d_exact in (0, 1):
+            exact_hits += d_exact
+            exact_n += 1
+        d_winner = e.get("correct_winners", 0) - prev.get("correct_winners", 0)
+        if d_winner in (0, 1):
+            winner_hits += d_winner
+            winner_n += 1
     if n == 0:
-        return {}, 0
-    return {c: counts[c] / n for c in POINT_CLASSES}, n
+        return {}, 0, None, None
+    shares = {c: counts[c] / n for c in POINT_CLASSES}
+    exact_frac = (exact_hits / exact_n) if exact_n else None
+    winner_frac = (winner_hits / winner_n) if winner_n else None
+    return shares, n, exact_frac, winner_frac
 
 
 def build_observations(data_dir: Path | None = None) -> list[Observation]:
@@ -215,10 +235,13 @@ def build_observations(data_dir: Path | None = None) -> list[Observation]:
         except Exception:
             continue
 
-        shares, n = _points_delta_shares(prev_entries, s["entries"])
+        shares, n, exact_frac, winner_frac = _points_delta_shares(prev_entries, s["entries"])
         if n < 30:  # muy pocos datos → ruido
             continue
-        observations.append(Observation(match_id=mid, actual=actual, shares=shares, n_entries=n, grid=grid))
+        observations.append(Observation(
+            match_id=mid, actual=actual, shares=shares, n_entries=n, grid=grid,
+            exact_frac=exact_frac, winner_frac=winner_frac,
+        ))
 
     return observations
 
@@ -263,13 +286,47 @@ def _config_for(chalk: float, bias_scale: float) -> PoolModelConfig:
     )
 
 
+def predicted_exact_winner(
+    grid: np.ndarray,
+    actual: tuple[int, int],
+    config: PoolModelConfig,
+    no_show_frac: float = 0.0,
+) -> tuple[float, float]:
+    """Fracción de exactos y de ganadores correctos que el modelo del pool predice."""
+    q = pool_pick_distribution(grid, config)
+    n = grid.shape[0]
+    agL, agV = actual
+    exact = float(q[agL, agV])
+    aw = "H" if agL > agV else ("A" if agL < agV else "D")
+    winner = 0.0
+    for gL in range(n):
+        for gV in range(n):
+            pw = "H" if gL > gV else ("A" if gL < gV else "D")
+            if pw == aw:
+                winner += float(q[gL, gV])
+    return exact * (1 - no_show_frac), winner * (1 - no_show_frac)
+
+
+# Pesos de los canales en el loss. Los 3 canales miden lo mismo (la forma de Q) con
+# granularidad distinta: el de exactos es el más informativo sobre concentración.
+W_POINTS, W_EXACT, W_WINNER = 1.0, 2.0, 1.0
+
+
 def _loss(observations: list[Observation], chalk: float, bias_scale: float, no_show: float) -> float:
-    """L2 sobre shares por clase, promediado entre partidos, + penalty hacia el prior."""
+    """L2 multicanal (clases de puntos + frac. exactos + frac. ganadores), promediado
+    entre partidos, + penalty hacia el prior."""
     cfg = _config_for(chalk, bias_scale)
     total = 0.0
     for ob in observations:
         pred = predicted_shares(ob.grid, ob.actual, cfg, no_show)
-        total += sum((pred[c] - ob.shares.get(c, 0.0)) ** 2 for c in POINT_CLASSES)
+        l = W_POINTS * sum((pred[c] - ob.shares.get(c, 0.0)) ** 2 for c in POINT_CLASSES)
+        if ob.exact_frac is not None or ob.winner_frac is not None:
+            pe, pw = predicted_exact_winner(ob.grid, ob.actual, cfg, no_show)
+            if ob.exact_frac is not None:
+                l += W_EXACT * (pe - ob.exact_frac) ** 2
+            if ob.winner_frac is not None:
+                l += W_WINNER * (pw - ob.winner_frac) ** 2
+        total += l
     total /= max(len(observations), 1)
     reg = REG_WEIGHT / max(len(observations), 1) * (
         (chalk - PRIOR_CHALK) ** 2
