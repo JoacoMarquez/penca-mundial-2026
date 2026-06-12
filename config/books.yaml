@@ -22,33 +22,37 @@ books:
       las credenciales viven en .env como PINNACLE_USER / PINNACLE_PASS.
       Rate limit: ~1 req/seg respetable.
 
-  betfair_exchange:
+  odds_api_consensus:
     enabled: true
-    weight: 0.30
-    scraper: betfair_api
+    weight: 0.50
+    scraper: odds_api
     markets:
       - 1x2
       - over_under
-      - btts
-      - asian_handicap
-      - correct_score
     notes: |
-      Acceso vía API oficial. Necesita BETFAIR_APP_KEY + BETFAIR_SESSION_TOKEN.
-      Las "back odds" del exchange son la prob real del mercado (no inflada por margen de casa).
+      The-Odds-API: mediana de ~31 casas (Pinnacle, Betfair Exchange, Bet365, etc.) en
+      UNA llamada cacheada. Es la segunda fuente de Capa 1: redundancia ante caída de
+      Pinnacle + consenso multi-libro real. Key en .env como ODDS_API_KEY (free tier
+      500 créditos/mes → caché 90min + guarda de presupuesto en src/scrapers/odds_api.py).
+      Cuando Pinnacle no responde, su peso se redistribuye acá (fallback_policy).
+
+  betfair_exchange:
+    enabled: false   # cubierto vía odds_api_consensus (betfair_ex_eu entra en la mediana)
+    weight: 0.0
+    scraper: betfair_api
+    markets: [1x2, over_under, btts, asian_handicap, correct_score]
+    notes: |
+      Desactivado: ya no scrapeamos Betfair directo; sus back-odds entran como una casa
+      más en la mediana de The-Odds-API. Reactivar solo si se quiere el peso sharp puro.
 
   bet365:
-    enabled: true
-    weight: 0.20
+    enabled: false   # cubierto vía odds_api_consensus
+    weight: 0.0
     scraper: bet365_playwright
-    markets:
-      - 1x2
-      - over_under
-      - btts
-      - asian_handicap
-      - correct_score   # Bet365 tiene el mejor grid de marcador exacto
+    markets: [1x2, over_under, btts, asian_handicap, correct_score]
     notes: |
-      Sitio JS-heavy con anti-bot. Requiere Playwright + posiblemente proxy residencial.
-      Rate limit estricto: máx 1 request cada 30s, sino bloqueo.
+      Desactivado: el scraping Playwright era frágil y pesado para el droplet de 1GB.
+      Bet365 entra en la mediana de The-Odds-API.
 
 # Mercados que se piden a todas las casas y se agregan en src/model/market_probs.py
 markets_priority:
