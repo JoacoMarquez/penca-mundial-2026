@@ -122,8 +122,8 @@ def _synthetic_observations(true_chalk, true_beta, true_no_show, n_matches=6, n_
             winner_hits += int(pw == aw)
         counts[0] += n_pool - n_show  # no-shows suman 0
         shares = {c: counts[c] / n_pool for c in counts}
-        obs.append(Observation(match_id=f"SYN_{i}", actual=actual, shares=shares,
-                               n_entries=n_pool, grid=grid,
+        obs.append(Observation(match_id=f"SYN_{i}", actuals=(actual,), shares=shares,
+                               n_entries=n_pool, grids=(grid,),
                                exact_frac=exact_hits / n_pool,
                                winner_frac=winner_hits / n_pool))
     return obs
@@ -201,7 +201,8 @@ def test_build_observations_end_to_end(tmp_path, monkeypatch):
 
     obs = build_observations(tmp_path)
     assert len(obs) == 1
-    assert obs[0].actual == (2, 0)
+    assert obs[0].actuals == ((2, 0),)
+    assert obs[0].n_matches == 1
     assert obs[0].shares[6] == pytest.approx(0.5)
     assert obs[0].shares[4] == pytest.approx(0.5)
     assert obs[0].n_entries == 100
@@ -209,11 +210,52 @@ def test_build_observations_end_to_end(tmp_path, monkeypatch):
     assert obs[0].winner_frac == pytest.approx(1.0)
 
 
-def test_simultaneous_matches_single_snapshot_keeps_chain_clean(tmp_path, monkeypatch):
+def test_convolve_point_classes_two_matches():
+    """Convolución de dos partidos: las clases conjuntas y sus probabilidades."""
+    a = {6: 0.1, 4: 0.2, 3: 0.3, 0: 0.4}
+    b = {6: 0.0, 4: 0.0, 3: 0.5, 0: 0.5}
+    from src.meta.calibration import _convolve_point_classes
+    joint = _convolve_point_classes([a, b])
+    assert sum(joint.values()) == pytest.approx(1.0)
+    # clase conjunta 0 = solo 0+0
+    assert joint[0] == pytest.approx(0.4 * 0.5)
+    # clase conjunta 6 = 6+0 (0.1·0.5) + 3+3 (0.3·0.5) — colisión sumada
+    assert joint[6] == pytest.approx(0.1 * 0.5 + 0.3 * 0.5)
+    # soporte alcanzable para dos partidos
+    assert set(joint) <= {0, 3, 4, 6, 7, 8, 9, 10, 12}
+
+
+def test_joint_point_classes_support():
+    from src.meta.calibration import _joint_point_classes
+    assert _joint_point_classes(1) == (0, 3, 4, 6)
+    assert _joint_point_classes(2) == (0, 3, 4, 6, 7, 8, 9, 10, 12)
+
+
+def test_predicted_group_shares_reduces_to_single():
+    """Grupo de 1 ≡ predicted_shares de siempre."""
+    from src.meta.calibration import predicted_group_shares
+    cfg = PoolModelConfig()
+    g = _grid()
+    single = predicted_shares(g, (1, 0), cfg, no_show_frac=0.1)
+    group = predicted_group_shares([g], [(1, 0)], cfg, no_show_frac=0.1)
+    assert group == pytest.approx(single)
+
+
+def test_predicted_group_shares_two_matches_sums_to_one():
+    from src.meta.calibration import predicted_group_shares
+    shares = predicted_group_shares(
+        [_grid(1.8, 0.7), _grid(1.2, 1.3)], [(2, 0), (1, 1)],
+        PoolModelConfig(), no_show_frac=0.08,
+    )
+    assert sum(shares.values()) == pytest.approx(1.0, abs=1e-9)
+    assert set(shares) <= {0, 3, 4, 6, 7, 8, 9, 10, 12}
+
+
+def test_simultaneous_matches_become_joint_observation(tmp_path, monkeypatch):
     """Partidos simultáneos (3ª jornada de grupos): el scheduler toma UN snapshot con
-    finished=todos. Ese snapshot NO genera observación (sin predecesor exacto — los
-    deltas mezclarían puntos de dos partidos) pero SÍ sirve de predecesor del próximo,
-    así la cadena sigue limpia."""
+    finished=todos. Antes se descartaban; ahora el grupo co-puntuado produce UNA
+    observación conjunta cuyas shares viven en las clases SUMA. La cadena sigue limpia:
+    105 y 108 (solos) dan observaciones normales."""
     monkeypatch.setenv("DATA_DIR", str(tmp_path))
 
     def _setup_match(mid):
@@ -225,28 +267,101 @@ def test_simultaneous_matches_single_snapshot_keeps_chain_clean(tmp_path, monkey
         pmdir.mkdir(exist_ok=True)
         (pmdir / f"{mid}.json").write_text(json.dumps({"actual_home": 1, "actual_away": 0}))
 
-    def _entries(points):
+    def _entries(points, cw):
+        # cw = correct_winners acumulados (todas las pencas aciertan ganador cada partido)
         return [{"penca_id": i, "points_total": points, "exact_scores": 0,
-                 "correct_winners": 1, "predictions_made": 1} for i in range(100)]
+                 "correct_winners": cw, "predictions_made": 1} for i in range(100)]
 
-    # Partido 105 solo → observación normal (baseline 0, todos +3)
+    # Partido 105 solo → observación normal (baseline 0, todos +3, 1 ganador)
     _setup_match("105")
-    snapshot_leaderboard("105", ["105"], entries=_entries(3))
+    snapshot_leaderboard("105", ["105"], entries=_entries(3, 1))
 
-    # 106 y 107 terminan en el mismo tick → UN snapshot (match_id=107, finished=todos).
-    # El delta vs 105 es +6 (3+3 mezclados) — clase válida, pero atribución errónea:
-    # tiene que descartarse por falta de predecesor, no por delta inválido.
+    # 106 y 107 en el mismo tick → UN snapshot con finished={105,106,107}. Delta vs 105:
+    # +6 puntos (3+3) y +2 ganadores. Clase conjunta válida (6 = 3+3), modelada por convolución.
     _setup_match("106")
     _setup_match("107")
-    snapshot_leaderboard("107", ["105", "106", "107"], entries=_entries(9))
+    snapshot_leaderboard("107", ["105", "106", "107"], entries=_entries(9, 3))
 
-    # 108 después, solo → observación normal usando el snapshot multi como predecesor
+    # 108 solo después → observación normal usando el snapshot del grupo como predecesor
     _setup_match("108")
-    snapshot_leaderboard("108", ["105", "106", "107", "108"], entries=_entries(15))
+    snapshot_leaderboard("108", ["105", "106", "107", "108"], entries=_entries(15, 4))
 
     obs = build_observations(tmp_path)
     ids = [o.match_id for o in obs]
-    assert ids == ["105", "108"]          # ni 106 ni 107 generan observación
+    assert ids == ["105", "106+107", "108"]
     by_id = {o.match_id: o for o in obs}
     assert by_id["105"].shares[3] == pytest.approx(1.0)
+    # observación conjunta: 2 partidos, delta combinado +6 cae en la clase conjunta 6
+    joint = by_id["106+107"]
+    assert joint.n_matches == 2
+    assert joint.actuals == ((1, 0), (1, 0))
+    assert joint.shares[6] == pytest.approx(1.0)
+    assert joint.winner_frac == pytest.approx(1.0)  # ambos ganadores acertados
     assert by_id["108"].shares[6] == pytest.approx(1.0)  # delta 15−9, sin contaminación
+
+
+def _synthetic_group_observations(true_chalk, true_beta, true_no_show, n_pool=400, seed=11):
+    """Como _synthetic_observations pero cada observación es un GRUPO de 2 partidos
+    co-puntuados: por penca se decide UN no-show (0 en ambos), si no se pica de cada Q y
+    se suman los puntos. Fiel a cómo el leaderboard junta deltas de partidos simultáneos."""
+    from src.meta.calibration import _joint_point_classes
+    rng = np.random.default_rng(seed)
+    cfg = _config_for(true_chalk, true_beta)
+    pairs = [((2.0, 0.6), (1.5, 1.1)), ((1.2, 1.3), (1.9, 0.8)), ((0.9, 1.6), (1.6, 0.7))]
+    valid = _joint_point_classes(2)
+    obs = []
+    for gi, (lA, lB) in enumerate(pairs):
+        gridA, gridB = _grid(*lA), _grid(*lB)
+        n = gridA.shape[0]
+        qA = pool_pick_distribution(gridA, cfg).flatten()
+        qB = pool_pick_distribution(gridB, cfg).flatten()
+        oA = rng.choice(n * n, p=gridA.flatten() / gridA.sum())
+        oB = rng.choice(n * n, p=gridB.flatten() / gridB.sum())
+        actA, actB = (oA // n, oA % n), (oB // n, oB % n)
+        awA = "H" if actA[0] > actA[1] else ("A" if actA[0] < actA[1] else "D")
+        awB = "H" if actB[0] > actB[1] else ("A" if actB[0] < actB[1] else "D")
+        counts = {c: 0 for c in valid}
+        exact_hits = winner_hits = 0
+        for _ in range(n_pool):
+            if rng.random() < true_no_show:
+                counts[0] += 1
+                continue
+            pa, pb = rng.choice(n * n, p=qA), rng.choice(n * n, p=qB)
+            pka, pkb = (pa // n, pa % n), (pb // n, pb % n)
+            counts[jmlm_points(pka, actA) + jmlm_points(pkb, actB)] += 1
+            exact_hits += int(pka == actA) + int(pkb == actB)
+            pwa = "H" if pka[0] > pka[1] else ("A" if pka[0] < pka[1] else "D")
+            pwb = "H" if pkb[0] > pkb[1] else ("A" if pkb[0] < pkb[1] else "D")
+            winner_hits += int(pwa == awA) + int(pwb == awB)
+        shares = {c: counts[c] / n_pool for c in valid}
+        obs.append(Observation(match_id=f"GRP_{gi}", actuals=(actA, actB), shares=shares,
+                               n_entries=n_pool, grids=(gridA, gridB),
+                               exact_frac=exact_hits / (n_pool * 2),
+                               winner_frac=winner_hits / (n_pool * 2)))
+    return obs
+
+
+def test_grouped_observations_improve_over_prior():
+    """Observaciones de grupos de 2 partidos co-puntuados, por sí solas, ya mejoran el
+    loss vs el prior y recuperan chalk. (β se diluye en la convolución — su señal vive en
+    la concentración por marcador; ver el test mixto para la recuperación completa.)"""
+    true = dict(chalk=1.2, beta=0.5, ns=0.10)
+    obs = _synthetic_group_observations(true["chalk"], true["beta"], true["ns"])
+    fit = calibrate(obs)
+    assert fit is not None
+    assert fit["loss"] < fit["prior_loss"]
+    assert abs(fit["chalk_strength"] - true["chalk"]) < abs(PRIOR_CHALK - true["chalk"])
+
+
+def test_calibration_recovers_params_with_mixed_singles_and_groups():
+    """Escenario real del torneo: jornadas 1-2 individuales + jornada 3 simultánea (grupos).
+    Con singles + grupos juntos la calibración recupera chalk y β mejor que el prior — los
+    grupos suman datos sin romper la recuperación."""
+    true = dict(chalk=1.2, beta=0.5, ns=0.10)
+    singles = _synthetic_observations(true["chalk"], true["beta"], true["ns"], n_matches=6)
+    groups = _synthetic_group_observations(true["chalk"], true["beta"], true["ns"])
+    fit = calibrate(singles + groups)
+    assert fit is not None
+    assert fit["loss"] < fit["prior_loss"]
+    assert abs(fit["chalk_strength"] - true["chalk"]) < abs(PRIOR_CHALK - true["chalk"])
+    assert abs(fit["bias_scale"] - true["beta"]) < abs(PRIOR_BIAS_SCALE - true["beta"])
