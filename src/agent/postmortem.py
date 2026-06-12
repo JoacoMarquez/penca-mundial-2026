@@ -211,6 +211,45 @@ def _generate_insights(report: PostmortemReport) -> list[str]:
     return out
 
 
+def evaluate_llm_adjustment(
+    d_l: float,
+    d_v: float,
+    post_l: float,
+    post_v: float,
+    actual: tuple[int, int],
+) -> str | None:
+    """¿El ajuste cualitativo (Capa 4) acercó los λ al resultado real?
+
+    Los λ persistidos en `constraints` ya incluyen el delta del LLM — el pipeline
+    pisa lam_L/lam_V con los ajustados antes de persistir — así que el base sin
+    LLM se reconstruye como λ_post − δ (mismo criterio que llm_counterfactual()
+    en src/dashboard/data_loader.py).
+
+    Se evalúa por equipo: cada δ no trivial fue útil si dejó su λ más cerca de
+    los goles reales de ese equipo. Devuelve "yes" si todos los ajustes ayudaron,
+    "no" si todos empeoraron, "neutral" si fue mixto o sin efecto medible, y
+    None si el LLM no movió nada.
+    """
+    if abs(d_l) + abs(d_v) <= 0.01:
+        return None
+    verdicts = []
+    for delta, post, goals in ((d_l, post_l, actual[0]), (d_v, post_v, actual[1])):
+        if abs(delta) <= 0.01:
+            continue
+        base = post - delta
+        err_post, err_base = abs(post - goals), abs(base - goals)
+        if err_post < err_base:
+            verdicts.append("yes")
+        elif err_post > err_base:
+            verdicts.append("no")
+        else:
+            verdicts.append("neutral")
+    decisive = {v for v in verdicts if v != "neutral"}
+    if len(decisive) == 1:
+        return decisive.pop()
+    return "neutral" if verdicts else None
+
+
 def compute_postmortem(match_id: str | int) -> PostmortemReport | None:
     """Computa el postmortem completo para un partido finalizado."""
     pred = _latest_prediction(match_id)
@@ -309,15 +348,11 @@ def compute_postmortem(match_id: str | int) -> PostmortemReport | None:
         report.llm_adjustment_applied = qa
         d_l = qa.get("delta_lambda_L", 0)
         d_v = qa.get("delta_lambda_V", 0)
-        # Si el LLM bajó λ_local pero el local hizo MÁS goles que λ implicaría → "no helpful"
-        if abs(d_l) + abs(d_v) > 0.01:
-            actual_total = actual[0] + actual[1]
-            base_total = (constraints.get("lambda_L", 1.5) + constraints.get("lambda_V", 1.0))
-            adjusted_total = base_total + d_l + d_v
-            # ¿La dirección del ajuste fue correcta?
-            base_dir = 1 if actual_total > base_total else -1
-            adj_dir = 1 if adjusted_total > base_total else -1
-            report.llm_adjustment_was_helpful = "yes" if base_dir == adj_dir else "no"
+        report.llm_adjustment_was_helpful = evaluate_llm_adjustment(
+            d_l, d_v,
+            constraints.get("lambda_L", 1.5), constraints.get("lambda_V", 1.0),
+            actual,
+        )
 
     # Generar insights
     report.insights = _generate_insights(report)
