@@ -196,33 +196,35 @@ def expected_points(
 
 
 def jmlm_points(pick: tuple[int, int], actual: tuple[int, int]) -> int:
-    """Regla de puntuación de la penca JMLM.
+    """Regla de puntuación de la penca JMLM (vigente desde 2026-06-12).
 
-    5: marcador exacto
-    4: ganador correcto + goles de UN equipo
-    3: solo ganador (o empate)
-    1: goles de UN equipo sin acertar ganador
+    6: marcador exacto
+    4: ganador correcto + diferencia de gol correcta (solo partidos con ganador)
+    3: ganador correcto (o empate acertado sin marcador exacto)
     0: nada
+
+    Nota: el empate acertado no exacto paga 3, NO 4 — en empates la diferencia
+    de gol (0) se acierta por definición, así que el tier de 4 queda reservado
+    para partidos con ganador.
     """
     pgL, pgV = pick
     agL, agV = actual
 
     if (pgL, pgV) == (agL, agV):
-        return 5
+        return 6
 
     pick_winner = "H" if pgL > pgV else ("A" if pgL < pgV else "D")
     actual_winner = "H" if agL > agV else ("A" if agL < agV else "D")
-    winner_match = pick_winner == actual_winner
+    if pick_winner != actual_winner:
+        return 0
 
-    one_team_correct = (pgL == agL) or (pgV == agV)
+    if actual_winner == "D":
+        return 3  # empate acertado, marcador errado
 
-    if winner_match and one_team_correct:
-        return 4
-    if winner_match:
-        return 3
-    if one_team_correct:
-        return 1
-    return 0
+    if (pgL - pgV) == (agL - agV):
+        return 4  # ganador + diferencia de gol
+
+    return 3  # solo ganador
 
 
 if __name__ == "__main__":

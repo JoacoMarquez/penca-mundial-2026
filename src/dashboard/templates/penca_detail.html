@@ -97,7 +97,7 @@
       <div class="text-right shrink-0">
         <div class="text-3xl font-bold">{{ pk.score[0] }}<span class="text-slate-500 mx-1">-</span>{{ pk.score[1] }}</div>
         {% if pk.actual %}
-        <div class="text-xs mt-0.5">real {{ pk.actual[0] }}-{{ pk.actual[1] }} · <span class="font-bold {% if pk.points == 5 %}text-yellow-400{% elif pk.points and pk.points >= 3 %}text-green-400{% elif pk.points %}text-slate-300{% else %}text-slate-600{% endif %}">{{ pk.points }}pts</span></div>
+        <div class="text-xs mt-0.5">real {{ pk.actual[0] }}-{{ pk.actual[1] }} · <span class="font-bold {% if pk.points == 6 %}text-yellow-400{% elif pk.points and pk.points >= 3 %}text-green-400{% elif pk.points %}text-slate-300{% else %}text-slate-600{% endif %}">{{ pk.points }}pts</span></div>
         {% endif %}
       </div>
     </div>
@@ -135,7 +135,7 @@
     <div class="flex items-center justify-between text-sm">
       <span class="text-slate-300 truncate">{{ e.home }} vs {{ e.away }}</span>
       <span class="flex items-center gap-3 shrink-0">
-        <span class="{% if e.points == 5 %}text-yellow-400{% elif e.points >= 3 %}text-green-400{% else %}text-slate-400{% endif %}">+{{ e.points }}</span>
+        <span class="{% if e.points == 6 %}text-yellow-400{% elif e.points >= 3 %}text-green-400{% else %}text-slate-400{% endif %}">+{{ e.points }}</span>
         <span class="font-bold w-14 text-right">{{ e.cumulative }} pts</span>
       </span>
     </div>
