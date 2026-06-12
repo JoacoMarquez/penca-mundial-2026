@@ -86,6 +86,7 @@ def greedy_assignment(
     pool_top_k_threshold: int | None = None,
     pool_q: Any = None,
     points_rule=None,
+    horizon_premium: float = 0.0,
 ) -> tuple[list[tuple[int, dict, int | None]], dict[str, Any]]:
     """Asignación VORAZ de N pencas sobre un menú de candidatos, CON repetición.
 
@@ -105,6 +106,10 @@ def greedy_assignment(
             `portfolio.generate_candidates(...)` vía `picks_to_dicts(...)`.
         pool_top_k_threshold: score de la K-ésima penca del pool. Si None → objetivo E[max].
         pool_q: distribución del pick del jugador típico (para estimar el cutoff por outcome).
+        horizon_premium: puntos extra sobre el cutoff actual para proyectar dónde va a
+            estar el corte al FINAL del torneo (β·√(partidos restantes), backtest: β=2.0
+            → +6pp de P(ganar) vs cutoff miope). Temprano sube el listón y fuerza
+            agresividad; tiende a 0 en las últimas fechas. 0 = comportamiento miope.
 
     Returns:
         (assignment_list, meta) — assignment_list = [(penca_id, pick, rank), ...] de largo N.
@@ -148,7 +153,7 @@ def greedy_assignment(
         for gL in range(n):
             for gV in range(n):
                 modal_gain[gL, gV] = points_rule(modal_pick, (gL, gV))
-        threshold_per_outcome = pool_top_k_threshold + modal_gain
+        threshold_per_outcome = pool_top_k_threshold + horizon_premium + modal_gain
 
     def objective(best_final: np.ndarray) -> tuple[float, float]:
         e_max = float((grid * best_final).sum())
@@ -182,7 +187,10 @@ def greedy_assignment(
 
     p_val = objective(best_final)[0] if use_top_k else None
 
-    # Fallback: si P(top-K)=0 con cualquier asignación, reasignar por E[max] (más informativo)
+    # Fallback: si P(top-K)=0 con cualquier asignación, reasignar por E[max].
+    # Con horizon_premium alto (principio del torneo, listón proyectado inalcanzable en
+    # un partido) este fallback es el comportamiento ESPERADO: E[max] de la unión
+    # diversifica, y P(top-K) toma el control a medida que el premium se achica.
     if use_top_k and (p_val is None or p_val == 0.0):
         res2, meta2 = greedy_assignment(
             candidate_picks, penca_ids, grid, pencas_standings,
@@ -190,6 +198,7 @@ def greedy_assignment(
         )
         meta2["objective"] = "e_max (P(top-K)=0)"
         meta2["threshold"] = pool_top_k_threshold
+        meta2["horizon_premium"] = horizon_premium
         return res2, meta2
 
     result = [(pid, candidate_picks[assigned[pid]], rank_by_penca[pid]) for pid in penca_ids]
@@ -199,6 +208,7 @@ def greedy_assignment(
         "objective": "p_top_k" if use_top_k else "e_max",
         "p_top_k_value": p_val,
         "threshold": pool_top_k_threshold,
+        "horizon_premium": horizon_premium,
         "exposure": dict(exposure),
     }
     return result, meta

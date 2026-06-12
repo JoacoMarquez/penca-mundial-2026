@@ -508,6 +508,7 @@ def run_sequential_mc(
     top_k: int = 3,
     w_exact: float = 0.0,
     horizon_alpha: float = 0.0,
+    horizon_beta: float = 0.0,
 ) -> dict:
     """Monte Carlo SECUENCIAL: standings evolucionan jornada a jornada, asignación P(top-K).
 
@@ -568,6 +569,10 @@ def run_sequential_mc(
             # jugar) sube el listón → fuerza picks más agresivos; →0 al final del torneo.
             if horizon_alpha > 0:
                 threshold += horizon_alpha * float(np.sqrt(suffix_var[t]))
+            # Forma de PRODUCCIÓN: β·√(partidos restantes) — no requiere odds futuras
+            # (absorbe σ̄ en β). Validar acá que rinde como la forma α.
+            if horizon_beta > 0:
+                threshold += horizon_beta * float(np.sqrt(len(M) - t))
             assigned = _greedy_alloc_fast(
                 m["cand_pts_grid"], m["grid_probs"], our_pts, threshold, m["modal_gain"],
                 exact_probs=m["exact_probs"], w_exact=w_exact,
