@@ -128,7 +128,42 @@ def convert_match(m: dict, name_to_code: dict[str, str]) -> dict:
     return out
 
 
-def sync(dry_run: bool = False) -> None:
+def _notify_error(context: str, detail: str) -> None:
+    """Best-effort Telegram alert. Un fallo acá no debe romper el sync."""
+    try:
+        from src.notifier.telegram import TelegramConfig, TelegramNotifier
+
+        TelegramNotifier(TelegramConfig.from_env()).send_error(context, detail)
+    except Exception:
+        log.warning("no se pudo notificar el error por Telegram", exc_info=True)
+
+
+def _suspicious_reason(
+    new_fase_grupos: list[dict],
+    new_eliminatorias: list[dict],
+    existing: dict,
+) -> str | None:
+    """¿El resultado del sync luce sospechosamente vacío/recortado?
+
+    Devuelve un motivo (string) si NO se debería escribir, o None si está OK.
+    Guarda contra el caso "la API tuvo un hipo y devolvió [] → pisamos el
+    fixture bueno con uno vacío y el scheduler queda mudo en pleno Mundial".
+    La fase de grupos son 72 partidos fijos: una vez poblada, nunca se achica.
+    """
+    new_total = len(new_fase_grupos) + len(new_eliminatorias)
+    if new_total == 0:
+        return "la API devolvió 0 partidos"
+
+    existing_grupos = existing.get("fase_grupos") or []
+    if len(new_fase_grupos) < len(existing_grupos):
+        return (
+            f"fase_grupos se achicaría de {len(existing_grupos)} a "
+            f"{len(new_fase_grupos)} partidos (los grupos nunca decrecen)"
+        )
+    return None
+
+
+def sync(dry_run: bool = False, force: bool = False) -> None:
     teams_yaml = yaml.safe_load(TEAMS_PATH.read_text())
     name_to_code = build_name_to_code(teams_yaml)
 
@@ -189,6 +224,20 @@ def sync(dry_run: bool = False) -> None:
     yaml_text = "# Sync automático desde /api/v1/matches.\n# Para regenerar: python -m src.scrapers.penca_fixtures\n\n"
     yaml_text += yaml.dump(output, sort_keys=False, allow_unicode=True, default_flow_style=False)
 
+    # Guarda anti-vaciado: si el resultado luce sospechosamente recortado, NO
+    # pisamos el fixture bueno. Mejor quedar con datos viejos que dejar el
+    # scheduler mudo. `--force` permite override manual cuando el recorte es real.
+    reason = _suspicious_reason(fase_grupos, eliminatorias, existing)
+    if reason and not force:
+        msg = (
+            f"sync abortado: {reason}. NO se sobreescribió {FIXTURES_PATH.name} "
+            f"(se conservan los datos previos). Correr con --force si es intencional."
+        )
+        log.error(msg)
+        print(f"\n🛑 {msg}")
+        _notify_error("fixtures-sync", reason)
+        return
+
     if dry_run:
         print("\n=== DRY RUN — no escribo. Primeros 1500 chars del output: ===")
         print(yaml_text[:1500])
@@ -201,5 +250,10 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument(
+        "--force",
+        action="store_true",
+        help="escribe aunque la guarda anti-vaciado detecte un recorte sospechoso",
+    )
     args = ap.parse_args()
-    sync(dry_run=args.dry_run)
+    sync(dry_run=args.dry_run, force=args.force)
