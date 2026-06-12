@@ -44,15 +44,19 @@ def test_marginals_1x2_complete():
     assert abs(m.p_home_win + m.p_draw + m.p_away_win - 1.0) < 1e-9
 
 
-# ---------- regla JMLM 5/4/3/1/0 ----------
+# ---------- regla JMLM 6/4/3/0 (vigente desde 2026-06-12) ----------
 
 @pytest.mark.parametrize("pick,actual,expected", [
-    ((2, 1), (2, 1), 5),   # marcador exacto
-    ((2, 0), (2, 1), 4),   # ganador correcto + goles local correctos
-    ((1, 0), (2, 0), 4),   # ganador local correcto + goles visit correctos (ambos eran 0)
-    ((3, 1), (2, 0), 3),   # solo ganador (ambos local)
-    ((1, 1), (2, 2), 3),   # ambos empate
-    ((2, 2), (1, 2), 1),   # goles visit correctos (2) pero ganador equivocado (empate vs visitante)
+    ((2, 1), (2, 1), 6),   # marcador exacto
+    ((1, 1), (1, 1), 6),   # empate exacto
+    ((1, 0), (2, 1), 4),   # ganador + diferencia de gol (1)
+    ((3, 1), (2, 0), 4),   # ganador + diferencia de gol (2)
+    ((2, 0), (2, 1), 3),   # ganador correcto, diferencia errada (2 vs 1)
+    ((1, 0), (2, 0), 3),   # ganador correcto, diferencia errada (1 vs 2)
+    ((1, 1), (2, 2), 3),   # empate acertado no exacto → 3 (NO 4: dif 0 es trivial)
+    ((0, 0), (2, 2), 3),   # idem
+    ((2, 2), (1, 2), 0),   # ganador errado → 0 (ya no hay tier de 1pt)
+    ((2, 1), (1, 2), 0),   # ganador errado
     ((0, 0), (1, 2), 0),   # nada
 ])
 def test_jmlm_points(pick, actual, expected):
@@ -66,7 +70,7 @@ def test_expected_points_modal_is_optimal_for_chalk():
     e_correct = expected_points((2, 0), g)
     e_other = expected_points((1, 0), g)
     assert e_correct > e_other
-    assert e_correct == 5.0
+    assert e_correct == 6.0
 
 
 def test_fit_params_recovers_marginals():

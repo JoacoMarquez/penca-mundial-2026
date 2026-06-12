@@ -305,7 +305,7 @@ class TelegramNotifier:
         sep = "━━━━━━━━━━━━━━━"
         lines = [f"{sep}", "<b>🎯 Tus pencas</b>"]
         for r in report.pencas_results:
-            emoji_pts = "🎉" if r.points_earned == 5 else ("✅" if r.points_earned >= 3 else ("〰️" if r.points_earned > 0 else "❌"))
+            emoji_pts = "🎉" if r.points_earned == 6 else ("✅" if r.points_earned >= 3 else ("〰️" if r.points_earned > 0 else "❌"))
             human_obj = HUMAN_OBJECTIVE_LABELS.get(r.strategy_used, ("•", r.strategy_used))[1]
             score_str = f"{r.predicted_score[0]}-{r.predicted_score[1]}"
             lines.append(

@@ -14,6 +14,7 @@ import pytest
 
 from src.meta.calibration import (
     Observation,
+    POINT_CLASSES,
     PRIOR_BIAS_SCALE,
     PRIOR_CHALK,
     PRIOR_NO_SHOW,
@@ -40,15 +41,15 @@ def _grid(lam_L=1.8, lam_V=0.7, lam12=0.1):
 # ---------- point_class_masks ----------
 
 def test_point_class_masks_match_105():
-    """Caso real: México 2-0. Verifica clases contra cálculo a mano."""
+    """Caso real: México 2-0 bajo la regla 6/4/3/0. Verifica clases a mano."""
     masks = point_class_masks((2, 0), 8)
-    assert masks[5][2, 0]            # exacto
-    assert masks[4][1, 0]            # ganador + goles visit (0) correctos
-    assert masks[4][2, 1]            # ganador + goles local (2) correctos
-    assert masks[4][3, 0]
-    assert masks[3][3, 1]            # solo ganador
-    assert masks[1][0, 0]            # empate (mal ganador) pero visit=0 correcto
-    assert masks[1][2, 3]            # visita gana (mal) pero local=2 correcto
+    assert masks[6][2, 0]            # exacto
+    assert masks[4][3, 1]            # ganador + diferencia de gol (2)
+    assert masks[4][4, 2]
+    assert masks[3][1, 0]            # ganador, diferencia errada (1 vs 2)
+    assert masks[3][2, 1]            # ganador, diferencia errada
+    assert masks[0][0, 0]            # empate → ganador errado → 0
+    assert masks[0][2, 3]            # visita gana → 0
     assert masks[0][0, 1]            # nada
     # Las máscaras particionan la grilla completa
     total = sum(int(m.sum()) for m in masks.values())
@@ -64,28 +65,28 @@ def test_predicted_shares_sum_to_one():
 
 def test_points_delta_shares_first_match():
     cur = [
-        {"penca_id": 1, "points_total": 5, "predictions_made": 1},
+        {"penca_id": 1, "points_total": 6, "predictions_made": 1},
         {"penca_id": 2, "points_total": 4, "predictions_made": 1},
         {"penca_id": 3, "points_total": 0, "predictions_made": 1},
         {"penca_id": 4, "points_total": 0, "predictions_made": 0},  # no-show: excluida
     ]
     shares, n = _points_delta_shares(None, cur)
     assert n == 3
-    assert shares[5] == pytest.approx(1 / 3)
+    assert shares[6] == pytest.approx(1 / 3)
     assert shares[4] == pytest.approx(1 / 3)
     assert shares[0] == pytest.approx(1 / 3)
 
 
 def test_points_delta_shares_with_previous():
-    prev = [{"penca_id": 1, "points_total": 5, "predictions_made": 1},
+    prev = [{"penca_id": 1, "points_total": 6, "predictions_made": 1},
             {"penca_id": 2, "points_total": 4, "predictions_made": 1}]
-    cur = [{"penca_id": 1, "points_total": 8, "predictions_made": 2},   # +3
-           {"penca_id": 2, "points_total": 9, "predictions_made": 2},   # +5
+    cur = [{"penca_id": 1, "points_total": 9, "predictions_made": 2},   # +3
+           {"penca_id": 2, "points_total": 10, "predictions_made": 2},  # +6
            {"penca_id": 9, "points_total": 7, "predictions_made": 2}]   # entró tarde: delta 7 inválido
     shares, n = _points_delta_shares(prev, cur)
     assert n == 2
     assert shares[3] == pytest.approx(0.5)
-    assert shares[5] == pytest.approx(0.5)
+    assert shares[6] == pytest.approx(0.5)
 
 
 # ---------- backtest sintético: recuperación de parámetros ----------
@@ -107,7 +108,7 @@ def _synthetic_observations(true_chalk, true_beta, true_no_show, n_matches=6, n_
         # picks del pool sampleados de Q; algunos no-shows
         n_show = int(n_pool * (1 - true_no_show))
         picks = rng.choice(n * n, size=n_show, p=q)
-        counts = {c: 0 for c in (5, 4, 3, 1, 0)}
+        counts = {c: 0 for c in POINT_CLASSES}
         for p in picks:
             pts = jmlm_points((p // n, p % n), actual)
             counts[pts] += 1
@@ -183,7 +184,7 @@ def test_build_observations_end_to_end(tmp_path, monkeypatch):
     pmdir.mkdir()
     (pmdir / "105.json").write_text(json.dumps({"actual_home": 2, "actual_away": 0}))
     # snapshot (primer partido → baseline 0)
-    entries = [{"penca_id": i, "points_total": 4 if i % 2 else 5,
+    entries = [{"penca_id": i, "points_total": 4 if i % 2 else 6,
                 "exact_scores": 0, "correct_winners": 1, "predictions_made": 1}
                for i in range(100)]
     snapshot_leaderboard("105", ["105"], entries=entries)
@@ -191,6 +192,6 @@ def test_build_observations_end_to_end(tmp_path, monkeypatch):
     obs = build_observations(tmp_path)
     assert len(obs) == 1
     assert obs[0].actual == (2, 0)
-    assert obs[0].shares[5] == pytest.approx(0.5)
+    assert obs[0].shares[6] == pytest.approx(0.5)
     assert obs[0].shares[4] == pytest.approx(0.5)
     assert obs[0].n_entries == 100

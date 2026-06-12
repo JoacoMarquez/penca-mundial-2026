@@ -13,13 +13,16 @@ Sistema **autónomo** para participar en la penca JMLM del Mundial 2026 con **5 
 
 ## Sistema de puntos
 
+**Regla vigente desde 2026-06-12** (cambió tras la jornada 1; el admin recalculó los puntos viejos retroactivamente):
+
 | Puntos | Condición |
 |--------|-----------|
-| 5 | Marcador exacto (ambos goles correctos) |
-| 4 | Ganador correcto + goles de UN equipo correctos |
-| 3 | Solo ganador (o empate) correcto |
-| 1 | Goles de UN equipo correctos, sin acertar ganador |
+| 6 | Marcador exacto (ambos goles correctos) |
+| 4 | Ganador correcto + diferencia de gol correcta (solo partidos con ganador) |
+| 3 | Ganador correcto (o empate acertado sin marcador exacto) |
 | 0 | No acertó nada |
+
+Nota: el empate acertado no exacto paga 3, NO 4 — en empates la diferencia de gol (0) se acierta por definición. No existe más el tier de 1 punto por goles de un equipo.
 
 **Desempate del torneo:** 1) más marcadores exactos, 2) más ganadores correctos, 3) orden alfabético del nombre de la penca.
 

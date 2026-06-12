@@ -37,8 +37,10 @@ from src.meta.pool import DEFAULT_POPULAR_SCORE_BIAS, PoolModelConfig, pool_pick
 
 log = logging.getLogger(__name__)
 
-# Clases de puntos del sistema JMLM
-POINT_CLASSES = (5, 4, 3, 1, 0)
+# Clases de puntos del sistema JMLM (regla vigente desde 2026-06-12: 6/4/3/0).
+# OJO: si la regla cambia, los snapshots viejos quedan en otra escala — archivarlos
+# y arrancar la cadena de observaciones de cero (la regularización cubre el arranque).
+POINT_CLASSES = (6, 4, 3, 0)
 
 # Prior (tiene que coincidir con los defaults de PoolModelConfig)
 PRIOR_CHALK = 0.7
