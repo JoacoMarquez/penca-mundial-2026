@@ -129,28 +129,69 @@ def _fetch_leaderboard_entries() -> list[dict] | None:
 
 @dataclass(frozen=True)
 class Observation:
-    """Lo observado del pool en UN partido — TRES canales:
-    shares de clases de puntos + fracción de exactos + fracción de ganadores."""
-    match_id: str
-    actual: tuple[int, int]
-    shares: dict[int, float]        # clase de puntos → proporción observada (suman 1)
+    """Lo observado del pool en UN grupo de partidos co-puntuados (≥1) — TRES canales:
+    shares de clases de puntos CONJUNTAS + fracción de exactos + fracción de ganadores.
+
+    Un grupo de 1 partido (el caso normal) se reduce exactamente al comportamiento de
+    siempre. Los grupos de 2+ aparecen cuando varios partidos se puntúan en el mismo tick
+    (p.ej. la 3ª jornada de grupos, simultánea por diseño FIFA): el leaderboard no permite
+    separarlos, pero la distribución de la SUMA de puntos es la convolución de las
+    distribuciones individuales, que sí conocemos.
+    """
+    match_id: str                          # "106" o "106+107" para grupos
+    actuals: tuple[tuple[int, int], ...]   # marcador real de cada partido del grupo
+    shares: dict[int, float]               # clase de puntos CONJUNTA → proporción (suman 1)
     n_entries: int
-    grid: np.ndarray                # grid Poisson del partido (modelo nuestro)
-    exact_frac: float | None = None    # fracción que clavó el marcador (delta exact_scores)
-    winner_frac: float | None = None   # fracción que acertó el ganador (delta correct_winners)
+    grids: tuple[np.ndarray, ...]          # grid Poisson de cada partido del grupo
+    exact_frac: float | None = None        # fracción media (por partido) de exactos
+    winner_frac: float | None = None       # fracción media (por partido) de ganadores
+
+    @property
+    def n_matches(self) -> int:
+        return len(self.grids)
+
+
+def _joint_point_classes(n_matches: int) -> tuple[int, ...]:
+    """Clases de puntos conjuntas alcanzables sumando `n_matches` partidos (cada uno
+    aporta una clase de POINT_CLASSES). Para n=1 → las clases de siempre."""
+    sums = {0}
+    for _ in range(n_matches):
+        sums = {s + c for s in sums for c in POINT_CLASSES}
+    return tuple(sorted(sums))
+
+
+def _convolve_point_classes(per_match_shares: list[dict[int, float]]) -> dict[int, float]:
+    """Convoluciona las distribuciones de clases de puntos de varios partidos →
+    distribución de la SUMA de puntos. Para un solo partido devuelve sus shares tal cual.
+
+    Las colisiones (p.ej. 6+0 y 3+3 dan ambos 6) suman probabilidad — por eso no hay
+    mala atribución: modelamos la suma, no quién aportó cada parte.
+    """
+    dist: dict[int, float] = {0: 1.0}
+    for sh in per_match_shares:
+        nxt: dict[int, float] = {}
+        for s, ps in dist.items():
+            for c, pc in sh.items():
+                nxt[s + c] = nxt.get(s + c, 0.0) + ps * pc
+        dist = nxt
+    return dist
 
 
 def _points_delta_shares(
-    prev_entries: list[dict] | None, cur_entries: list[dict],
+    prev_entries: list[dict] | None,
+    cur_entries: list[dict],
+    valid_classes: tuple[int, ...] = POINT_CLASSES,
+    n_matches: int = 1,
 ) -> tuple[dict[int, float], int, float | None, float | None]:
-    """Shares de puntos + fracción de exactos + fracción de ganadores entre dos snapshots.
+    """Shares de puntos CONJUNTOS + fracción media de exactos + de ganadores entre dos snapshots.
 
     prev=None → baseline 0 para todos. Excluye entries con predictions_made == 0
-    (no-shows totales). Deltas de puntos fuera de las clases válidas (entró tarde,
-    doble jornada) se descartan; los deltas válidos de exactos/ganadores son {0, 1}.
+    (no-shows totales). Deltas de puntos fuera de `valid_classes` (entró tarde, etc.)
+    se descartan; los deltas válidos de exactos/ganadores caen en {0..n_matches}.
+    Las fracciones de exactos/ganadores se normalizan por partido (delta combinado / n_matches).
     """
     prev_by = {e["penca_id"]: e for e in (prev_entries or [])}
-    counts: dict[int, int] = {c: 0 for c in POINT_CLASSES}
+    counts: dict[int, int] = {c: 0 for c in valid_classes}
     n = 0
     exact_hits = exact_n = 0
     winner_hits = winner_n = 0
@@ -163,26 +204,30 @@ def _points_delta_shares(
             counts[delta] += 1
             n += 1
         d_exact = e.get("exact_scores", 0) - prev.get("exact_scores", 0)
-        if d_exact in (0, 1):
+        if 0 <= d_exact <= n_matches:
             exact_hits += d_exact
             exact_n += 1
         d_winner = e.get("correct_winners", 0) - prev.get("correct_winners", 0)
-        if d_winner in (0, 1):
+        if 0 <= d_winner <= n_matches:
             winner_hits += d_winner
             winner_n += 1
     if n == 0:
         return {}, 0, None, None
-    shares = {c: counts[c] / n for c in POINT_CLASSES}
-    exact_frac = (exact_hits / exact_n) if exact_n else None
-    winner_frac = (winner_hits / winner_n) if winner_n else None
+    shares = {c: counts[c] / n for c in valid_classes}
+    exact_frac = (exact_hits / (exact_n * n_matches)) if exact_n else None
+    winner_frac = (winner_hits / (winner_n * n_matches)) if winner_n else None
     return shares, n, exact_frac, winner_frac
 
 
 def build_observations(data_dir: Path | None = None) -> list[Observation]:
     """Arma observaciones desde los snapshots + postmortems + predicciones persistidas.
 
-    Un snapshot S es usable si existe otro snapshot cuyo finished_matches sea
-    exactamente S.finished_matches − {S.match_id} (o S es el primer partido del torneo).
+    Los `finished_matches` crecen monótonamente (= todos los postmortems en disco), así
+    que los snapshots forman una cadena totalmente ordenada por inclusión. El predecesor
+    de un snapshot S es el mayor subconjunto estricto de S.finished presente; el GRUPO de
+    partidos nuevos = S.finished − predecesor. Si el grupo tiene 2+ partidos (se puntuaron
+    en el mismo tick, p.ej. jornada 3 simultánea), la observación es conjunta y su
+    distribución predicha es la convolución de los partidos del grupo.
     """
     from src.model.poisson import score_grid
     from src.utils.versions import latest_version
@@ -199,48 +244,62 @@ def build_observations(data_dir: Path | None = None) -> list[Observation]:
         except Exception:
             continue
 
+    # Dedup por finished + orden por tamaño → cadena de inclusión
     by_finished = {frozenset(s["finished_matches"]): s for s in snaps}
+    chain = sorted(by_finished.items(), key=lambda kv: len(kv[0]))
+
     observations = []
-    for s in snaps:
-        mid = str(s["match_id"])
-        finished = frozenset(s["finished_matches"])
-        prev_set = finished - {mid}
-        if prev_set:
-            prev = by_finished.get(prev_set)
-            if prev is None:
-                log.info("snapshot %s sin predecesor exacto — lo salto", mid)
-                continue
-            prev_entries = prev["entries"]
-        else:
-            prev_entries = None  # primer partido: baseline 0
-
-        # marcador real desde el postmortem
-        pm_path = base / "postmortems" / f"{mid}.json"
-        if not pm_path.exists():
-            continue
-        try:
-            pm = json.loads(pm_path.read_text())
-            actual = (int(pm["actual_home"]), int(pm["actual_away"]))
-        except Exception:
+    for i, (cur, s) in enumerate(chain):
+        # predecesor = mayor subconjunto estricto de `cur` presente (el más cercano hacia atrás)
+        prev_entries = None
+        group = cur
+        for j in range(i - 1, -1, -1):
+            pset = chain[j][0]
+            if pset < cur:
+                prev_entries = chain[j][1]["entries"]
+                group = cur - pset
+                break
+        if not group:
             continue
 
-        # grid del partido desde la última predicción
-        pdir = base / "predictions" / mid
-        latest = latest_version(pdir.glob("v*_*.json")) if pdir.exists() else None
-        if latest is None:
-            continue
-        try:
-            c = json.loads(latest.read_text())["constraints"]
-            grid = score_grid(c["lambda_L"], c["lambda_V"], c.get("lambda_12", 0.1), max_goals=7)
-        except Exception:
+        group_ids = sorted(group)
+        actuals: list[tuple[int, int]] = []
+        grids: list = []
+        ok = True
+        for gid in group_ids:
+            pm_path = base / "postmortems" / f"{gid}.json"
+            if not pm_path.exists():
+                ok = False
+                break
+            try:
+                pm = json.loads(pm_path.read_text())
+                actuals.append((int(pm["actual_home"]), int(pm["actual_away"])))
+            except Exception:
+                ok = False
+                break
+            pdir = base / "predictions" / gid
+            latest = latest_version(pdir.glob("v*_*.json")) if pdir.exists() else None
+            if latest is None:
+                ok = False
+                break
+            try:
+                c = json.loads(latest.read_text())["constraints"]
+                grids.append(score_grid(c["lambda_L"], c["lambda_V"], c.get("lambda_12", 0.1), max_goals=7))
+            except Exception:
+                ok = False
+                break
+        if not ok:
             continue
 
-        shares, n, exact_frac, winner_frac = _points_delta_shares(prev_entries, s["entries"])
+        n_m = len(group_ids)
+        shares, n, exact_frac, winner_frac = _points_delta_shares(
+            prev_entries, s["entries"], _joint_point_classes(n_m), n_m,
+        )
         if n < 30:  # muy pocos datos → ruido
             continue
         observations.append(Observation(
-            match_id=mid, actual=actual, shares=shares, n_entries=n, grid=grid,
-            exact_frac=exact_frac, winner_frac=winner_frac,
+            match_id="+".join(group_ids), actuals=tuple(actuals), shares=shares,
+            n_entries=n, grids=tuple(grids), exact_frac=exact_frac, winner_frac=winner_frac,
         ))
 
     return observations
@@ -262,21 +321,43 @@ def point_class_masks(actual: tuple[int, int], n: int, points_rule=None) -> dict
     return masks
 
 
+def _single_match_shares(
+    grid: np.ndarray, actual: tuple[int, int], config: PoolModelConfig,
+) -> dict[int, float]:
+    """Shares de clases de puntos {6,4,3,0} para UN partido (sin no_show)."""
+    q = pool_pick_distribution(grid, config)
+    masks = point_class_masks(actual, grid.shape[0])
+    return {c: float(q[m].sum()) for c, m in masks.items()}
+
+
+def predicted_group_shares(
+    grids,
+    actuals,
+    config: PoolModelConfig,
+    no_show_frac: float = 0.0,
+) -> dict[int, float]:
+    """Shares de clases de puntos CONJUNTAS que el modelo predice para un grupo de
+    partidos co-puntuados — convolución de las shares individuales.
+
+    no-shows silenciosos: una penca que no cargó puntúa 0 en TODOS los partidos del
+    grupo → masa extra en la clase conjunta 0.
+    """
+    per_match = [_single_match_shares(g, a, config) for g, a in zip(grids, actuals)]
+    shares = _convolve_point_classes(per_match)
+    if no_show_frac > 0:
+        shares = {c: v * (1 - no_show_frac) for c, v in shares.items()}
+        shares[0] = shares.get(0, 0.0) + no_show_frac
+    return shares
+
+
 def predicted_shares(
     grid: np.ndarray,
     actual: tuple[int, int],
     config: PoolModelConfig,
     no_show_frac: float = 0.0,
 ) -> dict[int, float]:
-    """Shares de clases de puntos que el modelo del pool predice para este partido."""
-    q = pool_pick_distribution(grid, config)
-    masks = point_class_masks(actual, grid.shape[0])
-    shares = {c: float(q[m].sum()) for c, m in masks.items()}
-    # no-shows silenciosos: masa extra en la clase 0
-    if no_show_frac > 0:
-        shares = {c: v * (1 - no_show_frac) for c, v in shares.items()}
-        shares[0] = shares.get(0, 0.0) + no_show_frac
-    return shares
+    """Shares de un solo partido (equivale a `predicted_group_shares` con grupo de 1)."""
+    return predicted_group_shares([grid], [actual], config, no_show_frac)
 
 
 def _config_for(chalk: float, bias_scale: float) -> PoolModelConfig:
@@ -287,24 +368,28 @@ def _config_for(chalk: float, bias_scale: float) -> PoolModelConfig:
 
 
 def predicted_exact_winner(
-    grid: np.ndarray,
-    actual: tuple[int, int],
+    grids,
+    actuals,
     config: PoolModelConfig,
     no_show_frac: float = 0.0,
 ) -> tuple[float, float]:
-    """Fracción de exactos y de ganadores correctos que el modelo del pool predice."""
-    q = pool_pick_distribution(grid, config)
-    n = grid.shape[0]
-    agL, agV = actual
-    exact = float(q[agL, agV])
-    aw = "H" if agL > agV else ("A" if agL < agV else "D")
-    winner = 0.0
-    for gL in range(n):
-        for gV in range(n):
-            pw = "H" if gL > gV else ("A" if gL < gV else "D")
-            if pw == aw:
-                winner += float(q[gL, gV])
-    return exact * (1 - no_show_frac), winner * (1 - no_show_frac)
+    """Fracción MEDIA (por partido) de exactos y de ganadores que el modelo predice para
+    el grupo. La esperanza de la suma = suma de esperanzas → promediar los partidos basta
+    (sin convolución), igual que el canal escalar observado."""
+    tot_e = tot_w = 0.0
+    for grid, actual in zip(grids, actuals):
+        q = pool_pick_distribution(grid, config)
+        n = grid.shape[0]
+        agL, agV = actual
+        tot_e += float(q[agL, agV])
+        aw = "H" if agL > agV else ("A" if agL < agV else "D")
+        for gL in range(n):
+            for gV in range(n):
+                pw = "H" if gL > gV else ("A" if gL < gV else "D")
+                if pw == aw:
+                    tot_w += float(q[gL, gV])
+    n_m = max(len(grids), 1)
+    return (tot_e / n_m) * (1 - no_show_frac), (tot_w / n_m) * (1 - no_show_frac)
 
 
 # Pesos de los canales en el loss. Los 3 canales miden lo mismo (la forma de Q) con
@@ -318,10 +403,11 @@ def _loss(observations: list[Observation], chalk: float, bias_scale: float, no_s
     cfg = _config_for(chalk, bias_scale)
     total = 0.0
     for ob in observations:
-        pred = predicted_shares(ob.grid, ob.actual, cfg, no_show)
-        l = W_POINTS * sum((pred[c] - ob.shares.get(c, 0.0)) ** 2 for c in POINT_CLASSES)
+        pred = predicted_group_shares(ob.grids, ob.actuals, cfg, no_show)
+        classes = set(pred) | set(ob.shares)
+        l = W_POINTS * sum((pred.get(c, 0.0) - ob.shares.get(c, 0.0)) ** 2 for c in classes)
         if ob.exact_frac is not None or ob.winner_frac is not None:
-            pe, pw = predicted_exact_winner(ob.grid, ob.actual, cfg, no_show)
+            pe, pw = predicted_exact_winner(ob.grids, ob.actuals, cfg, no_show)
             if ob.exact_frac is not None:
                 l += W_EXACT * (pe - ob.exact_frac) ** 2
             if ob.winner_frac is not None:

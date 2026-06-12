@@ -141,3 +141,22 @@ def test_one_phase_per_match_per_run(no_runs):
     # Cerca del kickoff, varias fases "due" pero se emite UNA sola (la más relevante).
     out = sched.matches_in_window(_fixtures(NOW + timedelta(minutes=20)), now=NOW)
     assert len(out) == 1
+
+
+def test_simultaneous_postmortems_take_single_snapshot(monkeypatch):
+    """Dos partidos terminan en el mismo tick → UN solo snapshot al final del loop
+    (el por-partido contaminaría la calibración: el leaderboard ya incluye ambos)."""
+    import src.agent.postmortem as pm
+
+    monkeypatch.setattr(sched, "load_fixtures", lambda: {"fase_grupos": [], "eliminatorias": []})
+    monkeypatch.setattr(sched, "matches_in_window", lambda fx, now=None: [])
+    monkeypatch.setattr(pm, "find_finished_matches_pending_postmortem", lambda fx: ["106", "107"])
+    monkeypatch.setattr(pm, "compute_postmortem", lambda mid: object())
+    monkeypatch.setattr(pm, "save_postmortem", lambda report: None)
+    monkeypatch.setattr(sched, "_notify_result", lambda *a, **kw: None)
+
+    snapshots = []
+    monkeypatch.setattr(sched, "_snapshot_and_recalibrate", lambda mid: snapshots.append(mid))
+
+    assert sched.main() == 0
+    assert snapshots == ["107"]
