@@ -370,6 +370,7 @@ def generate_candidates(
     pool_config: PoolModelConfig | None = None,
     points_rule=jmlm_points,
     max_candidates: int = 8,
+    ensure_coverage: bool = False,
 ) -> list[PickWithMetrics]:
     """Menú de scorelines DISTINTAS para alimentar el asignador a N pencas.
 
@@ -413,6 +414,28 @@ def generate_candidates(
         if len(chosen) >= max_candidates:
             break
         _add("alt", m)
+
+    # Piso de cobertura: garantizar al menos un triunfo del visitante y un empate en el
+    # menú. Con favoritos claros, los objetivos canónicos + relleno por EV pueden dejar
+    # ramas enteras del resultado (ej. 20% visitante) inalcanzables para el asignador.
+    if ensure_coverage:
+        def _winner(m):
+            return winner_of(m["pick"])
+        have = {_winner(m) for _obj, m in chosen}
+        for missing, label in (("A", "coverage_away"), ("D", "coverage_draw")):
+            if missing not in have:
+                best = max((d for d in metrics if winner_of(d["pick"]) == missing and d["pick"] not in used),
+                           key=lambda d: d["e_points"], default=None)
+                if best is None:
+                    continue
+                if len(chosen) >= max_candidates:
+                    # desplazar la última alternativa por EV (nunca un objetivo canónico
+                    # ni una cobertura agregada en esta misma pasada)
+                    alt_idxs = [i for i, (obj, _m) in enumerate(chosen) if obj == "alt"]
+                    if not alt_idxs:
+                        continue
+                    chosen.pop(alt_idxs[-1])
+                _add(label, best)
 
     return [_metric_to_pick(obj, m, grid) for obj, m in chosen[:max_candidates]]
 

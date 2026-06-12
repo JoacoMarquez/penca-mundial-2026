@@ -166,6 +166,7 @@ def simulate_pool(
 def _precompute_matches(
     matches: list[BacktestMatch], pool_config: PoolModelConfig, max_candidates: int,
     with_pts_matrix: bool = False,
+    ensure_coverage: bool = False,
 ) -> list[dict]:
     """Precomputa por partido (1 vez): grilla, distribución del pool y menú de candidatos.
 
@@ -198,7 +199,8 @@ def _precompute_matches(
             [jmlm_points((k // n, k % n), actual) for k in range(nn)], dtype=int
         )
         cand_dicts = picks_to_dicts(
-            generate_candidates(grid, match.market_p_home, match.market_p_away, max_candidates=max_candidates)
+            generate_candidates(grid, match.market_p_home, match.market_p_away,
+                                max_candidates=max_candidates, ensure_coverage=ensure_coverage)
         )
         entry = {
             "grid": grid, "n": n, "modal_idx": modal_idx, "top_idx": top_idx,
@@ -469,12 +471,17 @@ def _greedy_alloc_fast(
     modal_gain: np.ndarray,      # (G,) ganancia del pick modal del pool por outcome
     exact_probs: np.ndarray | None = None,  # (K,) P(exacto) de cada candidato
     w_exact: float = 0.0,        # peso del desempate por exactos en el objetivo secundario
+    diversity_tiebreak: bool = False,  # indiferencia → candidato MENOS usado (no el ancla)
 ) -> np.ndarray:
     """Voraz vectorizado: asigna cada penca al candidato que más sube P(top-K) (o E[max]).
 
     Con w_exact > 0, el objetivo secundario es E[max] + w·P(exacto): entre candidatos
     casi equivalentes en puntos, prefiere el que acumula más probabilidad de marcador
     exacto — la moneda del desempate del torneo.
+
+    Con diversity_tiebreak, los empates del objetivo (pencas rezagadas cuya elección no
+    mueve E[max]) se rompen hacia el candidato menos cubierto en vez del primero — costo
+    cero bajo el objetivo, cobertura gratis.
     """
     K, G = cand_pts_grid.shape
     N = current_pts.shape[0]
@@ -484,6 +491,7 @@ def _greedy_alloc_fast(
     tie_bonus = (w_exact * exact_probs) if (w_exact and exact_probs is not None) else 0.0
     best_final = np.full(G, -1e9)
     assigned = np.empty(N, dtype=int)
+    use_count = np.zeros(K)
     for pid in order:
         bf = np.maximum(best_final[None, :], current_pts[pid] + cand_pts_grid)  # (K, G)
         emax = bf @ grid_probs + tie_bonus   # (K,)
@@ -491,8 +499,11 @@ def _greedy_alloc_fast(
             key = ((bf >= thr[None, :]) @ grid_probs) * 1e6 + emax   # P(top-K) domina
         else:
             key = emax
+        if diversity_tiebreak:
+            key = key - 1e-7 * use_count   # solo decide en empates exactos del objetivo
         c = int(np.argmax(key))
         assigned[pid] = c
+        use_count[c] += 1
         best_final = bf[c]
     return assigned
 
@@ -509,6 +520,8 @@ def run_sequential_mc(
     w_exact: float = 0.0,
     horizon_alpha: float = 0.0,
     horizon_beta: float = 0.0,
+    diversity_tiebreak: bool = False,
+    ensure_coverage: bool = False,
 ) -> dict:
     """Monte Carlo SECUENCIAL: standings evolucionan jornada a jornada, asignación P(top-K).
 
@@ -517,7 +530,8 @@ def run_sequential_mc(
     residual (puntos y exactos iguales) suma 0.5.
     """
     rng = np.random.default_rng(seed)
-    pre = _precompute_matches(matches, PoolModelConfig(), max_candidates, with_pts_matrix=True)
+    pre = _precompute_matches(matches, PoolModelConfig(), max_candidates,
+                              with_pts_matrix=True, ensure_coverage=ensure_coverage)
     M = []
     for p in pre:
         n = p["n"]
@@ -576,6 +590,7 @@ def run_sequential_mc(
             assigned = _greedy_alloc_fast(
                 m["cand_pts_grid"], m["grid_probs"], our_pts, threshold, m["modal_gain"],
                 exact_probs=m["exact_probs"], w_exact=w_exact,
+                diversity_tiebreak=diversity_tiebreak,
             )
             o = int(rng.choice(m["G"], p=m["flat_grid"]))         # resultado real sampleado
             our_pts = our_pts + m["cand_pts_grid"][assigned, o]   # nuestras pencas suman
