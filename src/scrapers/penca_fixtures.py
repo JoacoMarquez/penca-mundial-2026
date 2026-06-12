@@ -235,7 +235,8 @@ def sync(dry_run: bool = False, force: bool = False) -> None:
         )
         log.error(msg)
         print(f"\n🛑 {msg}")
-        _notify_error("fixtures-sync", reason)
+        if not dry_run:  # dry-run no debe tener efectos secundarios (Telegram)
+            _notify_error("fixtures-sync", reason)
         return
 
     if dry_run:
