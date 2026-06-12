@@ -620,83 +620,28 @@ def _publish_assignment(match_id: str, phase: Phase, assignment_list) -> tuple[b
 def _notify_and_publish(
     match: dict, run: PipelineRun, portfolio: PortfolioResult, phase: Phase,
 ) -> None:
-    """Manda la notif por Telegram. (La publicación ya se hizo en run_match_pipeline.)"""
+    """Actualiza la tarjeta Telegram del partido. (La publicación ya se hizo antes.)
+
+    UN mensaje por partido: T-24h lo crea (única notificación), T-3h y T-30min lo
+    editan en silencio. El diff se muestra a nivel portfolio, no por penca.
+    """
     try:
         notifier = TelegramNotifier(TelegramConfig.from_env())
     except RuntimeError as e:
         log.warning("Telegram no configurado: %s", e)
-        notifier = None
+        return
 
-    label = _format_match_label(match)
-    kickoff_local = _format_kickoff_local(match)
-    model_summary = {
-        "p_home": run.constraints["p_home"],
-        "p_draw": run.constraints["p_draw"],
-        "p_away": run.constraints["p_away"],
-        "e_goals_L": run.constraints["e_goals_L"],
-        "e_goals_V": run.constraints["e_goals_V"],
-    }
-    picks = run.portfolio["picks"]
+    if phase == Phase.T_30MIN and not run.assignment:
+        log.warning("Sin asignación — no se publicó (¿PENCA_IDS vacío?)")
 
-    # Menú de picks (objetivos canónicos) para la notif. Con N pencas la asignación real
-    # es con repetición, así que la exposición por marcador va en assignment_meta["exposure"]
-    # en vez de anotar 1:1 cada pick con una penca.
-    picks_annotated = list(picks)
-
-    if phase == Phase.T_24H and notifier:
-        notifier.send_t24h_picks(
-            label, kickoff_local, picks_annotated, model_summary,
-            qualitative=run.qualitative_adjustment,
-            assignment_meta=run.assignment_meta,
-            tipster_consensus=run.tipster_consensus,
-            dossier_summary=run.dossier_summary_text,
-        )
-
-    elif phase == Phase.T_3H and notifier:
-        # Diff vs versión anterior
-        prev_picks = _last_picks_from_predictions(run.match_id, exclude_version=run.version)
-        if prev_picks:
-            diffs = _compute_diffs(prev_picks, picks)
-            if diffs:
-                notifier.send_diff(label, "T-3h: alineaciones probables", diffs)
-
-    elif phase == Phase.T_30MIN:
-        # La publicación (y la alerta si falló) ya se hicieron en run_match_pipeline. Acá
-        # solo el lock-in.
-        if not run.assignment:
-            log.warning("Sin asignación — no se publicó (¿PENCA_IDS vacío?)")
-        if notifier:
-            notifier.send_lockin(label, picks_annotated, assignment_meta=run.assignment_meta)
-
-
-def _last_picks_from_predictions(match_id: str, exclude_version: int) -> list[dict] | None:
-    """Lee la versión más reciente anterior a `exclude_version` para hacer diff."""
-    match_dir = PREDICTIONS_DIR / str(match_id)
-    if not match_dir.exists():
-        return None
-    versions = sort_versions(match_dir.glob("v*_*.json"))
-    for f in reversed(versions):
-        try:
-            data = json.loads(f.read_text())
-            if data.get("version") != exclude_version:
-                return data.get("portfolio", {}).get("picks")
-        except Exception:
-            continue
-    return None
-
-
-def _compute_diffs(old_picks: list[dict], new_picks: list[dict]) -> list[dict]:
-    """Devuelve picks que cambiaron entre versiones."""
-    diffs = []
-    for old, new in zip(old_picks, new_picks):
-        if old["score"] != new["score"]:
-            diffs.append({
-                "penca_index": new["penca_index"],
-                "old_score": old["score"],
-                "new_score": new["score"],
-                "reason": f"E[pts] {old['e_points']:.2f} → {new['e_points']:.2f}",
-            })
-    return diffs
+    from src.notifier.match_card import build_match_card, load_versions, upsert_match_card
+    versions = load_versions(run.match_id)
+    if not versions:
+        return
+    text = build_match_card(
+        _format_match_label(match), _format_kickoff_local(match), versions,
+    )
+    upsert_match_card(notifier, run.match_id, text)
 
 
 # -------------------- CLI --------------------
