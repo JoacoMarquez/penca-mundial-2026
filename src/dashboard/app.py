@@ -25,6 +25,7 @@ from src.dashboard.data_loader import (
     load_my_pencas_standings,
     load_next_match_data,
     load_penca_detail,
+    load_pool_intelligence,
     load_recent_postmortems,
     load_system_health,
 )
@@ -96,6 +97,16 @@ def page_penca_detail(request: Request, token: str, penca_id: int):
     _check_token(token)
     data = load_penca_detail(penca_id)
     return templates.TemplateResponse(request, "penca_detail.html", {"data": data, "token": token, "penca_labels": build_penca_labels()})
+
+
+@app.get("/dash/{token}/pool/", response_class=HTMLResponse)
+def page_pool(request: Request, token: str):
+    _check_token(token)
+    data = {
+        "pool": load_pool_intelligence(),
+        "health": load_system_health(),
+    }
+    return templates.TemplateResponse(request, "pool.html", {"data": data, "token": token, "penca_labels": build_penca_labels()})
 
 
 @app.get("/dash/{token}/history/", response_class=HTMLResponse)

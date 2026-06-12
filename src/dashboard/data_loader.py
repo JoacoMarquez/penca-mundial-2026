@@ -541,6 +541,140 @@ def _load_my_pencas_standings_uncached() -> dict[str, Any]:
     }
 
 
+# ---------- inteligencia del pool ----------
+
+def _rank_key(e: dict) -> tuple:
+    """Orden del torneo: más puntos, más exactos, más ganadores (desc)."""
+    return (-e.get("points_total", 0), -e.get("exact_scores", 0), -e.get("correct_winners", 0))
+
+
+def load_pool_intelligence() -> dict[str, Any]:
+    """Estado competitivo del pool: zona de premios, dónde estamos, distribución y trayectoria.
+
+    Usa el leaderboard vivo (estado actual) + los snapshots por jornada (trayectoria).
+    Read-only. Todo lo que la API expone es agregado por penca — los picks ajenos son ciegos.
+    """
+    return _cached("pool_intel", 30.0, _load_pool_intelligence_uncached)
+
+
+def _load_pool_intelligence_uncached() -> dict[str, Any]:
+    import httpx
+    from src.utils.env import get_int_list
+
+    base = os.environ.get("PENCA_API_BASE_URL", "").rstrip("/")
+    key = os.environ.get("PENCA_API_KEY", "")
+    my_ids = set(get_int_list("PENCA_IDS"))
+    if not base or not key:
+        return {"error": "API no configurada"}
+    try:
+        with httpx.Client(timeout=8.0, headers={"Authorization": f"Bearer {key}"}) as c:
+            r = c.get(f"{base}/leaderboard")
+        if r.status_code != 200:
+            return {"error": f"leaderboard {r.status_code}"}
+        entries = r.json().get("entries", [])
+    except Exception as e:
+        return {"error": str(e)}
+    if not entries:
+        return {"error": "leaderboard vacío"}
+
+    ranked = sorted(entries, key=_rank_key)
+    n = len(ranked)
+    pts = [e.get("points_total", 0) for e in ranked]
+
+    # Zona de premios: top-1/2/3 y cuántos están a ≤1 punto del corte (amenazas reales)
+    prize_zone = []
+    for place in (1, 2, 3):
+        if n >= place:
+            cutoff = ranked[place - 1].get("points_total", 0)
+            within_1 = sum(1 for p in pts if p >= cutoff - 1)
+            at_cutoff = sum(1 for p in pts if p == cutoff)
+            prize_zone.append({
+                "place": place, "cutoff": cutoff,
+                "within_1": within_1, "tied_at_cutoff": at_cutoff,
+            })
+
+    # Dónde estamos nosotros
+    mine = [(i, e) for i, e in enumerate(ranked) if int(e.get("penca_id", 0)) in my_ids]
+    us = None
+    if mine:
+        best_i, best_e = min(mine, key=lambda t: _rank_key(t[1]))
+        cutoff3 = prize_zone[-1]["cutoff"] if prize_zone else None
+        best_pts = best_e.get("points_total", 0)
+        in_prize = sum(1 for i, _ in mine if i < 3)
+        # competidores (no nuestros) por delante de nuestra mejor penca
+        ahead = sum(1 for j in range(best_i) if int(ranked[j].get("penca_id", 0)) not in my_ids)
+        us = {
+            "best_rank": best_i + 1,
+            "best_points": best_pts,
+            "best_name": _short_name(best_e),
+            "n_in_top3": in_prize,
+            "n_pencas": len(mine),
+            "gap_to_top3": (best_pts - cutoff3) if cutoff3 is not None else None,
+            "competitors_ahead": ahead,
+            "all_ranks": sorted(i + 1 for i, _ in mine),
+        }
+
+    # Distribución de puntos del pool
+    from collections import Counter
+    dist_counter = Counter(pts)
+    max_count = max(dist_counter.values()) if dist_counter else 1
+    distribution = [
+        {"points": p, "count": c, "pct": round(c / n * 100, 1), "bar_pct": round(c / max_count * 100)}
+        for p, c in sorted(dist_counter.items(), key=lambda kv: -kv[0])
+    ]
+
+    # Trayectoria desde los snapshots (uno por partido jugado)
+    trajectory = _pool_trajectory(my_ids)
+
+    return {
+        "pool_size": n,
+        "prize_zone": prize_zone,
+        "us": us,
+        "distribution": distribution,
+        "trajectory": trajectory,
+        "median_points": pts[n // 2] if pts else 0,
+    }
+
+
+def _short_name(e: dict) -> str:
+    raw = e.get("penca_name") or ""
+    if raw.lower().startswith("penca "):
+        return raw.split(" ", 1)[1].strip()
+    return raw or str(e.get("penca_id", "?"))
+
+
+def _pool_trajectory(my_ids: set) -> list[dict]:
+    """Evolución del top/mediana/nuestra-mejor a lo largo de las jornadas, desde snapshots."""
+    sdir = _data_dir() / "pool_snapshots"
+    if not sdir.exists():
+        return []
+    snaps = []
+    for f in sdir.glob("*.json"):
+        try:
+            snaps.append(json.loads(f.read_text()))
+        except Exception:
+            continue
+    # ordenar por cantidad de partidos jugados al momento del snapshot
+    snaps.sort(key=lambda s: (len(s.get("finished_matches", [])), s.get("taken_at", "")))
+    out = []
+    for s in snaps:
+        entries = s.get("entries", [])
+        if not entries:
+            continue
+        ranked = sorted(entries, key=_rank_key)
+        pts = [e.get("points_total", 0) for e in ranked]
+        mine = [(i, e) for i, e in enumerate(ranked) if int(e.get("penca_id", 0)) in my_ids]
+        best = min(mine, key=lambda t: _rank_key(t[1])) if mine else None
+        out.append({
+            "n_played": len(s.get("finished_matches", [])),
+            "top": pts[0] if pts else 0,
+            "median": pts[len(pts) // 2] if pts else 0,
+            "our_best_points": best[1].get("points_total", 0) if best else None,
+            "our_best_rank": (best[0] + 1) if best else None,
+        })
+    return out
+
+
 # ---------- detalle por penca ----------
 
 def llm_counterfactual(pred: dict) -> dict:
