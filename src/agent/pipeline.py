@@ -452,11 +452,14 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
         log.info("ANTHROPIC_API_KEY no configurada — skip Capa 4")
 
     # 4. Generar el portfolio (menú de objetivos canónicos para mostrar/persistir)
+    # Config del pool: calibrada por ranking-inversion si hay jornadas jugadas, prior si no.
+    from src.meta.calibration import get_pool_config
+    pool_config = get_pool_config()
     portfolio = generate_portfolio(
         grid,
         market_p_home=constraints.p_home_win,
         market_p_away=constraints.p_away_win,
-        pool_config=PoolModelConfig(),
+        pool_config=pool_config,
     )
 
     # 4b. Asignación adaptativa a N pencas (voraz, con repetición/exposición).
@@ -481,13 +484,13 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
                 grid,
                 market_p_home=constraints.p_home_win,
                 market_p_away=constraints.p_away_win,
-                pool_config=PoolModelConfig(),
+                pool_config=pool_config,
                 max_candidates=max_candidates,
             )
         )
         try:
-            from src.meta.pool import pool_pick_distribution, PoolModelConfig as _PC
-            pool_q_for_assignment = pool_pick_distribution(grid, _PC())
+            from src.meta.pool import pool_pick_distribution
+            pool_q_for_assignment = pool_pick_distribution(grid, pool_config)
             top_k_threshold = fetch_pool_top_k_threshold(
                 api_base_url=os.environ.get("PENCA_API_BASE_URL", ""),
                 api_key=os.environ.get("PENCA_API_KEY", ""),
