@@ -507,6 +507,8 @@ def run_sequential_mc(
     chalk_concentration: float = 0.70,
     top_k: int = 3,
     w_exact: float = 0.0,
+    horizon_alpha: float = 0.0,
+    horizon_beta: float = 0.0,
 ) -> dict:
     """Monte Carlo SECUENCIAL: standings evolucionan jornada a jornada, asignación P(top-K).
 
@@ -523,6 +525,15 @@ def run_sequential_mc(
         cand_idx = np.array(
             [int(c["score"][0]) * n + int(c["score"][1]) for c in p["cand_dicts"]]
         )
+        # Varianza por partido de los puntos de UN jugador del pool (para proyectar
+        # cuánto se va a estirar el cutoff con los partidos que faltan).
+        modal_row = pts[p["modal_idx"], :].astype(float)              # (G,)
+        top_rows = pts[p["top_idx"], :].astype(float)                 # (T, G)
+        c_ = chalk_concentration
+        e_o = c_ * modal_row + (1 - c_) * (p["top_p"] @ top_rows)      # E[pts|outcome]
+        e2_o = c_ * modal_row**2 + (1 - c_) * (p["top_p"] @ top_rows**2)
+        mean_pts = float(p["flat_grid"] @ e_o)
+        var_pts = float(p["flat_grid"] @ e2_o) - mean_pts**2
         M.append({
             "cand_pts_grid": pts[cand_idx, :].astype(float),
             "grid_probs": p["flat_grid"],
@@ -531,7 +542,13 @@ def run_sequential_mc(
             "exact_probs": p["flat_grid"][cand_idx],
             "pts": pts, "modal_idx": p["modal_idx"], "top_idx": p["top_idx"],
             "top_p": p["top_p"], "flat_grid": p["flat_grid"], "G": n * n,
+            "pool_var": max(var_pts, 0.0),
         })
+
+    # Suma de varianza RESTANTE (incluyendo el partido actual) en cada índice.
+    suffix_var = np.zeros(len(M) + 1)
+    for t in range(len(M) - 1, -1, -1):
+        suffix_var[t] = suffix_var[t + 1] + M[t]["pool_var"]
 
     N, Pn = n_pencas, n_pool_players
     win = win_tie = 0
@@ -542,12 +559,20 @@ def run_sequential_mc(
         pool_pts = np.zeros(Pn)
         our_ex = np.zeros(N, dtype=int)
         pool_ex = np.zeros(Pn, dtype=int)
-        for m in M:
+        for t, m in enumerate(M):
             # Cutoff top-K del pool con los standings ACTUALES (antes de este partido)
             if Pn >= top_k:
                 threshold = float(np.partition(pool_pts, -top_k)[-top_k])
             else:
                 threshold = float(pool_pts.max()) if Pn else 0.0
+            # HORIZONTE: premium = α·√(varianza restante del pool). Temprano (mucho por
+            # jugar) sube el listón → fuerza picks más agresivos; →0 al final del torneo.
+            if horizon_alpha > 0:
+                threshold += horizon_alpha * float(np.sqrt(suffix_var[t]))
+            # Forma de PRODUCCIÓN: β·√(partidos restantes) — no requiere odds futuras
+            # (absorbe σ̄ en β). Validar acá que rinde como la forma α.
+            if horizon_beta > 0:
+                threshold += horizon_beta * float(np.sqrt(len(M) - t))
             assigned = _greedy_alloc_fast(
                 m["cand_pts_grid"], m["grid_probs"], our_pts, threshold, m["modal_gain"],
                 exact_probs=m["exact_probs"], w_exact=w_exact,
@@ -579,6 +604,7 @@ def run_sequential_mc(
         "max_candidates": max_candidates,
         "n_sims": n_sims,
         "w_exact": w_exact,
+        "horizon_alpha": horizon_alpha,
         "p_win": win / n_sims,
         "p_win_tie": win_tie / n_sims,
         "p_win_resolved": win_resolved / n_sims,
@@ -624,6 +650,8 @@ if __name__ == "__main__":
                     help="Backtest SECUENCIAL: standings evolucionan + objetivo P(top-3) por partido")
     ap.add_argument("--sweep-w", default="",
                     help="CSV de pesos w_exact a barrer en el secuencial (desempate por exactos), ej: 0,1,2,5,10")
+    ap.add_argument("--sweep-horizon", default="",
+                    help="CSV de horizon_alpha a barrer (cutoff con varianza restante), ej: 0,0.25,0.5,1,2")
     args = ap.parse_args()
 
     if args.sweep_w:
@@ -637,6 +665,20 @@ if __name__ == "__main__":
                 n_pencas=args.pencas, max_candidates=args.max_candidates, w_exact=w,
             )
             print(f"   {w:>5.1f}  {r['p_win']:>10.1%}  {r['p_win_resolved']:>18.1%}  {r['portfolio_max_mean']:>11.1f}")
+        import sys as _sys
+        _sys.exit(0)
+
+    if args.sweep_horizon:
+        matches_h = load_backtest_data(args.tournament, Path("data/backtest"))
+        n_sims = args.sims if args.sims != 100 else 1500
+        print(f"\n📊 Barrido horizon_alpha (cutoff con varianza restante) | N={args.pencas} pool={args.pool_size} sims={n_sims}")
+        print(f"   {'α':>5}  {'P(gana pts)':>11}  {'P(gana c/desempate)':>19}  {'nuestro max':>11}  {'pool top':>9}")
+        for a in [float(x) for x in args.sweep_horizon.split(",")]:
+            r = run_sequential_mc(
+                matches_h, n_sims=n_sims, n_pool_players=args.pool_size,
+                n_pencas=args.pencas, max_candidates=args.max_candidates, horizon_alpha=a,
+            )
+            print(f"   {a:>5.2f}  {r['p_win']:>10.1%}  {r['p_win_resolved']:>18.1%}  {r['portfolio_max_mean']:>11.1f}  {r['pool_top_mean']:>9.1f}")
         import sys as _sys
         _sys.exit(0)
 

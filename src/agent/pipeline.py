@@ -74,6 +74,28 @@ def load_books_config() -> dict:
         return yaml.safe_load(f)
 
 
+def _matches_remaining(fixtures: dict, now: datetime | None = None) -> int:
+    """Partidos del torneo que todavía no arrancaron (incluye el actual si no es kickoff).
+
+    Insumo del cutoff con horizonte: β·√(restantes). Mínimo 1 para no anular el premium
+    en el último partido (que igual tiende a cero solo).
+    """
+    now = now or datetime.now(timezone.utc)
+    all_matches = (fixtures.get("fase_grupos") or []) + (fixtures.get("eliminatorias") or [])
+    count = 0
+    for m in all_matches:
+        ko = m.get("kickoff_utc")
+        if not ko:
+            count += 1  # eliminatoria sin fecha todavía → falta jugarse
+            continue
+        try:
+            if datetime.fromisoformat(str(ko).replace("Z", "+00:00")) > now:
+                count += 1
+        except Exception:
+            count += 1
+    return max(count, 1)
+
+
 def find_match(fixtures: dict, match_id: str) -> dict:
     for m in fixtures.get("fase_grupos", []):
         if str(m["id"]) == str(match_id):
@@ -496,14 +518,23 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
                 api_key=os.environ.get("PENCA_API_KEY", ""),
                 k=3,
             )
+            # Cutoff con horizonte: el corte que importa es el del FINAL del torneo, no
+            # el de hoy. Premium = β·√(partidos restantes) — backtest (Euro 2024, pool
+            # 418, 5 semillas): β=2.0 da +6pp de P(ganar) vs cutoff miope (β=0 lo apaga).
+            horizon_beta = float(os.environ.get("PENCA_HORIZON_BETA", "2.0"))
+            horizon_premium = 0.0
+            if horizon_beta > 0 and top_k_threshold is not None:
+                import math
+                horizon_premium = horizon_beta * math.sqrt(_matches_remaining(fixtures))
             log.info(
-                "Asignación: %d pencas, %d candidatos, pool top-3 threshold=%s",
-                len(penca_ids), len(candidate_dicts), top_k_threshold,
+                "Asignación: %d pencas, %d candidatos, pool top-3 threshold=%s, horizonte=+%.1f",
+                len(penca_ids), len(candidate_dicts), top_k_threshold, horizon_premium,
             )
             assignment_list, assignment_meta = greedy_assignment(
                 candidate_dicts, penca_ids, grid, standings,
                 pool_top_k_threshold=top_k_threshold,
                 pool_q=pool_q_for_assignment,
+                horizon_premium=horizon_premium,
             )
         except Exception as e:
             log.exception("greedy_assignment falló, usando mapeo cíclico: %s", e)
