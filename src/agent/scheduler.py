@@ -142,19 +142,34 @@ def main() -> int:
                 notifier = TelegramNotifier(TelegramConfig.from_env())
             except Exception:
                 notifier = None
+            completed = []
             for mid in pm_pending:
                 try:
                     report = compute_postmortem(mid)
                     if not report:
                         continue
                     save_postmortem(report)
-                    _snapshot_and_recalibrate(mid)
+                    completed.append(mid)
                     if notifier:
                         _notify_result(notifier, mid, report, fixtures)
                     log.info("Postmortem completado para match %s", mid)
                 except Exception:
                     log.exception("error en postmortem | match=%s", mid)
                     _notify_error("postmortem", f"match={mid}")
+            # UN solo snapshot por tick: con partidos simultáneos el leaderboard ya
+            # incluye los puntos de todos, así que un snapshot por partido quedaría
+            # contaminado (deltas mezclados atribuidos a un solo partido). El snapshot
+            # único con finished=todos no genera observación individual (sin predecesor
+            # exacto, build_observations lo saltea) pero mantiene la cadena limpia
+            # como predecesor del próximo partido.
+            if completed:
+                if len(completed) > 1:
+                    log.info(
+                        "snapshot multi-partido (%d simultáneos: %s) — se pierden las "
+                        "observaciones individuales pero la cadena queda limpia",
+                        len(completed), completed,
+                    )
+                _snapshot_and_recalibrate(completed[-1])
     except Exception:
         log.exception("error general en postmortem block")
 

@@ -207,3 +207,46 @@ def test_build_observations_end_to_end(tmp_path, monkeypatch):
     assert obs[0].n_entries == 100
     assert obs[0].exact_frac == pytest.approx(0.5)
     assert obs[0].winner_frac == pytest.approx(1.0)
+
+
+def test_simultaneous_matches_single_snapshot_keeps_chain_clean(tmp_path, monkeypatch):
+    """Partidos simultáneos (3ª jornada de grupos): el scheduler toma UN snapshot con
+    finished=todos. Ese snapshot NO genera observación (sin predecesor exacto — los
+    deltas mezclarían puntos de dos partidos) pero SÍ sirve de predecesor del próximo,
+    así la cadena sigue limpia."""
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+
+    def _setup_match(mid):
+        pdir = tmp_path / "predictions" / mid
+        pdir.mkdir(parents=True)
+        (pdir / "v1_20260624T000000Z.json").write_text(json.dumps({
+            "constraints": {"lambda_L": 1.5, "lambda_V": 0.9, "lambda_12": 0.1}}))
+        pmdir = tmp_path / "postmortems"
+        pmdir.mkdir(exist_ok=True)
+        (pmdir / f"{mid}.json").write_text(json.dumps({"actual_home": 1, "actual_away": 0}))
+
+    def _entries(points):
+        return [{"penca_id": i, "points_total": points, "exact_scores": 0,
+                 "correct_winners": 1, "predictions_made": 1} for i in range(100)]
+
+    # Partido 105 solo → observación normal (baseline 0, todos +3)
+    _setup_match("105")
+    snapshot_leaderboard("105", ["105"], entries=_entries(3))
+
+    # 106 y 107 terminan en el mismo tick → UN snapshot (match_id=107, finished=todos).
+    # El delta vs 105 es +6 (3+3 mezclados) — clase válida, pero atribución errónea:
+    # tiene que descartarse por falta de predecesor, no por delta inválido.
+    _setup_match("106")
+    _setup_match("107")
+    snapshot_leaderboard("107", ["105", "106", "107"], entries=_entries(9))
+
+    # 108 después, solo → observación normal usando el snapshot multi como predecesor
+    _setup_match("108")
+    snapshot_leaderboard("108", ["105", "106", "107", "108"], entries=_entries(15))
+
+    obs = build_observations(tmp_path)
+    ids = [o.match_id for o in obs]
+    assert ids == ["105", "108"]          # ni 106 ni 107 generan observación
+    by_id = {o.match_id: o for o in obs}
+    assert by_id["105"].shares[3] == pytest.approx(1.0)
+    assert by_id["108"].shares[6] == pytest.approx(1.0)  # delta 15−9, sin contaminación
