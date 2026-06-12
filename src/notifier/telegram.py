@@ -24,6 +24,7 @@ import httpx
 TELEGRAM_API = "https://api.telegram.org/bot{token}/sendMessage"
 TELEGRAM_PIN = "https://api.telegram.org/bot{token}/pinChatMessage"
 TELEGRAM_UNPIN = "https://api.telegram.org/bot{token}/unpinChatMessage"
+TELEGRAM_EDIT = "https://api.telegram.org/bot{token}/editMessageText"
 
 
 # Labels humanos para los 5 objetivos de strategy/portfolio.py
@@ -75,6 +76,27 @@ class TelegramNotifier:
                 f"preview={text[:200]!r}"
             )
         return int(resp.json()["result"]["message_id"])
+
+    def edit(self, message_id: int, text: str, parse_mode: Literal["HTML", "MarkdownV2"] = "HTML") -> bool:
+        """Edita un mensaje existente (silencioso — no genera notificación).
+
+        Devuelve True si editó. False si el mensaje ya no es editable (muy viejo,
+        borrado) — el caller decide si manda uno nuevo. "message is not modified"
+        (texto idéntico) cuenta como éxito.
+        """
+        url = TELEGRAM_EDIT.format(token=self.config.bot_token)
+        resp = self._client.post(url, json={
+            "chat_id": self.config.chat_id,
+            "message_id": message_id,
+            "text": text,
+            "parse_mode": parse_mode,
+            "disable_web_page_preview": True,
+        })
+        if resp.status_code < 400:
+            return True
+        if "message is not modified" in resp.text:
+            return True
+        return False
 
     def pin_message(self, message_id: int, disable_notification: bool = True) -> None:
         """Pinea un mensaje en el chat."""
