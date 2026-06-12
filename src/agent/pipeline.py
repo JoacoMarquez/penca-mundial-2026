@@ -169,8 +169,20 @@ def fetch_odds(match_id: str) -> OddsSnapshot:
     except Exception as e:
         log.exception("Pinnacle fetch falló: %s", e)
 
+    # The-Odds-API — segunda fuente: consenso (mediana) de ~31 casas en una sola llamada
+    # cacheada. Redundancia ante caída de Pinnacle + señal multi-libro real.
+    try:
+        from src.scrapers.odds_api import markets_for_match
+        teams_data = load_teams()
+        consensus = markets_for_match(match_id, fixtures, teams_data)
+        if consensus:
+            odds_by_book["odds_api_consensus"] = consensus
+        else:
+            log.info("Odds-API: sin consenso para match_id=%s", match_id)
+    except Exception as e:
+        log.warning("Odds-API fetch falló: %s", e)
+
     # Bet365 — TODO: implementar con Playwright
-    # Betfair — desactivado por decisión del usuario
 
     if not odds_by_book:
         # NO inventamos odds acá. El caller decide el fallback (versión previa con odds
