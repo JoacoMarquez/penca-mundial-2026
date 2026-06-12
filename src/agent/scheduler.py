@@ -148,6 +148,7 @@ def main() -> int:
                     if not report:
                         continue
                     save_postmortem(report)
+                    _snapshot_and_recalibrate(mid)
                     if notifier:
                         notifier.send_postmortem(report)
                     log.info("Postmortem completado para match %s", mid)
@@ -168,6 +169,29 @@ def _has_pending_postmortems(fixtures: dict) -> bool:
         return bool(find_finished_matches_pending_postmortem(fixtures))
     except Exception:
         return False
+
+
+def _snapshot_and_recalibrate(match_id) -> None:
+    """Capa 5: snapshot del leaderboard post-partido + recalibración del modelo del pool.
+
+    Best-effort — un fallo acá no debe frenar la notificación del postmortem.
+    `finished_matches` = postmortems ya guardados (incluye este: save_postmortem corre antes).
+    """
+    try:
+        from src.meta.calibration import snapshot_leaderboard, recalibrate_from_disk
+        from src.agent.postmortem import _data_dir as _pm_data_dir
+        pm_dir = _pm_data_dir() / "postmortems"
+        finished = [p.stem for p in pm_dir.glob("*.json")] if pm_dir.exists() else [str(match_id)]
+        if snapshot_leaderboard(match_id, finished) is not None:
+            fit = recalibrate_from_disk()
+            if fit:
+                log.info(
+                    "pool recalibrado | chalk=%.2f β=%.2f no_show=%.2f | mejora vs prior: %.1f%% | n=%d",
+                    fit["chalk_strength"], fit["bias_scale"], fit["no_show_frac"],
+                    fit["improvement_pct"], fit["n_observations"],
+                )
+    except Exception:
+        log.exception("snapshot/recalibración falló | match=%s", match_id)
 
 
 def _notify_error(context: str, detail: str) -> None:

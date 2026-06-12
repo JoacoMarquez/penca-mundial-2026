@@ -573,7 +573,7 @@ def llm_counterfactual(pred: dict) -> dict:
         import numpy as np
         from src.model.poisson import score_grid, marginals
         from src.strategy.portfolio import generate_portfolio
-        from src.meta.pool import PoolModelConfig
+        from src.meta.calibration import get_pool_config
 
         pre_L = max(0.1, post_L - dL)
         pre_V = max(0.1, post_V - dV)
@@ -581,8 +581,9 @@ def llm_counterfactual(pred: dict) -> dict:
         p_away = c.get("p_away")
         grid_pre = score_grid(pre_L, pre_V, l12, max_goals=7)
         grid_post = score_grid(post_L, post_V, l12, max_goals=7)
-        port_pre = generate_portfolio(grid_pre, p_home, p_away, PoolModelConfig())
-        port_post = generate_portfolio(grid_post, p_home, p_away, PoolModelConfig())
+        pool_cfg = get_pool_config()
+        port_pre = generate_portfolio(grid_pre, p_home, p_away, pool_cfg)
+        port_post = generate_portfolio(grid_post, p_home, p_away, pool_cfg)
 
         label = {"ev": "Favorito", "differentiated": "Diferencial", "tail": "Goleada",
                  "upset": "Sorpresa", "variance": "Varianza"}
@@ -624,13 +625,14 @@ def _pick_metrics(constraints: dict, score) -> dict:
     try:
         import numpy as np
         from src.model.poisson import score_grid, jmlm_points
-        from src.meta.pool import pool_pick_distribution, PoolModelConfig
+        from src.meta.pool import pool_pick_distribution
+        from src.meta.calibration import get_pool_config
         grid = score_grid(ll, lv, l12, max_goals=7)
         n = grid.shape[0]
         gL, gV = int(score[0]), int(score[1])
         if gL >= n or gV >= n:
             return {}
-        pool_q = pool_pick_distribution(grid, PoolModelConfig())
+        pool_q = pool_pick_distribution(grid, get_pool_config())
         e_pts = float(sum(grid[i, j] * jmlm_points((gL, gV), (i, j)) for i in range(n) for j in range(n)))
         modal = np.unravel_index(int(np.argmax(grid)), grid.shape)
         return {
