@@ -1,0 +1,68 @@
+name: deploy
+
+# Deploy automático al VPS en cada push a main (típicamente, un merge de PR).
+# Gate de tests primero: si la suite falla, NO se deploya. Es la red de seguridad
+# de CI que el repo no tenía.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]       # los tests corren como gate del PR (no se deploya en PRs)
+  workflow_dispatch: {}    # permite dispararlo a mano desde la pestaña Actions
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false  # nunca cortar un deploy a la mitad
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Correr la suite completa
+        run: pytest tests/ -q
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    # Solo deploya en push real a main o disparo manual — nunca en eventos de PR.
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          if [ -n "$VPS_KNOWN_HOSTS" ]; then
+            printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+            chmod 644 ~/.ssh/known_hosts
+          else
+            # TOFU: aceptar la clave del host la primera vez (menos estricto).
+            ssh-keyscan -p "${VPS_SSH_PORT:-22}" -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+          fi
+
+      - name: Deploy al VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+        run: |
+          ssh -i ~/.ssh/id_deploy \
+              -o StrictHostKeyChecking=accept-new \
+              -p "${VPS_SSH_PORT:-22}" \
+              "${VPS_USER:-root}@${VPS_HOST}" \
+              'bash -s' < deploy/remote_deploy.sh
