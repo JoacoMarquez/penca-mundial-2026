@@ -65,16 +65,18 @@ def test_predicted_shares_sum_to_one():
 
 def test_points_delta_shares_first_match():
     cur = [
-        {"penca_id": 1, "points_total": 6, "predictions_made": 1},
-        {"penca_id": 2, "points_total": 4, "predictions_made": 1},
-        {"penca_id": 3, "points_total": 0, "predictions_made": 1},
-        {"penca_id": 4, "points_total": 0, "predictions_made": 0},  # no-show: excluida
+        {"penca_id": 1, "points_total": 6, "exact_scores": 1, "correct_winners": 1, "predictions_made": 1},
+        {"penca_id": 2, "points_total": 4, "exact_scores": 0, "correct_winners": 1, "predictions_made": 1},
+        {"penca_id": 3, "points_total": 0, "exact_scores": 0, "correct_winners": 0, "predictions_made": 1},
+        {"penca_id": 4, "points_total": 0, "exact_scores": 0, "correct_winners": 0, "predictions_made": 0},  # no-show
     ]
-    shares, n = _points_delta_shares(None, cur)
+    shares, n, exact_frac, winner_frac = _points_delta_shares(None, cur)
     assert n == 3
     assert shares[6] == pytest.approx(1 / 3)
     assert shares[4] == pytest.approx(1 / 3)
     assert shares[0] == pytest.approx(1 / 3)
+    assert exact_frac == pytest.approx(1 / 3)   # solo la penca 1 clavó
+    assert winner_frac == pytest.approx(2 / 3)  # pencas 1 y 2
 
 
 def test_points_delta_shares_with_previous():
@@ -83,7 +85,7 @@ def test_points_delta_shares_with_previous():
     cur = [{"penca_id": 1, "points_total": 9, "predictions_made": 2},   # +3
            {"penca_id": 2, "points_total": 10, "predictions_made": 2},  # +6
            {"penca_id": 9, "points_total": 7, "predictions_made": 2}]   # entró tarde: delta 7 inválido
-    shares, n = _points_delta_shares(prev, cur)
+    shares, n, _exact, _winner = _points_delta_shares(prev, cur)
     assert n == 2
     assert shares[3] == pytest.approx(0.5)
     assert shares[6] == pytest.approx(0.5)
@@ -109,13 +111,21 @@ def _synthetic_observations(true_chalk, true_beta, true_no_show, n_matches=6, n_
         n_show = int(n_pool * (1 - true_no_show))
         picks = rng.choice(n * n, size=n_show, p=q)
         counts = {c: 0 for c in POINT_CLASSES}
+        exact_hits = winner_hits = 0
+        aw = "H" if actual[0] > actual[1] else ("A" if actual[0] < actual[1] else "D")
         for p in picks:
-            pts = jmlm_points((p // n, p % n), actual)
+            pk = (p // n, p % n)
+            pts = jmlm_points(pk, actual)
             counts[pts] += 1
+            exact_hits += int(pk == actual)
+            pw = "H" if pk[0] > pk[1] else ("A" if pk[0] < pk[1] else "D")
+            winner_hits += int(pw == aw)
         counts[0] += n_pool - n_show  # no-shows suman 0
         shares = {c: counts[c] / n_pool for c in counts}
         obs.append(Observation(match_id=f"SYN_{i}", actual=actual, shares=shares,
-                               n_entries=n_pool, grid=grid))
+                               n_entries=n_pool, grid=grid,
+                               exact_frac=exact_hits / n_pool,
+                               winner_frac=winner_hits / n_pool))
     return obs
 
 
@@ -185,7 +195,7 @@ def test_build_observations_end_to_end(tmp_path, monkeypatch):
     (pmdir / "105.json").write_text(json.dumps({"actual_home": 2, "actual_away": 0}))
     # snapshot (primer partido → baseline 0)
     entries = [{"penca_id": i, "points_total": 4 if i % 2 else 6,
-                "exact_scores": 0, "correct_winners": 1, "predictions_made": 1}
+                "exact_scores": 0 if i % 2 else 1, "correct_winners": 1, "predictions_made": 1}
                for i in range(100)]
     snapshot_leaderboard("105", ["105"], entries=entries)
 
@@ -195,3 +205,5 @@ def test_build_observations_end_to_end(tmp_path, monkeypatch):
     assert obs[0].shares[6] == pytest.approx(0.5)
     assert obs[0].shares[4] == pytest.approx(0.5)
     assert obs[0].n_entries == 100
+    assert obs[0].exact_frac == pytest.approx(0.5)
+    assert obs[0].winner_frac == pytest.approx(1.0)

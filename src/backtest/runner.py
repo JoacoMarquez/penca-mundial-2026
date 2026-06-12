@@ -467,20 +467,28 @@ def _greedy_alloc_fast(
     current_pts: np.ndarray,     # (N,) puntos acumulados de cada penca
     threshold: float | None,     # cutoff top-K del pool (total acumulado) o None → e_max
     modal_gain: np.ndarray,      # (G,) ganancia del pick modal del pool por outcome
+    exact_probs: np.ndarray | None = None,  # (K,) P(exacto) de cada candidato
+    w_exact: float = 0.0,        # peso del desempate por exactos en el objetivo secundario
 ) -> np.ndarray:
-    """Voraz vectorizado: asigna cada penca al candidato que más sube P(top-K) (o E[max])."""
+    """Voraz vectorizado: asigna cada penca al candidato que más sube P(top-K) (o E[max]).
+
+    Con w_exact > 0, el objetivo secundario es E[max] + w·P(exacto): entre candidatos
+    casi equivalentes en puntos, prefiere el que acumula más probabilidad de marcador
+    exacto — la moneda del desempate del torneo.
+    """
     K, G = cand_pts_grid.shape
     N = current_pts.shape[0]
     order = np.argsort(-current_pts, kind="stable")   # líder primero
     use_topk = threshold is not None
     thr = (threshold + modal_gain) if use_topk else None
+    tie_bonus = (w_exact * exact_probs) if (w_exact and exact_probs is not None) else 0.0
     best_final = np.full(G, -1e9)
     assigned = np.empty(N, dtype=int)
     for pid in order:
         bf = np.maximum(best_final[None, :], current_pts[pid] + cand_pts_grid)  # (K, G)
-        emax = bf @ grid_probs   # (K,)
+        emax = bf @ grid_probs + tie_bonus   # (K,)
         if use_topk:
-            key = ((bf >= thr[None, :]) @ grid_probs) * 1e6 + emax   # P(top-K) domina, E[max] desempata
+            key = ((bf >= thr[None, :]) @ grid_probs) * 1e6 + emax   # P(top-K) domina
         else:
             key = emax
         c = int(np.argmax(key))
@@ -498,8 +506,14 @@ def run_sequential_mc(
     max_candidates: int = 10,
     chalk_concentration: float = 0.70,
     top_k: int = 3,
+    w_exact: float = 0.0,
 ) -> dict:
-    """Monte Carlo SECUENCIAL: standings evolucionan jornada a jornada, asignación P(top-K)."""
+    """Monte Carlo SECUENCIAL: standings evolucionan jornada a jornada, asignación P(top-K).
+
+    Resuelve el primer desempate del torneo (más marcadores exactos): p_win_resolved
+    cuenta victoria por puntos O por exactos en caso de empate de puntos; el empate
+    residual (puntos y exactos iguales) suma 0.5.
+    """
     rng = np.random.default_rng(seed)
     pre = _precompute_matches(matches, PoolModelConfig(), max_candidates, with_pts_matrix=True)
     M = []
@@ -513,16 +527,21 @@ def run_sequential_mc(
             "cand_pts_grid": pts[cand_idx, :].astype(float),
             "grid_probs": p["flat_grid"],
             "modal_gain": pts[p["modal_idx"], :].astype(float),
+            "cand_idx": cand_idx,
+            "exact_probs": p["flat_grid"][cand_idx],
             "pts": pts, "modal_idx": p["modal_idx"], "top_idx": p["top_idx"],
             "top_p": p["top_p"], "flat_grid": p["flat_grid"], "G": n * n,
         })
 
     N, Pn = n_pencas, n_pool_players
     win = win_tie = 0
+    win_resolved = 0.0
     pmax_acc = ptop_acc = 0.0
     for _ in range(n_sims):
         our_pts = np.zeros(N)
         pool_pts = np.zeros(Pn)
+        our_ex = np.zeros(N, dtype=int)
+        pool_ex = np.zeros(Pn, dtype=int)
         for m in M:
             # Cutoff top-K del pool con los standings ACTUALES (antes de este partido)
             if Pn >= top_k:
@@ -530,18 +549,28 @@ def run_sequential_mc(
             else:
                 threshold = float(pool_pts.max()) if Pn else 0.0
             assigned = _greedy_alloc_fast(
-                m["cand_pts_grid"], m["grid_probs"], our_pts, threshold, m["modal_gain"]
+                m["cand_pts_grid"], m["grid_probs"], our_pts, threshold, m["modal_gain"],
+                exact_probs=m["exact_probs"], w_exact=w_exact,
             )
             o = int(rng.choice(m["G"], p=m["flat_grid"]))         # resultado real sampleado
             our_pts = our_pts + m["cand_pts_grid"][assigned, o]   # nuestras pencas suman
+            our_ex = our_ex + (m["cand_idx"][assigned] == o)
             # Pool: cada jugador chalk o sampler, suma vs el resultado
             is_chalk = rng.random(Pn) < chalk_concentration
             sampled = rng.choice(m["top_idx"], size=Pn, p=m["top_p"])
             pool_pick = np.where(is_chalk, m["modal_idx"], sampled)
             pool_pts = pool_pts + m["pts"][pool_pick, o]
+            pool_ex = pool_ex + (pool_pick == o)
         pmax, ptop = our_pts.max(), pool_pts.max()
         win += pmax > ptop
         win_tie += pmax >= ptop
+        # Desempate del torneo: puntos, después exactos. Residual → 0.5.
+        our_best_ex = int(our_ex[our_pts == pmax].max())
+        pool_best_ex = int(pool_ex[pool_pts == ptop].max())
+        if (pmax, our_best_ex) > (ptop, pool_best_ex):
+            win_resolved += 1.0
+        elif (pmax, our_best_ex) == (ptop, pool_best_ex):
+            win_resolved += 0.5
         pmax_acc += pmax
         ptop_acc += ptop
 
@@ -549,8 +578,10 @@ def run_sequential_mc(
         "n_pencas": N,
         "max_candidates": max_candidates,
         "n_sims": n_sims,
+        "w_exact": w_exact,
         "p_win": win / n_sims,
         "p_win_tie": win_tie / n_sims,
+        "p_win_resolved": win_resolved / n_sims,
         "portfolio_max_mean": pmax_acc / n_sims,
         "pool_top_mean": ptop_acc / n_sims,
     }
@@ -591,7 +622,23 @@ if __name__ == "__main__":
                     help="Usa el Monte Carlo de RESULTADOS (samplea desenlaces, no usa el histórico)")
     ap.add_argument("--seq", action="store_true",
                     help="Backtest SECUENCIAL: standings evolucionan + objetivo P(top-3) por partido")
+    ap.add_argument("--sweep-w", default="",
+                    help="CSV de pesos w_exact a barrer en el secuencial (desempate por exactos), ej: 0,1,2,5,10")
     args = ap.parse_args()
+
+    if args.sweep_w:
+        matches_w = load_backtest_data(args.tournament, Path("data/backtest"))
+        n_sims = args.sims if args.sims != 100 else 1500
+        print(f"\n📊 Barrido w_exact (desempate por exactos) | N={args.pencas} pool={args.pool_size} sims={n_sims}")
+        print(f"   {'w':>5}  {'P(gana pts)':>11}  {'P(gana c/desempate)':>19}  {'nuestro max':>11}")
+        for w in [float(x) for x in args.sweep_w.split(",")]:
+            r = run_sequential_mc(
+                matches_w, n_sims=n_sims, n_pool_players=args.pool_size,
+                n_pencas=args.pencas, max_candidates=args.max_candidates, w_exact=w,
+            )
+            print(f"   {w:>5.1f}  {r['p_win']:>10.1%}  {r['p_win_resolved']:>18.1%}  {r['portfolio_max_mean']:>11.1f}")
+        import sys as _sys
+        _sys.exit(0)
 
     matches = load_backtest_data(args.tournament, Path("data/backtest"))
     print(f"› Cargados {len(matches)} partidos de {args.tournament}")
