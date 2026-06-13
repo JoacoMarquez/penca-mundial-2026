@@ -484,6 +484,7 @@ def _greedy_alloc_fast(
     tie_bonus = (w_exact * exact_probs) if (w_exact and exact_probs is not None) else 0.0
     best_final = np.full(G, -1e9)
     assigned = np.empty(N, dtype=int)
+    usage = np.zeros(K)   # candidatos ya usados — desempate hacia diversidad (no hacia el índice 0)
     for pid in order:
         bf = np.maximum(best_final[None, :], current_pts[pid] + cand_pts_grid)  # (K, G)
         emax = bf @ grid_probs + tie_bonus   # (K,)
@@ -491,8 +492,13 @@ def _greedy_alloc_fast(
             key = ((bf >= thr[None, :]) @ grid_probs) * 1e6 + emax   # P(top-K) domina
         else:
             key = emax
-        c = int(np.argmax(key))
+        # Entre candidatos empatados en el objetivo de la unión (pencas dominadas), repartir
+        # hacia el menos usado en vez de caer siempre al candidato 0 (chalk). Espeja el
+        # desempato de greedy_assignment en assignment.py.
+        tied = np.where(key >= key.max() - 1e-9)[0]
+        c = int(tied[np.argmin(usage[tied])])
         assigned[pid] = c
+        usage[c] += 1
         best_final = bf[c]
     return assigned
 
