@@ -44,6 +44,9 @@ class MatchContext:
     away_injuries: list[str] | None = None
     home_lineup_change: str | None = None
     away_lineup_change: str | None = None
+    home_xi: list[str] | None = None      # once titular (nombres) si hay alineación disponible
+    away_xi: list[str] | None = None
+    lineup_confirmed: bool = False        # True solo si el XI es el oficial (no probable)
     h2h_recent: str | None = None         # texto libre sobre los últimos 5 enfrentamientos
     weather: str | None = None
     referee: str | None = None
@@ -85,8 +88,17 @@ CUANDO RECIBÍS "NOTICIAS RECIENTES":
 - Extraé de ahí: nombre de jugadores lesionados/suspendidos, cambios de DT, controversias internas,
   predicciones de alineación que cite el cuerpo técnico o medios oficiales.
 - Ignorá noticias genéricas tipo "cómo ver el partido" o "horario y dónde se juega".
-- Si dos fuentes confirman lo mismo (ej. dos medios dicen "X jugador se va a perder el partido"),
-  ese dato es confiable. Si solo lo dice una fuente especulativa, descontá.
+- OJO CON EL ECO: varios medios repitiendo la MISMA noticia (mismo cable o fuente original) son UNA
+  sola fuente, no varias confirmaciones independientes. No subas la confianza por volumen de titulares
+  que dicen lo mismo. Una lesión vista en un amistoso o entrenamiento es una SEÑAL, no un hecho: el
+  jugador puede recuperarse y jugar igual. Confianza alta solo con confirmación oficial o el XI.
+
+PRIORIDAD DE LA ALINEACIÓN CONFIRMADA:
+- Si recibís "XI CONFIRMADO", esa es la verdad de quién juega y PISA cualquier rumor de noticias.
+- Si un jugador reportado como lesionado/duda APARECE en el XI confirmado, está jugando: NO recortes
+  el λ de su equipo por esa supuesta ausencia.
+- Solo recortá λ por ausencia de un titular clave si NO está en el XI confirmado, o si no hay XI y la
+  ausencia está confirmada por fuente oficial (no un rumor de amistoso).
 
 RESTRICCIONES IMPORTANTES:
 - El mercado es generalmente muy eficiente. Solo ajustá si tenés información concreta y verificable.
@@ -125,6 +137,11 @@ def build_user_prompt(ctx: MatchContext) -> str:
         parts.append(f"ALINEACIÓN LOCAL: {ctx.home_lineup_change}")
     if ctx.away_lineup_change:
         parts.append(f"ALINEACIÓN VISIT: {ctx.away_lineup_change}")
+    xi_label = "XI CONFIRMADO" if ctx.lineup_confirmed else "XI PROBABLE"
+    if ctx.home_xi:
+        parts.append(f"{xi_label} LOCAL: {', '.join(ctx.home_xi)}")
+    if ctx.away_xi:
+        parts.append(f"{xi_label} VISIT: {', '.join(ctx.away_xi)}")
     if ctx.h2h_recent:
         parts.append(f"H2H RECIENTE: {ctx.h2h_recent}")
     if ctx.weather:
