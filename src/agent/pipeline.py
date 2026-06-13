@@ -404,6 +404,24 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
                 news_ctx = {}
                 espn_ctx = {}
 
+            # Fallback de alineación: si api-football (plan FREE) no trajo el XI,
+            # usamos SofaScore (browser real) para tener el once confirmado en T-3h/T-30min.
+            # Sin XI confiable, Capa 4 trabaja a ciegas sobre rumores de noticias.
+            if fetch_lineups and not fapi_ctx.get("home_xi") and not fapi_ctx.get("away_xi"):
+                try:
+                    from src.scrapers.sofascore import collect_match_context_sofascore
+                    sofa_ctx = collect_match_context_sofascore(home_name, away_name, kickoff_dt)
+                    if sofa_ctx:
+                        # No pisar nada que api-football ya haya provisto.
+                        for k, v in sofa_ctx.items():
+                            fapi_ctx.setdefault(k, v)
+                        log.info("Alineación vía SofaScore: confirmed=%s, xi_local=%d xi_visit=%d",
+                                 sofa_ctx.get("lineup_confirmed"),
+                                 len(sofa_ctx.get("home_xi") or []),
+                                 len(sofa_ctx.get("away_xi") or []))
+                except Exception as e:
+                    log.warning("fallback SofaScore falló: %s", e)
+
             # Construir Match Dossier consolidado (todas las fuentes en una ficha estructurada)
             try:
                 import yaml
@@ -458,6 +476,9 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
                 away_injuries=dossier.away.reported_absences or None,
                 home_lineup_change=fapi_ctx.get("home_lineup_change"),
                 away_lineup_change=fapi_ctx.get("away_lineup_change"),
+                home_xi=fapi_ctx.get("home_xi"),
+                away_xi=fapi_ctx.get("away_xi"),
+                lineup_confirmed=bool(fapi_ctx.get("lineup_confirmed")),
                 h2h_recent=dossier.h2h_summary,
                 weather=dossier.weather_summary,
                 motivation_notes=structured_context,

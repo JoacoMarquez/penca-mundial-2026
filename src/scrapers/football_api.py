@@ -207,12 +207,21 @@ def collect_match_context(
     if fetch_lineups:
         lineups = get_fixture_lineups(fid)
         if lineups:
+            out["lineup_confirmed"] = True  # api-football solo publica el XI cuando es oficial
+            out["lineup_source"] = "api-football"
             for lu in lineups:
                 team_id = lu["team"]["id"]
-                key = "home_lineup_change" if team_id == home_id else "away_lineup_change"
+                side = "home" if team_id == home_id else "away"
                 formation = lu.get("formation", "?")
                 coach = lu.get("coach", {}).get("name", "?")
-                out[key] = f"Formación: {formation} (DT: {coach})"
+                out[f"{side}_lineup_change"] = f"Formación: {formation} (DT: {coach})"
+                xi = [
+                    p["player"]["name"]
+                    for p in (lu.get("startXI") or [])
+                    if (p.get("player") or {}).get("name")
+                ]
+                if xi:
+                    out[f"{side}_xi"] = xi
 
     return out
 
