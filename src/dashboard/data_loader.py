@@ -234,7 +234,7 @@ def load_matches_by_day(days_back: int = 2, days_ahead: int = 21) -> list[dict]:
 STRATEGY_RATIONALE: dict[str, str] = {
     "ev": "EV puro: marcador con MAYOR esperanza de puntos sobre toda la grilla Poisson.",
     "differentiated": "Diferencial: alto EV PERO castigando popularidad (el marcador modal del pool resta valor).",
-    "tail": "Goleada: maximiza puntos esperados condicionado al 10% de outcomes con MÁS goles.",
+    "tail": "Goles: optimiza el pick para escenarios de muchos goles (top 10% de outcomes por goles totales). El marcador resultante puede ser corto.",
     "upset": "Sorpresa: argmax E[points] forzando ganador opuesto al favorito de mercado.",
     "variance": "Varianza: entre top-K por EV no usadas, la de mayor desvío estándar (alta varianza).",
     "alt": "Alternativa: siguiente mejor marcador por EV no cubierto por las otras planillas — amplía la cobertura del abanico.",
@@ -251,7 +251,7 @@ def _assignment_reason(
     obj_label = {
         "ev": "Favorito 🎯",
         "differentiated": "Diferencial 📊",
-        "tail": "Goleada ⚡",
+        "tail": "Goles ⚡",
         "upset": "Sorpresa 😲",
         "variance": "Varianza 📈",
     }.get(objective, objective)
@@ -741,7 +741,7 @@ def llm_counterfactual(pred: dict) -> dict:
         port_pre = generate_portfolio(grid_pre, p_home, p_away, pool_cfg)
         port_post = generate_portfolio(grid_post, p_home, p_away, pool_cfg)
 
-        label = {"ev": "Favorito", "differentiated": "Diferencial", "tail": "Goleada",
+        label = {"ev": "Favorito", "differentiated": "Diferencial", "tail": "Goles",
                  "upset": "Sorpresa", "variance": "Varianza"}
         rows, n_changed = [], 0
         for a, b in zip(port_pre.picks, port_post.picks):
