@@ -376,8 +376,18 @@ def load_match_detail(match_id) -> dict | None:
             "strategy_rationale": _strategy_rationale_for_pick(obj, pick_metrics),
         })
 
-    # Ordenar por posición actual (rank ascendente = mejor posicionada primero); sin rank al final.
-    current_pencas.sort(key=lambda p: (p["rank"] is None, p["rank"] or 0))
+    # Enriquecer con el standing REAL en el pool (puntaje + posición global entre 150+),
+    # no solo el rank interno entre nuestras 15.
+    standings = load_my_pencas_standings()
+    pool_size = standings.get("pool_size")
+    standing_by_pid = {int(p["penca_id"]): p for p in (standings.get("pencas") or [])}
+    for p in current_pencas:
+        st = standing_by_pid.get(int(p["penca_id"]))
+        p["pool_rank"] = st.get("rank") if st else None
+        p["pool_points"] = st.get("points") if st else None
+
+    # Ordenar por posición en el pool (mejor primero); las sin standing, al final.
+    current_pencas.sort(key=lambda p: (p["pool_rank"] is None, p["pool_rank"] or 0))
 
     # Exposición agregada por marcador (cuántas pencas en cada scoreline), orden por frecuencia.
     from collections import Counter
@@ -475,6 +485,7 @@ def load_match_detail(match_id) -> dict | None:
         "latest_qualitative": latest.get("qualitative_adjustment") or {},
         "current_pencas": current_pencas,
         "total_pencas": total_pencas,
+        "pool_size": pool_size,
         "exposure": exposure,
         "timeline": timeline,
         "diffs": diffs,
