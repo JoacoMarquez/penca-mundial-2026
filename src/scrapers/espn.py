@@ -161,6 +161,64 @@ def get_team_roster(team_id: int) -> list[dict]:
     return data.get("athletes", [])
 
 
+# ============ lineups (XI titular confirmado) ============
+
+def parse_starters_from_summary(
+    summary: dict | None, home_name: str, away_name: str
+) -> dict[str, Any]:
+    """Extrae el XI titular confirmado del /summary de ESPN. Puro/testeable.
+
+    ESPN marca ``starter == True`` en los 11 titulares una vez que la alineación
+    está anunciada (~1h antes del kickoff). Antes de eso, ``rosters`` viene vacío
+    o sin starters, y devolvemos ``{}`` (igual que SofaScore/api-football).
+
+    Mismo contrato de claves que ``sofascore.parse_lineups`` para que el pipeline
+    las consuma sin cambios:
+        - lineup_confirmed: bool  — True solo si ambos lados tienen ≥11 titulares
+        - home_xi / away_xi: lista de nombres del once titular
+        - home_lineup_change / away_lineup_change: "Formación: 4-3-3"
+        - lineup_source: "espn"
+    """
+    if not summary:
+        return {}
+    rosters = summary.get("rosters") or []
+    if not rosters:
+        return {}
+    home_norm, away_norm = _norm(home_name), _norm(away_name)
+    out: dict[str, Any] = {}
+    for idx, r in enumerate(rosters):
+        tname = _norm(r.get("team", {}).get("displayName", ""))
+        if tname == home_norm:
+            side = "home"
+        elif tname == away_norm:
+            side = "away"
+        elif idx < 2:
+            # Fallback posicional: ESPN ordena rosters como [home, away].
+            side = "home" if idx == 0 else "away"
+        else:
+            continue
+        players = r.get("roster") or []
+        starters = [
+            p.get("athlete", {}).get("displayName")
+            for p in players
+            if p.get("starter") is True and p.get("athlete")
+        ]
+        starters = [s for s in starters if s]
+        if starters:
+            out[f"{side}_xi"] = starters
+        formation = r.get("formation")
+        if formation:
+            out[f"{side}_lineup_change"] = f"Formación: {formation}"
+
+    if not (out.get("home_xi") or out.get("away_xi")):
+        return {}
+    out["lineup_source"] = "espn"
+    out["lineup_confirmed"] = (
+        len(out.get("home_xi") or []) >= 11 and len(out.get("away_xi") or []) >= 11
+    )
+    return out
+
+
 # ============ contexto agregado para Capa 4 ============
 
 @dataclass(frozen=True)
@@ -216,6 +274,10 @@ def collect_match_context_espn(home_name: str, away_name: str) -> dict[str, Any]
             out["home_squad_listed"] = ", ".join(names)
         else:
             out["away_squad_listed"] = ", ".join(names)
+
+    # XI titular confirmado (starters) — la pieza que necesita Capa 4 para
+    # no dejarse engañar por rumores. Solo viene poblado cerca del kickoff.
+    out.update(parse_starters_from_summary(summary, home_name, away_name))
 
     # News (ESPN devuelve dict con "articles" key, no lista directa)
     news = summary.get("news", {})
