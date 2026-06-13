@@ -237,6 +237,7 @@ STRATEGY_RATIONALE: dict[str, str] = {
     "tail": "Goleada: maximiza puntos esperados condicionado al 10% de outcomes con MÁS goles.",
     "upset": "Sorpresa: argmax E[points] forzando ganador opuesto al favorito de mercado.",
     "variance": "Varianza: entre top-K por EV no usadas, la de mayor desvío estándar (alta varianza).",
+    "alt": "Alternativa: siguiente mejor marcador por EV no cubierto por las otras planillas — amplía la cobertura del abanico.",
 }
 
 
@@ -350,12 +351,19 @@ def load_match_detail(match_id) -> dict | None:
     latest_assignment = latest.get("assignment") or []
     total_pencas = len(latest_assignment)
     latest_meta = latest.get("assignment_meta") or {}
+    latest_constraints = latest.get("constraints") or {}
 
     current_pencas = []
     for a in latest_assignment:
         obj = a["objective"]
         score_key = f'{a["score"][0]}-{a["score"][1]}'
-        pick_metrics = portfolio_by_score.get(score_key) or portfolio_by_obj.get(obj, {})
+        # Las picks "alt" (y cualquier marcador fuera del portfolio de 5) no están en el menú
+        # nombrado → recomputamos sus métricas desde los λ para que la tarjeta no quede vacía.
+        pick_metrics = (
+            portfolio_by_score.get(score_key)
+            or portfolio_by_obj.get(obj)
+            or _pick_metrics(latest_constraints, a["score"])
+        )
         current_pencas.append({
             "penca_id": a["penca_id"],
             "rank": a.get("rank"),
@@ -367,6 +375,9 @@ def load_match_detail(match_id) -> dict | None:
             "assignment_reason": _assignment_reason(a.get("rank"), obj, latest_meta, total_pencas),
             "strategy_rationale": _strategy_rationale_for_pick(obj, pick_metrics),
         })
+
+    # Ordenar por posición actual (rank ascendente = mejor posicionada primero); sin rank al final.
+    current_pencas.sort(key=lambda p: (p["rank"] is None, p["rank"] or 0))
 
     # Exposición agregada por marcador (cuántas pencas en cada scoreline), orden por frecuencia.
     from collections import Counter
