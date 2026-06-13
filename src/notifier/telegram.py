@@ -31,7 +31,7 @@ TELEGRAM_EDIT = "https://api.telegram.org/bot{token}/editMessageText"
 HUMAN_OBJECTIVE_LABELS: dict[str, tuple[str, str]] = {
     "ev":             ("🎯", "Favorito"),
     "differentiated": ("📊", "Diferencial"),
-    "tail":           ("⚡", "Goleada"),
+    "tail":           ("⚡", "Goles"),
     "upset":          ("😲", "Sorpresa"),
     "variance":       ("📈", "Varianza"),
 }
