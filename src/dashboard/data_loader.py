@@ -241,42 +241,61 @@ STRATEGY_RATIONALE: dict[str, str] = {
 }
 
 
+# Por qué cada ROL de pick cubre lo que cubre — en criollo, para la tarjeta por penca.
+ROLE_WHY = {
+    "ev": "le toca el marcador más probable del partido: juega a lo seguro.",
+    "differentiated": "recibe un marcador casi tan bueno como el favorito pero que juega menos gente del pool — si pega, te despega del montón.",
+    "tail": "cubre el escenario de un partido con muchos goles.",
+    "upset": "es tu seguro contra el batacazo: la única que apuesta a que el favorito NO gane.",
+    "variance": "recibe una apuesta de techo alto (mucha varianza): rinde poco en promedio, pero mucho si pega justo.",
+    "alt": "cubre otro resultado plausible que las planillas mejor ubicadas no agarraron, para ampliar el abanico.",
+}
+
+
+def _reinforcement_flags(assignment: list[dict]) -> dict:
+    """Por penca_id: True si su marcador ya lo tomó una planilla mejor ubicada (es un
+    'refuerzo', no una cobertura nueva)."""
+    seen: set = set()
+    flags: dict = {}
+    for a in sorted(assignment, key=lambda x: (x.get("rank") is None, x.get("rank") or 0)):
+        sk = tuple(a.get("score") or [])
+        flags[a.get("penca_id")] = sk in seen
+        seen.add(sk)
+    return flags
+
+
 def _assignment_reason(
     penca_rank: int | None,
     objective: str,
-    assignment_meta: dict,
     total_pencas: int | None = None,
+    is_reinforcement: bool = False,
+    score=None,
 ) -> str:
-    """Por qué a esta penca le tocó esta estrategia en esta pasada."""
-    obj_label = {
-        "ev": "Favorito 🎯",
-        "differentiated": "Diferencial 📊",
-        "tail": "Goles ⚡",
-        "upset": "Sorpresa 😲",
-        "variance": "Varianza 📈",
-    }.get(objective, objective)
+    """Por qué a ESTA planilla le tocó ESTE marcador — en lenguaje sencillo.
 
+    Combina dónde está parada en la tabla con qué cubre el marcador.
+    """
     if not penca_rank:
-        return f"Estrategia: {obj_label} (sin ranking aún)."
-
-    pos = f"rank {penca_rank}" + (f" de {total_pencas}" if total_pencas else "")
-    base_obj = (assignment_meta or {}).get("objective", "")
-    goal = "maximizar P(top-3)" if base_obj.startswith("p_top_k") else "maximizar E[máximo del portfolio]"
+        return "Todavía sin posición en la tabla: recibe una pick de cobertura."
 
     if penca_rank == 1:
-        return (
-            f"Penca {pos} (puntera). Recibe {obj_label}: el optimizer voraz ({goal}) le da "
-            "una pick sólida para preservar la ventaja."
-        )
-    if total_pencas and penca_rank == total_pencas:
-        return (
-            f"Penca {pos} (última). Recibe {obj_label}: el optimizer la usa para cubrir un "
-            "escenario que las demás pencas no cubren, buscando que alguna llegue al cutoff."
-        )
-    return (
-        f"Penca {pos}. Recibe {obj_label}: es la pick que más aporta al objetivo global "
-        f"({goal}) dado lo que ya cubren las otras pencas."
-    )
+        pos = "Es tu planilla mejor ubicada (1ª)."
+    elif total_pencas and penca_rank == total_pencas:
+        pos = f"Es tu planilla más rezagada ({penca_rank}ª de {total_pencas})."
+    elif total_pencas:
+        pos = f"Va {penca_rank}ª de {total_pencas} entre tus planillas."
+    else:
+        pos = f"Va {penca_rank}ª entre tus planillas."
+
+    if is_reinforcement:
+        sc = f"{score[0]}-{score[1]}" if score and score[0] is not None else "uno de los más fuertes"
+        why = (f"Como ya están cubiertos todos los resultados razonables, refuerza el {sc} "
+               "(uno de los marcadores más probables) en lugar de gastarse en uno improbable.")
+    else:
+        why = ROLE_WHY.get(objective, "cubre un escenario que las otras planillas no cubren.")
+        why = why[0].upper() + why[1:]
+
+    return f"{pos} {why}"
 
 
 def _strategy_rationale_for_pick(objective: str, pick_metrics: dict | None) -> str:
@@ -353,6 +372,7 @@ def load_match_detail(match_id) -> dict | None:
     latest_meta = latest.get("assignment_meta") or {}
     latest_constraints = latest.get("constraints") or {}
 
+    reinf_flags = _reinforcement_flags(latest_assignment)
     current_pencas = []
     for a in latest_assignment:
         obj = a["objective"]
@@ -364,6 +384,7 @@ def load_match_detail(match_id) -> dict | None:
             or portfolio_by_obj.get(obj)
             or _pick_metrics(latest_constraints, a["score"])
         )
+        is_reinf = reinf_flags.get(a["penca_id"], False)
         current_pencas.append({
             "penca_id": a["penca_id"],
             "rank": a.get("rank"),
@@ -372,7 +393,7 @@ def load_match_detail(match_id) -> dict | None:
             "p_scoreline": pick_metrics.get("p_scoreline"),
             "e_points": pick_metrics.get("e_points"),
             "pool_popularity": pick_metrics.get("pool_popularity"),
-            "assignment_reason": _assignment_reason(a.get("rank"), obj, latest_meta, total_pencas),
+            "assignment_reason": _assignment_reason(a.get("rank"), obj, total_pencas, is_reinf, a["score"]),
             "strategy_rationale": _strategy_rationale_for_pick(obj, pick_metrics),
         })
 
@@ -844,7 +865,7 @@ def load_penca_detail(penca_id) -> dict:
             obj = entry.get("objective")
             rank = entry.get("rank")
             total_pencas = len(data.get("assignment") or [])
-            assignment_meta = data.get("assignment_meta") or {}
+            is_reinf = _reinforcement_flags(data.get("assignment") or []).get(pid, False)
             points = None
             hs, as_ = m.get("home_score"), m.get("away_score")
             if hs is not None and as_ is not None and sc[0] is not None:
@@ -862,7 +883,7 @@ def load_penca_detail(penca_id) -> dict:
                 "phase": data.get("phase"),
                 "actual": [hs, as_] if hs is not None and as_ is not None else None,
                 "points": points,
-                "assignment_reason": _assignment_reason(rank, obj, assignment_meta, total_pencas),
+                "assignment_reason": _assignment_reason(rank, obj, total_pencas, is_reinf, sc),
                 "strategy_rationale": _strategy_rationale_for_pick(obj, mx),
                 **mx,
             })
