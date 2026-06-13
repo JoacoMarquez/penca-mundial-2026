@@ -240,6 +240,26 @@ STRATEGY_RATIONALE: dict[str, str] = {
     "alt": "Alternativa: siguiente mejor marcador por EV no cubierto por las otras planillas — amplía la cobertura del abanico.",
 }
 
+# Goles totales mínimos para que una pick merezca el rótulo "Goles" (objetivo tail).
+_GOLEADA_MIN_GOLES = 3
+
+
+def _display_objective(objective: str, score) -> str:
+    """Rótulo de DISPLAY (solo tablero). El objetivo 'tail' (Goles) a veces elige un
+    marcador corto (su pick óptimo no siempre es goleador); en ese caso mostrarlo como
+    "Goles" engaña, así que lo rotulamos como alternativa de cobertura.
+
+    NO cambia la pick, ni la asignación, ni el modelo — solo cómo se nombra en la UI.
+    """
+    if (
+        objective == "tail"
+        and score
+        and score[0] is not None
+        and (int(score[0]) + int(score[1])) < _GOLEADA_MIN_GOLES
+    ):
+        return "alt"
+    return objective
+
 
 # Por qué cada ROL de pick cubre lo que cubre — en criollo, para la tarjeta por penca.
 ROLE_WHY = {
@@ -375,7 +395,7 @@ def load_match_detail(match_id) -> dict | None:
     reinf_flags = _reinforcement_flags(latest_assignment)
     current_pencas = []
     for a in latest_assignment:
-        obj = a["objective"]
+        obj = _display_objective(a["objective"], a["score"])
         score_key = f'{a["score"][0]}-{a["score"][1]}'
         # Las picks "alt" (y cualquier marcador fuera del portfolio de 5) no están en el menú
         # nombrado → recomputamos sus métricas desde los λ para que la tarjeta no quede vacía.
@@ -862,7 +882,7 @@ def load_penca_detail(penca_id) -> dict:
             m = meta.get(str(mdir.name), {})
             sc = entry.get("score") or [None, None]
             mx = _pick_metrics(data.get("constraints", {}), sc)
-            obj = entry.get("objective")
+            obj = _display_objective(entry.get("objective"), sc)
             rank = entry.get("rank")
             total_pencas = len(data.get("assignment") or [])
             is_reinf = _reinforcement_flags(data.get("assignment") or []).get(pid, False)
