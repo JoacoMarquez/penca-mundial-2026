@@ -169,6 +169,7 @@ def greedy_assignment(
     NEG = -1e9
     best_final = np.full((n, n), NEG)  # max sobre pencas ya asignadas de (pts_actuales + pts(pick, ω))
     assigned: dict[int, int] = {}
+    usage = [0] * K  # cuántas pencas ya tomaron cada candidato (para desempatar hacia diversidad)
 
     for pid in order:
         base = current_pts[pid]
@@ -178,12 +179,18 @@ def greedy_assignment(
         for c in range(K):
             cand_final = base + pts_tables[c]
             bf = np.maximum(best_final, cand_final)
-            # tiebreak: menor índice de candidato (prioridad canónica: ev primero)
-            key = objective(bf) + (-c,)
+            obj = objective(bf)
+            # Desempate: cuando dos candidatos rinden igual en el objetivo de la UNIÓN
+            # (típico de pencas rezagadas ya dominadas — antes amontonaba todo en el
+            # candidato 0 = chalk), preferir el candidato MENOS usado para repartir
+            # exposición. La igualdad se mide redondeada (ruido de coma flotante).
+            # Último desempate: menor índice (prioridad canónica: ev primero).
+            key = (round(obj[0], 9), round(obj[1], 9), -usage[c], -c)
             if best_key is None or key > best_key:
                 best_key, best_c, best_bf = key, c, bf
         assigned[pid] = best_c
         best_final = best_bf
+        usage[best_c] += 1
 
     p_val = objective(best_final)[0] if use_top_k else None
 
