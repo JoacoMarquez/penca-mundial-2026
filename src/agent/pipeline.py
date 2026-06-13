@@ -405,22 +405,35 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
                 espn_ctx = {}
 
             # Fallback de alineación: si api-football (plan FREE) no trajo el XI,
-            # usamos SofaScore (browser real) para tener el once confirmado en T-3h/T-30min.
+            # buscamos el once confirmado en otras fuentes para T-3h/T-30min.
             # Sin XI confiable, Capa 4 trabaja a ciegas sobre rumores de noticias.
             if fetch_lineups and not fapi_ctx.get("home_xi") and not fapi_ctx.get("away_xi"):
-                try:
-                    from src.scrapers.sofascore import collect_match_context_sofascore
-                    sofa_ctx = collect_match_context_sofascore(home_name, away_name, kickoff_dt)
-                    if sofa_ctx:
-                        # No pisar nada que api-football ya haya provisto.
-                        for k, v in sofa_ctx.items():
-                            fapi_ctx.setdefault(k, v)
-                        log.info("Alineación vía SofaScore: confirmed=%s, xi_local=%d xi_visit=%d",
-                                 sofa_ctx.get("lineup_confirmed"),
-                                 len(sofa_ctx.get("home_xi") or []),
-                                 len(sofa_ctx.get("away_xi") or []))
-                except Exception as e:
-                    log.warning("fallback SofaScore falló: %s", e)
+                # 1) ESPN (ya scrapeado arriba, sin Playwright). Trae los starters
+                #    cuando la alineación está anunciada (~1h antes del kickoff).
+                if espn_ctx.get("home_xi") or espn_ctx.get("away_xi"):
+                    for k in ("home_xi", "away_xi", "home_lineup_change",
+                              "away_lineup_change", "lineup_confirmed", "lineup_source"):
+                        if espn_ctx.get(k) is not None:
+                            fapi_ctx.setdefault(k, espn_ctx[k])
+                    log.info("Alineación vía ESPN: confirmed=%s, xi_local=%d xi_visit=%d",
+                             espn_ctx.get("lineup_confirmed"),
+                             len(espn_ctx.get("home_xi") or []),
+                             len(espn_ctx.get("away_xi") or []))
+                # 2) SofaScore (browser real) como segundo fallback si ESPN no trajo XI.
+                if not fapi_ctx.get("home_xi") and not fapi_ctx.get("away_xi"):
+                    try:
+                        from src.scrapers.sofascore import collect_match_context_sofascore
+                        sofa_ctx = collect_match_context_sofascore(home_name, away_name, kickoff_dt)
+                        if sofa_ctx:
+                            # No pisar nada que api-football ya haya provisto.
+                            for k, v in sofa_ctx.items():
+                                fapi_ctx.setdefault(k, v)
+                            log.info("Alineación vía SofaScore: confirmed=%s, xi_local=%d xi_visit=%d",
+                                     sofa_ctx.get("lineup_confirmed"),
+                                     len(sofa_ctx.get("home_xi") or []),
+                                     len(sofa_ctx.get("away_xi") or []))
+                    except Exception as e:
+                        log.warning("fallback SofaScore falló: %s", e)
 
             # Construir Match Dossier consolidado (todas las fuentes en una ficha estructurada)
             try:
