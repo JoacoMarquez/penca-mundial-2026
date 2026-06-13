@@ -144,7 +144,11 @@
             <div class="font-bold text-lg">P{{ penca_labels.get(p.penca_id, p.penca_id) }}
               <span class="text-slate-400 font-normal">— {{ strategy_label.get(p.objective, p.objective) }}</span>
             </div>
-            {% if p.rank %}<div class="text-xs text-slate-500">posición actual: {{ p.rank }}°</div>{% endif %}
+            <div class="text-xs text-slate-500">
+              {% if p.pool_points is not none %}<span class="text-slate-300 font-semibold">{{ p.pool_points }} pts</span>{% endif %}
+              {% if p.pool_rank %}· {{ p.pool_rank }}°{% if m.pool_size %}/{{ m.pool_size }}{% endif %} del pool{% endif %}
+              {% if p.rank %}· {{ p.rank }}° entre las nuestras{% endif %}
+            </div>
           </div>
         </div>
         <div class="text-3xl font-bold">{{ p.score[0] }}<span class="text-slate-500 mx-1">-</span>{{ p.score[1] }}</div>
