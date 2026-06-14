@@ -22,6 +22,10 @@ log = logging.getLogger(__name__)
 
 
 MAX_ABS_ADJUSTMENT = 0.30   # goles esperados — límite duro al ajuste del LLM
+# Bound endurecido cuando NO hay XI confirmado de ninguna fuente: el ajuste se basa solo
+# en rumores de prensa (sin alineación que los confirme), así que limitamos el daño que
+# puede hacer un falso positivo (ej. baja falsa de Arda Güler → -0.18 con XI ausente).
+MAX_ABS_ADJUSTMENT_SPECULATIVE = 0.10
 
 
 # ============ schema del input ============
@@ -57,6 +61,9 @@ class MatchContext:
     # Autoridad máxima sobre rumores de prensa — el LLM no debe recortar λ por su "ausencia".
     home_available: list[str] | None = None
     away_available: list[str] | None = None
+    # True cuando se esperaba XI confirmado (T-3h/T-30min) pero ninguna fuente lo trajo.
+    # Activa el bound especulativo (±0.10) y un aviso explícito en el prompt.
+    no_confirmed_xi: bool = False
 
 
 # ============ schema del output ============
@@ -69,11 +76,11 @@ class QualitativeAdjustment:
     confidence: float        # 0..1, cuán seguro está el LLM
     raw_response: dict       # para debug
 
-    def clipped(self) -> "QualitativeAdjustment":
-        """Aplica el guardrail de ±MAX_ABS_ADJUSTMENT."""
+    def clipped(self, max_abs: float = MAX_ABS_ADJUSTMENT) -> "QualitativeAdjustment":
+        """Aplica el guardrail de ±max_abs (por defecto MAX_ABS_ADJUSTMENT)."""
         return QualitativeAdjustment(
-            delta_lambda_L=max(-MAX_ABS_ADJUSTMENT, min(MAX_ABS_ADJUSTMENT, self.delta_lambda_L)),
-            delta_lambda_V=max(-MAX_ABS_ADJUSTMENT, min(MAX_ABS_ADJUSTMENT, self.delta_lambda_V)),
+            delta_lambda_L=max(-max_abs, min(max_abs, self.delta_lambda_L)),
+            delta_lambda_V=max(-max_abs, min(max_abs, self.delta_lambda_V)),
             reasoning=self.reasoning,
             confidence=self.confidence,
             raw_response=self.raw_response,
@@ -156,6 +163,13 @@ def build_user_prompt(ctx: MatchContext) -> str:
         parts.append(f"ALINEACIÓN LOCAL: {ctx.home_lineup_change}")
     if ctx.away_lineup_change:
         parts.append(f"ALINEACIÓN VISIT: {ctx.away_lineup_change}")
+    if ctx.no_confirmed_xi:
+        parts.append(
+            "⚠️ SIN XI CONFIRMADO: ninguna fuente trajo la alineación oficial para este partido. "
+            "Cualquier ausencia viene solo de rumores de prensa, sin XI que los confirme. Sé MUY "
+            "conservador: tu ajuste está acotado a ±0.10 y solo deberías moverte si la ausencia "
+            "está confirmada por fuente OFICIAL del cuerpo técnico, no por titulares de medios."
+        )
     xi_label = "XI CONFIRMADO" if ctx.lineup_confirmed else "XI PROBABLE"
     if ctx.home_xi:
         parts.append(f"{xi_label} LOCAL: {', '.join(ctx.home_xi)}")
@@ -221,17 +235,20 @@ def adjust_with_llm(
     raw_text = response.content[0].text  # type: ignore[union-attr]
     parsed = _extract_json(raw_text)
 
+    # Sin XI confirmado de ninguna fuente, el ajuste se basa solo en rumores → bound endurecido.
+    bound = MAX_ABS_ADJUSTMENT_SPECULATIVE if ctx.no_confirmed_xi else MAX_ABS_ADJUSTMENT
     adj = QualitativeAdjustment(
         delta_lambda_L=float(parsed.get("delta_lambda_L", 0.0)),
         delta_lambda_V=float(parsed.get("delta_lambda_V", 0.0)),
         reasoning=str(parsed.get("reasoning", "")),
         confidence=float(parsed.get("confidence", 0.0)),
         raw_response={"text": raw_text, "model": model},
-    ).clipped()
+    ).clipped(bound)
 
     log.info(
-        "LLM adj | ΔλL=%+.2f ΔλV=%+.2f conf=%.2f | %s",
-        adj.delta_lambda_L, adj.delta_lambda_V, adj.confidence, adj.reasoning[:100],
+        "LLM adj | ΔλL=%+.2f ΔλV=%+.2f conf=%.2f | bound=±%.2f%s | %s",
+        adj.delta_lambda_L, adj.delta_lambda_V, adj.confidence, bound,
+        " (SIN XI)" if ctx.no_confirmed_xi else "", adj.reasoning[:100],
     )
     return adj
 

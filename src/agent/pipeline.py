@@ -27,7 +27,12 @@ from src.model.dossier import (
 )
 from src.model.market_probs import BookQuote, aggregate, devig
 from src.model.poisson import MarketConstraints, fit_params, marginals, score_grid
-from src.model.qualitative import MatchContext, adjust_with_llm, apply_to_lambdas
+from src.model.qualitative import (
+    MAX_ABS_ADJUSTMENT_SPECULATIVE,
+    MatchContext,
+    adjust_with_llm,
+    apply_to_lambdas,
+)
 from src.notifier.telegram import TelegramConfig, TelegramNotifier
 from src.strategy.portfolio import (
     PortfolioResult, generate_portfolio, generate_candidates, picks_to_dicts,
@@ -475,6 +480,20 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
             from src.model.dossier import dossier_to_telegram_summary
             dossier_summary_for_telegram = dossier_to_telegram_summary(dossier)
 
+            # ¿Conseguimos XI confirmado de alguna fuente? Si a T-3h/T-30min nadie lo trajo,
+            # la Capa 4 corre "a ciegas" sobre rumores → la marcamos como especulativa para
+            # endurecer el bound del ajuste (±0.10) y avisar antes del kickoff.
+            no_confirmed_xi = bool(
+                fetch_lineups and not (fapi_ctx.get("home_xi") or fapi_ctx.get("away_xi"))
+            )
+            if no_confirmed_xi:
+                log.warning(
+                    "NO XI CONFIRMADO para %s vs %s (%s) — Capa 4 a ciegas, bound reducido a ±%.2f. "
+                    "Fuentes intentadas: api-football/espn/sofascore.",
+                    dossier.home.name, dossier.away.name, phase.value,
+                    MAX_ABS_ADJUSTMENT_SPECULATIVE,
+                )
+
             # Overrides manuales de disponibilidad (config/player_overrides.yaml).
             # Corrigen falsos positivos de prensa que la Capa 4 podría tomar como baja.
             from src.model.overrides import team_overrides, filter_available
@@ -499,6 +518,7 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
                 away_injuries=away_inj or None,
                 home_available=home_avail or None,
                 away_available=away_avail or None,
+                no_confirmed_xi=no_confirmed_xi,
                 home_lineup_change=fapi_ctx.get("home_lineup_change"),
                 away_lineup_change=fapi_ctx.get("away_lineup_change"),
                 home_xi=fapi_ctx.get("home_xi"),
@@ -730,13 +750,16 @@ def _notify_and_publish(
 
     # Banderas pre-partido (algo para revisar antes del kickoff)
     try:
-        from src.agent.alerts import check_concentration, check_lambda_vs_xi, render_flags
+        from src.agent.alerts import (
+            check_concentration, check_lambda_vs_xi, check_no_confirmed_xi, render_flags,
+        )
         flags = [f for f in (
             check_concentration([a.get("score") for a in assignment], len(assignment)),
             check_lambda_vs_xi(
                 run.qualitative_adjustment, run.home_xi, run.away_xi,
                 match.get("home_name") or "local", match.get("away_name") or "visitante",
             ),
+            check_no_confirmed_xi(run.qualitative_adjustment, run.home_xi, run.away_xi),
         ) if f]
         if flags:
             notifier.send_alert(label, render_flags(flags))

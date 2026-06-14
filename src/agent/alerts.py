@@ -7,6 +7,8 @@ PRE-PARTIDO (corren en el pipeline, cuando todavía se puede actuar):
     - concentración: demasiadas planillas en un mismo marcador (caza el flood de m108).
     - lambda_vs_xi: Capa 4 bajó el λ citando a un jugador que está en el XI confirmado
       (caza el caso Enciso).
+    - no_xi: ninguna fuente trajo el XI y Capa 4 igual ajustó λ sobre rumores de prensa
+      (caza el caso Arda Güler).
 
 POST-JORNADA (corren en el digest, para aprender):
     - pool_slip: nuestra mejor penca se desplomó en el pool.
@@ -20,6 +22,8 @@ from __future__ import annotations
 import re
 from collections import Counter
 from dataclasses import dataclass
+
+from src.model.qualitative import MAX_ABS_ADJUSTMENT_SPECULATIVE
 
 # --- Umbrales (acordados con el usuario; tunables) ---
 CONCENTRATION_MAX_SHARE = 0.40   # >40% de las picks en un marcador → bandera
@@ -108,6 +112,33 @@ def check_lambda_vs_xi(
         "warn", "lambda_xi",
         "Capa 4 contradice el XI confirmado",
         "; ".join(parts) + ". Revisá si el ajuste corresponde.",
+    )
+
+
+def check_no_confirmed_xi(
+    qa: dict | None,
+    home_xi: list | None,
+    away_xi: list | None,
+) -> Flag | None:
+    """Ninguna fuente trajo el XI confirmado y Capa 4 igual ajustó λ sobre rumores.
+
+    Complementa a check_lambda_vs_xi (que necesita un XI contra el cual contrastar):
+    acá el riesgo es el opuesto — NO hay alineación, así que cualquier ajuste por una
+    "baja" se basa solo en prensa. Caza el caso Arda Güler (λV -0.18 sin XI). Solo se
+    espera XI a T-3h/T-30min, que es cuando esta bandera corre.
+    """
+    if home_xi or away_xi or not qa:
+        return None
+    dL = float(qa.get("delta_lambda_L") or 0.0)
+    dV = float(qa.get("delta_lambda_V") or 0.0)
+    if abs(dL) < 1e-6 and abs(dV) < 1e-6:
+        return None   # no ajustó nada → no hay riesgo que revisar
+    return Flag(
+        "warn", "no_xi",
+        "Sin XI confirmado — ajuste especulativo",
+        f"Ninguna fuente trajo la alineación; Capa 4 ajustó λ (L {dL:+.2f}, V {dV:+.2f}) "
+        f"sobre rumores de prensa, acotado a ±{MAX_ABS_ADJUSTMENT_SPECULATIVE:.2f}. "
+        f"Revisá el pick antes del kickoff.",
     )
 
 
