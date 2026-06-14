@@ -473,6 +473,14 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
             from src.model.dossier import dossier_to_telegram_summary
             dossier_summary_for_telegram = dossier_to_telegram_summary(dossier)
 
+            # Overrides manuales de disponibilidad (config/player_overrides.yaml).
+            # Corrigen falsos positivos de prensa que la Capa 4 podría tomar como baja.
+            from src.model.overrides import team_overrides, filter_available
+            home_avail, home_out = team_overrides(match.get("home"))
+            away_avail, away_out = team_overrides(match.get("away"))
+            home_inj = filter_available(dossier.home.reported_absences, home_avail) + list(home_out)
+            away_inj = filter_available(dossier.away.reported_absences, away_avail) + list(away_out)
+
             ctx = MatchContext(
                 home_team=dossier.home.name,
                 away_team=dossier.away.name,
@@ -485,8 +493,10 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
                 market_e_goals_V=m.expected_goals_V,
                 home_recent_form=dossier.home.recent_form,
                 away_recent_form=dossier.away.recent_form,
-                home_injuries=dossier.home.reported_absences or None,
-                away_injuries=dossier.away.reported_absences or None,
+                home_injuries=home_inj or None,
+                away_injuries=away_inj or None,
+                home_available=home_avail or None,
+                away_available=away_avail or None,
                 home_lineup_change=fapi_ctx.get("home_lineup_change"),
                 away_lineup_change=fapi_ctx.get("away_lineup_change"),
                 home_xi=fapi_ctx.get("home_xi"),
