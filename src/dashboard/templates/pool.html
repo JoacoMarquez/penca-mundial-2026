@@ -73,11 +73,12 @@
   <div class="space-y-1.5">
     {% for d in pl.distribution %}
     <div class="flex items-center gap-3 text-sm">
-      <span class="w-12 text-right font-mono text-slate-300">{{ d.points }}pt{{ 's' if d.points != 1 else '' }}</span>
+      <span class="w-12 text-right font-mono {{ 'text-green-400 font-semibold' if d.mine else 'text-slate-300' }}">{{ d.points }}pt{{ 's' if d.points != 1 else '' }}</span>
       <div class="flex-1 h-5 bg-slate-900/50 rounded overflow-hidden">
-        <div class="h-full bg-indigo-500/70 rounded" style="width: {{ d.bar_pct }}%"></div>
+        <div class="h-full rounded {{ 'bg-green-500/80' if d.mine else 'bg-indigo-500/70' }}" style="width: {{ d.bar_pct }}%"></div>
       </div>
       <span class="w-24 text-xs text-slate-400">{{ d.count }} ({{ d.pct }}%)</span>
+      <span class="w-16 text-xs text-right">{% if d.mine %}<span class="text-green-400 font-semibold">★ {{ d.mine }} mía{{ 's' if d.mine != 1 else '' }}</span>{% endif %}</span>
     </div>
     {% endfor %}
   </div>
