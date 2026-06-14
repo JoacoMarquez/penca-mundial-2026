@@ -153,7 +153,6 @@ def test_simultaneous_postmortems_take_single_snapshot(monkeypatch):
     monkeypatch.setattr(pm, "find_finished_matches_pending_postmortem", lambda fx: ["106", "107"])
     monkeypatch.setattr(pm, "compute_postmortem", lambda mid: object())
     monkeypatch.setattr(pm, "save_postmortem", lambda report: None)
-    monkeypatch.setattr(sched, "_notify_result", lambda *a, **kw: None)
 
     snapshots = []
     monkeypatch.setattr(sched, "_snapshot_and_recalibrate", lambda mid: snapshots.append(mid))
