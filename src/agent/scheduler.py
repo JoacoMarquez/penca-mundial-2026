@@ -150,8 +150,7 @@ def main() -> int:
                         continue
                     save_postmortem(report)
                     completed.append(mid)
-                    if notifier:
-                        _notify_result(notifier, mid, report, fixtures)
+                    # No se notifica por partido: el resumen va en el digest de jornada.
                     log.info("Postmortem completado para match %s", mid)
                 except Exception:
                     log.exception("error en postmortem | match=%s", mid)
@@ -172,6 +171,12 @@ def main() -> int:
                 _snapshot_and_recalibrate(completed[-1])
     except Exception:
         log.exception("error general en postmortem block")
+
+    # Digest de jornada: un solo mensaje al cierre del día (resultados + banderas).
+    try:
+        _maybe_send_jornada_digest(fixtures)
+    except Exception:
+        log.exception("digest de jornada falló (no bloqueante)")
 
     if not pending and not _has_pending_postmortems(fixtures):
         log.info("scheduler tick — nada que hacer")
@@ -245,6 +250,123 @@ def _notify_error(context: str, detail: str) -> None:
         TelegramNotifier(TelegramConfig.from_env()).send_error(context, detail)
     except Exception:
         pass
+
+
+# ---------- digest de jornada ----------
+
+def _maybe_send_jornada_digest(fixtures: dict) -> None:
+    """Al cierre de cada día manda UN digest: resultados de la jornada + banderas post-jornada.
+    Idempotente vía marcador data/digests/{fecha}.txt (un envío por jornada)."""
+    import json
+    from datetime import datetime, timezone, timedelta
+    from src.agent.postmortem import _data_dir
+    from src.agent.alerts import build_digest_text, check_llm_backfired, check_pool_slippage
+    from src.utils.env import get_int_list
+
+    now = datetime.now(timezone.utc)
+    data_dir = _data_dir()
+    digest_dir = data_dir / "digests"
+    pm_dir = data_dir / "postmortems"
+    digest_dir.mkdir(parents=True, exist_ok=True)
+
+    all_matches = (fixtures.get("fase_grupos") or []) + (fixtures.get("eliminatorias") or [])
+    by_date: dict[str, list] = {}
+    for m in all_matches:
+        ko = m.get("kickoff_utc")
+        if not ko:
+            continue
+        try:
+            dt = datetime.fromisoformat(str(ko).replace("Z", "+00:00"))
+        except Exception:
+            continue
+        uy_date = (dt - timedelta(hours=3)).date().isoformat()  # fecha de calendario UY
+        by_date.setdefault(uy_date, []).append((m, dt))
+
+    my_ids = set(get_int_list("PENCA_IDS"))
+    for uy_date, items in sorted(by_date.items()):
+        marker = digest_dir / f"{uy_date}.txt"
+        if marker.exists():
+            continue
+        last_ko = max(dt for _, dt in items)
+        if now < last_ko + timedelta(minutes=150):
+            continue  # la jornada todavía no terminó
+
+        reports = []
+        for m, _dt in items:
+            p = pm_dir / f"{m['id']}.json"
+            if p.exists():
+                try:
+                    reports.append(json.loads(p.read_text()))
+                except Exception:
+                    pass
+        if not reports:
+            marker.write_text("sin-reportes")  # marcar para no reintentar eternamente
+            continue
+
+        summaries = [{
+            "label": f"{r.get('home_team','?')} vs {r.get('away_team','?')}",
+            "final": r.get("final_score", "?"),
+            "best_pts": r.get("portfolio_max_points", 0),
+            "best_score": _best_pick_str(r),
+        } for r in reports]
+
+        flags = [f for f in (check_llm_backfired(r) for r in reports) if f]
+        prev_e, curr_e = _last_two_snapshots(data_dir, json)
+        slip = check_pool_slippage(prev_e, curr_e, my_ids)
+        if slip:
+            flags.append(slip)
+        pool_line = _digest_pool_line(curr_e, my_ids)
+
+        text = build_digest_text(uy_date, summaries, flags, pool_line)
+        try:
+            from src.notifier.telegram import TelegramNotifier, TelegramConfig
+            TelegramNotifier(TelegramConfig.from_env()).send(text)
+            marker.write_text(now.isoformat())
+            log.info("digest de jornada enviado | fecha=%s | %d partidos %d banderas",
+                     uy_date, len(reports), len(flags))
+        except Exception:
+            log.exception("envío de digest falló | fecha=%s", uy_date)
+
+
+def _best_pick_str(report: dict) -> str:
+    rs = report.get("pencas_results") or []
+    if not rs:
+        return "?"
+    best = max(rs, key=lambda r: r.get("points_earned", 0))
+    sc = best.get("predicted_score") or [None, None]
+    return f"{sc[0]}-{sc[1]}"
+
+
+def _last_two_snapshots(data_dir, json):
+    """(entries_previo, entries_actual) de los dos snapshots más recientes del pool."""
+    sdir = data_dir / "pool_snapshots"
+    if not sdir.exists():
+        return None, None
+    snaps = []
+    for f in sdir.glob("*.json"):
+        try:
+            snaps.append(json.loads(f.read_text()))
+        except Exception:
+            pass
+    snaps.sort(key=lambda s: s.get("taken_at") or "")
+    if not snaps:
+        return None, None
+    curr = snaps[-1].get("entries")
+    prev = snaps[-2].get("entries") if len(snaps) >= 2 else None
+    return prev, curr
+
+
+def _digest_pool_line(curr_entries, my_ids):
+    if not curr_entries:
+        return None
+    s = sorted(curr_entries, key=lambda e: -int(e.get("points_total", 0)))
+    rank = {int(e.get("penca_id", 0)): i + 1 for i, e in enumerate(s)}
+    mine = [e for e in curr_entries if int(e.get("penca_id", 0)) in my_ids]
+    if not mine:
+        return None
+    best = max(mine, key=lambda e: int(e.get("points_total", 0)))
+    pos = rank.get(int(best.get("penca_id", 0)))
+    return f"🏆 Mejor penca: {pos}°/{len(s)} del pool · {int(best.get('points_total', 0))} pts"
 
 
 if __name__ == "__main__":

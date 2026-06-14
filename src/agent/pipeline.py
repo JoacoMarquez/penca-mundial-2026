@@ -297,6 +297,8 @@ class PipelineRun:
     odds_anomaly: dict[str, Any] | None = None  # flag si las odds se movieron >5pp vs versión previa
     odds_source: str = "live"          # live | previous | mock — de dónde salieron las constraints
     published: bool | None = None      # solo T-30min: True=publicó ok, False=falló (→ retry), None=n/a
+    home_xi: list[str] | None = None   # XI confirmado (si lo hubo) — para auditar λ vs alineación
+    away_xi: list[str] | None = None
 
 
 def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
@@ -633,6 +635,8 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
         odds_anomaly=locals().get("odds_anomaly"),
         odds_source=odds_source,
         published=published,
+        home_xi=(locals().get("fapi_ctx") or {}).get("home_xi"),
+        away_xi=(locals().get("fapi_ctx") or {}).get("away_xi"),
     )
     output_path.write_text(json.dumps(asdict(run), indent=2, default=str))
     log.info("pipeline DONE | v=%d phase=%s odds=%s published=%s",
@@ -697,28 +701,46 @@ def _publish_assignment(match_id: str, phase: Phase, assignment_list) -> tuple[b
 def _notify_and_publish(
     match: dict, run: PipelineRun, portfolio: PortfolioResult, phase: Phase,
 ) -> None:
-    """Actualiza la tarjeta Telegram del partido. (La publicación ya se hizo antes.)
+    """Telegram = SOLO avisos (no pronósticos). En la pasada final (T-30min):
+    1) confirma con una línea que se publicaron las picks, y
+    2) corre las banderas pre-partido (concentración / λ-vs-XI) y avisa si saltan.
 
-    UN mensaje por partido: T-24h lo crea (única notificación), T-3h y T-30min lo
-    editan en silencio. El diff se muestra a nivel portfolio, no por penca.
+    T-24h y T-3h no notifican nada (las picks viven en la web/dashboard).
     """
+    if phase != Phase.T_30MIN:
+        return
     try:
         notifier = TelegramNotifier(TelegramConfig.from_env())
     except RuntimeError as e:
         log.warning("Telegram no configurado: %s", e)
         return
 
-    if phase == Phase.T_30MIN and not run.assignment:
-        log.warning("Sin asignación — no se publicó (¿PENCA_IDS vacío?)")
+    label = _format_match_label(match)
+    assignment = run.assignment or []
 
-    from src.notifier.match_card import build_match_card, load_versions, upsert_match_card
-    versions = load_versions(run.match_id)
-    if not versions:
-        return
-    text = build_match_card(
-        _format_match_label(match), _format_kickoff_local(match), versions,
-    )
-    upsert_match_card(notifier, run.match_id, text)
+    # Banderas pre-partido (algo para revisar antes del kickoff)
+    try:
+        from src.agent.alerts import check_concentration, check_lambda_vs_xi, render_flags
+        flags = [f for f in (
+            check_concentration([a.get("score") for a in assignment], len(assignment)),
+            check_lambda_vs_xi(
+                run.qualitative_adjustment, run.home_xi, run.away_xi,
+                match.get("home_name") or "local", match.get("away_name") or "visitante",
+            ),
+        ) if f]
+        if flags:
+            notifier.send_alert(label, render_flags(flags))
+    except Exception:
+        log.exception("banderas pre-partido fallaron (no bloqueante)")
+
+    # Confirmación mínima de publicación
+    if run.published:
+        try:
+            notifier.send_publish_ok(label, len(assignment))
+        except Exception:
+            log.warning("no se pudo enviar confirmación de publicación")
+    elif not assignment:
+        log.warning("Sin asignación — no se publicó (¿PENCA_IDS vacío?)")
 
 
 # -------------------- CLI --------------------
