@@ -680,9 +680,21 @@ def _load_pool_intelligence_uncached() -> dict[str, Any]:
     # Distribución de puntos del pool
     from collections import Counter
     dist_counter = Counter(pts)
+    # Cuántas de NUESTRAS pencas caen en cada puntaje
+    mine_counter = Counter(
+        e.get("points_total", 0)
+        for e in ranked
+        if int(e.get("penca_id", 0)) in my_ids
+    )
     max_count = max(dist_counter.values()) if dist_counter else 1
     distribution = [
-        {"points": p, "count": c, "pct": round(c / n * 100, 1), "bar_pct": round(c / max_count * 100)}
+        {
+            "points": p,
+            "count": c,
+            "pct": round(c / n * 100, 1),
+            "bar_pct": round(c / max_count * 100),
+            "mine": mine_counter.get(p, 0),
+        }
         for p, c in sorted(dist_counter.items(), key=lambda kv: -kv[0])
     ]
 
