@@ -1,0 +1,21 @@
+# Overrides manuales de disponibilidad de jugadores para la Capa 4 (ajuste cualitativo).
+#
+# PARA QUÉ: corregir falsos positivos/negativos de NOTICIAS o scrapers antes de que el
+# LLM ajuste λ. La Capa 4 a veces lee titulares de prensa (TyC, D10, etc.) que dan a un
+# jugador como baja por error; sin XI confirmado, el LLM les cree y recorta λ del equipo.
+# Lo que escribas acá se inyecta como AUTORIDAD MÁXIMA en el prompt: pisa cualquier rumor.
+#
+# CÓMO: clave = código FIFA del equipo (ver config/teams.yaml). El nombre se matchea
+# ignorando acentos y mayúsculas contra los textos de lesiones/noticias.
+#
+#   available   → jugadores que SÍ juegan. El LLM NO debe recortar λ por su "ausencia".
+#   unavailable → jugadores que NO juegan. Se fuerzan como baja aunque no haya reporte.
+#
+# Editá esto y redeploy (o el próximo pase lo toma del git pull en el VPS). Dejá una nota
+# con la fecha y el motivo para acordarte de sacarlo cuando ya no aplique.
+
+available:
+  TUR:
+    - "Arda Güler"   # 2026-06-13: prensa (TyC/D10/bolavip) lo dio de baja por error vs AUS; jugó.
+
+unavailable: {}

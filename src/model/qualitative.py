@@ -53,6 +53,10 @@ class MatchContext:
     motivation_notes: str | None = None   # "El local ya clasificó, puede rotar" / "El visit necesita ganar"
     home_news_summary: str | None = None  # titulares + descriptions de Google News
     away_news_summary: str | None = None
+    # Override manual (config/player_overrides.yaml): jugadores forzados como DISPONIBLES.
+    # Autoridad máxima sobre rumores de prensa — el LLM no debe recortar λ por su "ausencia".
+    home_available: list[str] | None = None
+    away_available: list[str] | None = None
 
 
 # ============ schema del output ============
@@ -99,6 +103,9 @@ PRIORIDAD DE LA ALINEACIÓN CONFIRMADA:
   el λ de su equipo por esa supuesta ausencia.
 - Solo recortá λ por ausencia de un titular clave si NO está en el XI confirmado, o si no hay XI y la
   ausencia está confirmada por fuente oficial (no un rumor de amistoso).
+- Si recibís "DISPONIBILIDAD CONFIRMADA (override manual)", tiene la MÁXIMA autoridad: esos jugadores
+  juegan sí o sí, por encima de cualquier noticia o rumor. NO recortes λ por su supuesta ausencia y no
+  menciones esa ausencia en el reasoning.
 
 RESTRICCIONES IMPORTANTES:
 - El mercado es generalmente muy eficiente. Solo ajustá si tenés información concreta y verificable.
@@ -133,6 +140,18 @@ def build_user_prompt(ctx: MatchContext) -> str:
         parts.append(f"LESIONES LOCAL: {', '.join(ctx.home_injuries)}")
     if ctx.away_injuries:
         parts.append(f"LESIONES VISIT: {', '.join(ctx.away_injuries)}")
+    if ctx.home_available:
+        parts.append(
+            f"DISPONIBILIDAD CONFIRMADA LOCAL (override manual — AUTORIDAD MÁXIMA, pisa rumores): "
+            f"{', '.join(ctx.home_available)} SÍ juegan. Ignorá cualquier reporte de lesión/ausencia "
+            f"sobre ellos y NO recortes λ por eso."
+        )
+    if ctx.away_available:
+        parts.append(
+            f"DISPONIBILIDAD CONFIRMADA VISIT (override manual — AUTORIDAD MÁXIMA, pisa rumores): "
+            f"{', '.join(ctx.away_available)} SÍ juegan. Ignorá cualquier reporte de lesión/ausencia "
+            f"sobre ellos y NO recortes λ por eso."
+        )
     if ctx.home_lineup_change:
         parts.append(f"ALINEACIÓN LOCAL: {ctx.home_lineup_change}")
     if ctx.away_lineup_change:
