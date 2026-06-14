@@ -344,6 +344,17 @@ class TelegramNotifier:
             "disable_web_page_preview": True,
         }).raise_for_status()
 
+    # ---------- avisos (banderas + confirmaciones) ----------
+
+    def send_alert(self, match_label: str, flags_text: str) -> int:
+        """Aviso de banderas rojas detectadas antes del partido (algo para revisar)."""
+        text = f"🚩 <b>REVISAR</b>  ·  {_esc(match_label)}\n\n{flags_text}"
+        return self.send(text)
+
+    def send_publish_ok(self, match_label: str, n_picks: int) -> int:
+        """Confirmación mínima de que las picks se publicaron (sin mostrar los pronósticos)."""
+        return self.send(f"✅ Picks publicadas ({n_picks}) · {_esc(match_label)}")
+
     # ---------- heartbeat ----------
 
     def send_heartbeat(self, status: dict) -> int:
