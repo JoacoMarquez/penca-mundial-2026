@@ -956,18 +956,168 @@ def load_penca_detail(penca_id) -> dict:
 
 # ---------- postmortems ----------
 
-def load_recent_postmortems(limit: int = 5) -> list[dict]:
+_STAGE_ORDER = {
+    "group": 0, "round_of_32": 1, "round_of_16": 2,
+    "quarter": 3, "semi": 4, "third_place": 5, "final": 6,
+}
+_STAGE_LABEL = {
+    "round_of_32": "Ronda de 32", "round_of_16": "Octavos",
+    "quarter": "Cuartos", "semi": "Semifinales",
+    "third_place": "Tercer puesto", "final": "Final",
+}
+
+
+def _fixture_index() -> dict[str, dict]:
+    """{match_id: fixture_meta} desde config/fixtures.yaml."""
+    import yaml
+    try:
+        fixtures_path = Path(__file__).resolve().parents[2] / "config" / "fixtures.yaml"
+        fixtures = yaml.safe_load(fixtures_path.read_text()) or {}
+    except Exception:
+        return {}
+    out = {}
+    for m in (fixtures.get("fase_grupos") or []) + (fixtures.get("eliminatorias") or []):
+        out[str(m.get("id"))] = m
+    return out
+
+
+def _phase_group(match_id: Any, meta: dict) -> tuple[float, str]:
+    """(clave de orden, etiqueta) para agrupar el historial por fase/jornada."""
+    stage = meta.get("stage", "?")
+    if stage == "group":
+        # Jornada del grupo desde el sufijo MATCH_<G>_<NN>: 01/02→J1, 03/04→J2, 05/06→J3
+        try:
+            nn = int(str(match_id).rsplit("_", 1)[-1])
+            md = (nn + 1) // 2
+            return (md * 0.1, f"Fase de grupos · Jornada {md}")
+        except Exception:
+            return (0.9, "Fase de grupos")
+    return (10 + _STAGE_ORDER.get(stage, 9), _STAGE_LABEL.get(stage, stage))
+
+
+def _load_all_postmortems_enriched() -> list[dict]:
+    """Todos los postmortems, enriquecidos con meta de fixture y ordenados por
+    kickoff real (no por mtime — un git pull/rsync reescribe mtimes). Más reciente primero."""
     pdir = _data_dir() / "postmortems"
     if not pdir.exists():
         return []
-    files = sorted(pdir.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)[:limit]
-    out = []
-    for f in files:
+    fix = _fixture_index()
+    pms = []
+    for f in pdir.glob("*.json"):
         try:
-            out.append(json.loads(f.read_text()))
+            pm = json.loads(f.read_text())
         except Exception:
             continue
-    return out
+        meta = fix.get(str(pm.get("match_id")), {})
+        pm["_kickoff"] = meta.get("kickoff_utc", "")
+        pm["_stage"] = meta.get("stage", "?")
+        pm["_group"] = meta.get("group")
+        sort_key, label = _phase_group(pm.get("match_id"), meta)
+        pm["_group_sort"] = sort_key
+        pm["_group_label"] = label
+        pm["_kickoff_uy"] = _to_uy(pm["_kickoff"]) if pm["_kickoff"] else ""
+        pms.append(pm)
+    pms.sort(key=lambda p: (p.get("_kickoff") or "", str(p.get("match_id"))), reverse=True)
+    return pms
+
+
+def load_recent_postmortems(limit: int = 5) -> list[dict]:
+    """Los `limit` postmortems más recientes (por kickoff). Para el resumen del home / API."""
+    return _load_all_postmortems_enriched()[:limit]
+
+
+def _aggregate_postmortems(pms: list[dict]) -> dict:
+    """Rollup acumulado a lo largo de todos los partidos: el artefacto para recalibrar."""
+    from collections import defaultdict
+    strat: dict[str, dict] = defaultdict(lambda: {"pts": 0, "exacts": 0, "winners": 0, "n": 0})
+    llm = {"yes": 0, "no": 0, "neutral": 0}
+    rank_trend: list[dict] = []
+    total_pts = 0
+    total_exacts = 0
+    best_single = 0
+
+    # cronológico (viejo→nuevo) para la tendencia de rank
+    for pm in sorted(pms, key=lambda p: (p.get("_kickoff") or "", str(p.get("match_id")))):
+        total_pts += pm.get("portfolio_total_points", 0)
+        best_single = max(best_single, pm.get("portfolio_max_points", 0))
+        for r in pm.get("pencas_results", []):
+            s = strat[r.get("strategy_used", "?")]
+            s["pts"] += r.get("points_earned", 0)
+            s["n"] += 1
+            if r.get("is_exact"):
+                s["exacts"] += 1
+                total_exacts += 1
+            if r.get("correct_winner"):
+                s["winners"] += 1
+        helpful = pm.get("llm_adjustment_was_helpful")
+        if helpful in llm:
+            llm[helpful] += 1
+        if pm.get("our_best_rank_in_pool"):
+            rank_trend.append({
+                "label": f"{(pm.get('home_team') or '?')[:3]}-{(pm.get('away_team') or '?')[:3]}",
+                "rank": pm["our_best_rank_in_pool"],
+            })
+
+    strat_rows = []
+    for obj, s in strat.items():
+        n = s["n"] or 1
+        strat_rows.append({
+            "objective": obj,
+            "pts": s["pts"],
+            "avg": round(s["pts"] / n, 2),
+            "exacts": s["exacts"],
+            "winners": s["winners"],
+            "winner_pct": round(s["winners"] / n * 100),
+            "n": s["n"],
+        })
+    strat_rows.sort(key=lambda r: -r["pts"])
+
+    llm_decided = llm["yes"] + llm["no"]
+    if llm_decided == 0:
+        llm_verdict = "Sin ajustes decisivos del LLM todavía."
+    elif llm["yes"] > llm["no"]:
+        llm_verdict = f"El ajuste LLM ayuda en neto ({llm['yes']} a favor / {llm['no']} en contra)."
+    elif llm["no"] > llm["yes"]:
+        llm_verdict = f"⚠️ El ajuste LLM resta en neto ({llm['no']} en contra / {llm['yes']} a favor) — revisar Capa 4."
+    else:
+        llm_verdict = f"El ajuste LLM va parejo ({llm['yes']} a favor / {llm['no']} en contra)."
+
+    return {
+        "n_matches": len(pms),
+        "total_pts": total_pts,
+        "total_exacts": total_exacts,
+        "best_single": best_single,
+        "strategies": strat_rows,
+        "best_strategy": strat_rows[0]["objective"] if strat_rows else None,
+        "llm": llm,
+        "llm_verdict": llm_verdict,
+        "rank_trend": rank_trend[-12:],
+    }
+
+
+def load_postmortem_history() -> dict:
+    """Historial completo de postmortems para la página de historial:
+    panel acumulado + partidos agrupados por fase/jornada (sin cap, navegable con +100 partidos)."""
+    pms = _load_all_postmortems_enriched()
+    if not pms:
+        return {"groups": [], "aggregate": None, "total": 0}
+
+    from itertools import groupby
+    by_group = sorted(pms, key=lambda p: (p["_group_sort"], p.get("_kickoff") or ""))
+    groups = []
+    for (_, label), items in groupby(by_group, key=lambda p: (p["_group_sort"], p["_group_label"])):
+        items = list(items)
+        items.sort(key=lambda p: (p.get("_kickoff") or "", str(p.get("match_id"))), reverse=True)
+        groups.append({
+            "label": label,
+            "matches": items,
+            "n": len(items),
+            "portfolio_total": sum(p.get("portfolio_total_points", 0) for p in items),
+            "exacts": sum(1 for p in items for r in p.get("pencas_results", []) if r.get("is_exact")),
+        })
+    groups.reverse()  # fase más reciente arriba
+
+    return {"groups": groups, "aggregate": _aggregate_postmortems(pms), "total": len(pms)}
 
 
 # ---------- system health + costos ----------

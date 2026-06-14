@@ -26,6 +26,7 @@ from src.dashboard.data_loader import (
     load_next_match_data,
     load_penca_detail,
     load_pool_intelligence,
+    load_postmortem_history,
     load_recent_postmortems,
     load_system_health,
 )
@@ -113,7 +114,7 @@ def page_pool(request: Request, token: str):
 def page_history(request: Request, token: str):
     _check_token(token)
     data = {
-        "postmortems": load_recent_postmortems(limit=20),
+        "history": load_postmortem_history(),
         "health": load_system_health(),
     }
     return templates.TemplateResponse(request, "history.html", {"data": data, "token": token, "penca_labels": build_penca_labels()})
