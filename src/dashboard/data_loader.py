@@ -112,7 +112,11 @@ def load_next_match_data() -> dict | None:
             "e_goals_L": pred["constraints"]["e_goals_L"],
             "e_goals_V": pred["constraints"]["e_goals_V"],
         }
-        out["assignment"] = pred.get("assignment") or []
+        enriched = _attach_p_scoreline(pred)
+        out["assignment"] = enriched
+        out["score_pscore"] = {
+            f'{a["score"][0]}-{a["score"][1]}': a.get("p_scoreline") for a in enriched
+        }
         out["assignment_meta"] = pred.get("assignment_meta") or {}
         out["qualitative"] = pred.get("qualitative_adjustment") or {}
 
@@ -142,6 +146,27 @@ def _load_latest_dossier(match_id: Any) -> dict | None:
     if latest is None:
         return None
     return json.loads(latest.read_text())
+
+
+def _attach_p_scoreline(pred: dict | None) -> list[dict]:
+    """Enriquece cada pick de la asignación con P(marcador exacto).
+
+    Toma p_scoreline del menú del portfolio cuando el marcador está ahí; si no
+    (picks 'alt' fuera del menú), lo recomputa desde los λ persistidos.
+    """
+    if not pred:
+        return []
+    assignment = pred.get("assignment") or []
+    menu = (pred.get("portfolio") or {}).get("picks", [])
+    by_score = {f'{p["score"][0]}-{p["score"][1]}': p for p in menu}
+    constraints = pred.get("constraints") or {}
+    out = []
+    for a in assignment:
+        score = a.get("score") or [None, None]
+        sk = f'{score[0]}-{score[1]}'
+        pm = by_score.get(sk) or _pick_metrics(constraints, score)
+        out.append({**a, "p_scoreline": pm.get("p_scoreline")})
+    return out
 
 
 # ---------- matches agrupados por día ----------
@@ -192,7 +217,7 @@ def load_matches_by_day(days_back: int = 2, days_ahead: int = 21) -> list[dict]:
 
         # Cargar predicción más reciente (si hay)
         pred = _load_latest_prediction(m["id"])
-        assignment = pred.get("assignment") if pred else None
+        assignment = _attach_p_scoreline(pred) if pred else None
 
         # Postmortem (si terminó)
         pm = None
@@ -435,8 +460,11 @@ def load_match_detail(match_id) -> dict | None:
     exposure_counter = Counter(
         f'{a["score"][0]}-{a["score"][1]}' for a in latest_assignment
     )
+    pscore_by_score = {
+        f'{p["score"][0]}-{p["score"][1]}': p.get("p_scoreline") for p in current_pencas
+    }
     exposure = [
-        {"score": s, "count": c}
+        {"score": s, "count": c, "p_scoreline": pscore_by_score.get(s)}
         for s, c in sorted(exposure_counter.items(), key=lambda kv: (-kv[1], kv[0]))
     ]
 

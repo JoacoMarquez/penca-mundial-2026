@@ -63,6 +63,8 @@
           <div class="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden">
             <div class="h-full bg-emerald-500" style="width: {{ (count / total_exp * 100) | round(0, 'common') | int }}%"></div>
           </div>
+          {% set ps = m.score_pscore.get(score) if m.score_pscore else none %}
+          {% if ps is not none %}<span class="text-xs text-slate-500 w-12 text-right" title="Probabilidad del marcador exacto">{{ (ps * 100) | round(0, 'common') | int }}%</span>{% endif %}
           <span class="text-sm text-slate-300 w-16 text-right">×{{ count }}</span>
         </div>
         {% endfor %}
@@ -76,7 +78,10 @@
             <span class="text-xl">{{ strategy_emoji.get(a.objective, '•') }}</span>
             <span class="text-slate-200">{{ strategy_label.get(a.objective, a.objective) }}</span>
           </span>
-          <span class="font-bold text-2xl">{{ a.score[0] }}<span class="text-slate-500 mx-1">-</span>{{ a.score[1] }}</span>
+          <span class="flex items-baseline gap-2">
+            <span class="font-bold text-2xl">{{ a.score[0] }}<span class="text-slate-500 mx-1">-</span>{{ a.score[1] }}</span>
+            {% if a.p_scoreline is not none %}<span class="text-xs text-slate-500 w-9 text-right" title="Probabilidad del marcador exacto">{{ (a.p_scoreline * 100) | round(0, 'common') | int }}%</span>{% endif %}
+          </span>
         </div>
         {% endfor %}
       </div>

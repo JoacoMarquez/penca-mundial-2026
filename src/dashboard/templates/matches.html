@@ -84,6 +84,7 @@
               <span class="inline-flex items-center gap-1 text-xs bg-slate-900/50 border border-slate-700/40 rounded-md px-2 py-0.5">
                 <span>{{ strategy_emoji.get(a.objective, '•') }}</span>
                 <span class="font-bold">{{ a.score[0] }}-{{ a.score[1] }}</span>
+                {% if a.p_scoreline is not none %}<span class="text-slate-500" title="Probabilidad del marcador exacto">{{ (a.p_scoreline * 100) | round(0, 'common') | int }}%</span>{% endif %}
               </span>
               {% endfor %}
               {% if m.postmortem %}
