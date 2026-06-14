@@ -1,9 +1,9 @@
 """Notifier por Telegram bot — formato conciso, HTML mode.
 
 Tipos de mensajes:
-- t24h_picks:  primer mensaje del partido, con 5 picks + contexto breve.
-- t3h_diff:    SOLO si las picks cambian en T-3h (silencio si todo igual).
-- t30min_lockin: confirmación final cuando se publica.
+- alert:       banderas rojas a revisar antes del partido.
+- publish_ok:  confirmación mínima de que las picks se publicaron.
+- postmortem:  resultado del partido + comparación vs pool.
 - error:       alerta texto plano.
 - heartbeat:   resumen diario del sistema.
 
@@ -16,7 +16,7 @@ import html
 import os
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Iterable, Literal
+from typing import Literal
 
 import httpx
 
@@ -119,176 +119,6 @@ class TelegramNotifier:
             })
         except Exception:
             pass   # best-effort
-
-    # ---------- mensajes por fase del partido ----------
-
-    def send_t24h_picks(
-        self,
-        match_label: str,
-        kickoff_local: str,
-        picks: Iterable[dict],
-        model_summary: dict,
-        qualitative: dict | None = None,
-        phase_label: str = "T-24h",
-        assignment_meta: dict | None = None,
-        tipster_consensus: dict | None = None,
-        dossier_summary: str | None = None,
-    ) -> int:
-        """Primer aviso del partido, 24h antes (o etiqueta personalizable)."""
-        fav_pct, fav_side = _favorite(model_summary)
-        match_label_e = _esc(match_label)
-        ko_e = _esc(kickoff_local)
-        local_team = match_label.split(" vs ")[0] if " vs " in match_label else "Local"
-        away_team = match_label.split(" vs ")[1] if " vs " in match_label else "Visit"
-        fav_team = local_team if fav_side == "Local" else (
-            away_team if fav_side == "Visit" else "Empate"
-        )
-        fav_line = f"{_esc(fav_team)} favorito {fav_pct}" if fav_side != "Empate" else f"empate parejo {fav_pct}"
-
-        # Header
-        header = (
-            f"⚽ <b>{match_label_e}</b>\n"
-            f"⏰ {ko_e}  ·  {fav_line}\n"
-            f"📈 E[goles]: {model_summary['e_goals_L']:.1f} — {model_summary['e_goals_V']:.1f}"
-        )
-
-        # Picks con labels humanos + indicador de rank si hay asignación adaptativa
-        rank_emoji = {1: "🥇", 2: "🥈", 3: "🥉", 4: "4°", 5: "5°"}
-
-        picks_lines = []
-        has_assignment = any(p.get("assigned_penca_id") is not None for p in picks)
-        for p in picks:
-            gL, gV = p["score"]
-            emoji, label = HUMAN_OBJECTIVE_LABELS.get(p["objective"], ("🔸", p["objective"].title()))
-            p_score = p.get("p_scoreline", 0.0) * 100
-
-            if has_assignment and p.get("assigned_penca_id"):
-                rank = p.get("assigned_rank") or 0
-                rmark = rank_emoji.get(rank, str(rank))
-                penca_str = f"P{p['penca_index']}→{p['assigned_penca_id']}"
-                picks_lines.append(
-                    f"  {rmark} {emoji} {label:<12} <b>{gL}-{gV}</b>  ({p_score:.0f}%)  <i>{_esc(penca_str)}</i>"
-                )
-            else:
-                picks_lines.append(
-                    f"  <b>P{p['penca_index']}</b> {emoji} {label:<12} <b>{gL}-{gV}</b>  ({p_score:.0f}%)"
-                )
-
-        if assignment_meta and assignment_meta.get("objective") == "p_top_k":
-            p_value = assignment_meta.get("p_top_k_value", 0.0)
-            threshold = assignment_meta.get("threshold", 0)
-            header_title = f"🎯 Picks  <i>(maximizando P(top-3): {p_value:.1%}, cutoff {threshold} pts)</i>"
-        elif assignment_meta and assignment_meta.get("objective", "").startswith("e_max"):
-            header_title = "🎯 Picks  <i>(maximizando E[max] — sin data de pool aún)</i>"
-        elif has_assignment:
-            header_title = "🎯 Picks  <i>(asignación adaptativa por rank)</i>"
-        else:
-            header_title = "🎯 Picks"
-        picks_block = f"<b>{header_title}</b>\n" + "\n".join(picks_lines)
-
-        sep = "━━━━━━━━━━━━━━━"
-        parts = [header, sep, picks_block]
-
-        # Exposición real por marcador (N pencas con repetición)
-        exposure_block = _exposure_block(assignment_meta)
-        if exposure_block:
-            parts.append(sep)
-            parts.append(exposure_block)
-
-        # Ficha del partido (dossier resumido)
-        if dossier_summary:
-            parts.append(sep)
-            parts.append(f"<b>📋 Ficha del partido</b>\n{dossier_summary}")
-
-        # Consenso de tipsters (si encontró alguno)
-        if tipster_consensus and tipster_consensus.get("n_tipsters_picked", 0) > 0:
-            n = tipster_consensus["n_tipsters_picked"]
-            p1 = tipster_consensus.get("consensus_p_1", 0) * 100
-            pX = tipster_consensus.get("consensus_p_X", 0) * 100
-            p2 = tipster_consensus.get("consensus_p_2", 0) * 100
-            tips_lines = [
-                f"<b>🗞️ Tipsters ({n} pronosticadores)</b>",
-                f"  Local {p1:.0f}%  ·  Empate {pX:.0f}%  ·  Visit {p2:.0f}%",
-            ]
-            edge = tipster_consensus.get("info_edge_vs_market")
-            if edge:
-                delta = edge.get("delta_pp", 0)
-                direction = edge.get("direction", "")
-                tips_lines.append(f"  ⚠️ <i>Info edge: {delta:+.1f}pp vs mercado — {_esc(direction)}</i>")
-            parts.append(sep)
-            parts.append("\n".join(tips_lines))
-
-        # Análisis LLM (si hay)
-        if qualitative and qualitative.get("reasoning"):
-            d_l = qualitative.get("delta_lambda_L", 0.0)
-            d_v = qualitative.get("delta_lambda_V", 0.0)
-            conf = qualitative.get("confidence", 0.0)
-            reasoning_e = _esc(qualitative["reasoning"])
-            llm_block = (
-                f"<b>🧠 Análisis LLM</b>\n"
-                f"{reasoning_e}\n"
-                f"<i>Ajuste λ: {d_l:+.2f} / {d_v:+.2f}  ·  confianza {conf:.2f}</i>"
-            )
-            parts.append(sep)
-            parts.append(llm_block)
-
-        text = "\n\n".join(parts)
-        return self.send(text)
-
-    def send_diff(
-        self,
-        match_label: str,
-        phase: str,
-        changes: list[dict],
-    ) -> None:
-        """Cambios entre versiones. NO se envía si no hay cambios."""
-        if not changes:
-            return
-        lines = [
-            f"🔁 <b>{_esc(phase)}</b>",
-            f"⚽ {_esc(match_label)}",
-            "",
-            "<b>Cambios:</b>",
-        ]
-        for c in changes:
-            old = f"{c['old_score'][0]}-{c['old_score'][1]}"
-            new_ = f"{c['new_score'][0]}-{c['new_score'][1]}"
-            reason = _esc(c.get("reason", ""))
-            lines.append(f"  P{c['penca_index']}: {old} → <b>{new_}</b>  <i>{reason}</i>")
-        self.send("\n".join(lines))
-
-    def send_lockin(
-        self,
-        match_label: str,
-        picks: Iterable[dict],
-        assignment_meta: dict | None = None,
-    ) -> None:
-        """Confirmación final cuando se publica.
-
-        Con N pencas muestra la exposición por marcador; si no hay exposición (fallback),
-        lista el menú de objetivos canónicos.
-        """
-        exposure_block = _exposure_block(assignment_meta)
-        if exposure_block:
-            total = sum((assignment_meta or {}).get("exposure", {}).values())
-            text = (
-                f"🔒 <b>LOCK-IN — {total} predicciones publicadas</b>\n"
-                f"⚽ {_esc(match_label)}\n\n"
-                f"{exposure_block}"
-            )
-            self.send(text)
-            return
-        picks_lines = []
-        for p in picks:
-            gL, gV = p["score"]
-            emoji, label = HUMAN_OBJECTIVE_LABELS.get(p["objective"], ("🔸", p["objective"].title()))
-            picks_lines.append(f"  <b>P{p['penca_index']}</b> {emoji} {label:<12} <b>{gL}-{gV}</b>")
-        text = (
-            f"🔒 <b>LOCK-IN — Predicciones publicadas</b>\n"
-            f"⚽ {_esc(match_label)}\n"
-            "\n" + "\n".join(picks_lines)
-        )
-        self.send(text)
 
     def send_postmortem(self, report: Any) -> int:
         """Manda el postmortem de un partido finalizado."""
@@ -477,39 +307,6 @@ def send_hello() -> None:
     """Smoke check."""
     notif = TelegramNotifier(TelegramConfig.from_env())
     notif.send(f"✅ Penca Mundial 2026 — conectado {_esc(datetime.now().strftime('%H:%M:%S'))}")
-
-
-def _exposure_block(assignment_meta: dict | None) -> str | None:
-    """Renderiza la exposición por marcador (cuántas pencas juegan cada scoreline).
-
-    Es la vista correcta cuando hay N pencas con repetición: en vez de listar N filas,
-    muestra cuántas pencas caen en cada marcador, ordenado por frecuencia.
-    """
-    if not assignment_meta:
-        return None
-    exposure = assignment_meta.get("exposure")
-    if not exposure:
-        return None
-    total = sum(exposure.values())
-    items = sorted(exposure.items(), key=lambda kv: (-kv[1], kv[0]))
-    lines = [f"<b>📋 Exposición — {total} pencas</b>"]
-    for score, count in items:
-        bar = "▰" * min(count, 12)
-        lines.append(f"  <b>{_esc(score)}</b>  ×{count}  {bar}")
-    return "\n".join(lines)
-
-
-def _favorite(model_summary: dict) -> tuple[str, str]:
-    """Identifica el favorito y devuelve (porcentaje, descripción)."""
-    p_h = model_summary["p_home"]
-    p_d = model_summary["p_draw"]
-    p_a = model_summary["p_away"]
-    m = max(p_h, p_d, p_a)
-    if m == p_h:
-        return f"{p_h:.0%}", "Local"
-    if m == p_a:
-        return f"{p_a:.0%}", "Visit"
-    return f"{p_d:.0%}", "Empate"
 
 
 if __name__ == "__main__":

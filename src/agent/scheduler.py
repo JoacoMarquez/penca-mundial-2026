@@ -134,14 +134,9 @@ def main() -> int:
             compute_postmortem,
             save_postmortem,
         )
-        from src.notifier.telegram import TelegramNotifier, TelegramConfig
         pm_pending = find_finished_matches_pending_postmortem(fixtures)
         if pm_pending:
             log.info("scheduler tick — %d postmortem(s) pendiente(s): %s", len(pm_pending), pm_pending)
-            try:
-                notifier = TelegramNotifier(TelegramConfig.from_env())
-            except Exception:
-                notifier = None
             completed = []
             for mid in pm_pending:
                 try:
@@ -189,35 +184,6 @@ def _has_pending_postmortems(fixtures: dict) -> bool:
         return bool(find_finished_matches_pending_postmortem(fixtures))
     except Exception:
         return False
-
-
-def _notify_result(notifier, match_id, report, fixtures: dict) -> None:
-    """Edita la tarjeta del partido con el resultado. Fallback: mensaje clásico."""
-    try:
-        from src.notifier.match_card import (
-            _load_cards, build_match_card, load_versions, upsert_match_card,
-        )
-        from dataclasses import asdict
-        if str(match_id) not in _load_cards():
-            notifier.send_postmortem(report)
-            return
-        versions = load_versions(match_id)
-        if not versions:
-            notifier.send_postmortem(report)
-            return
-        all_matches = (fixtures.get("fase_grupos") or []) + (fixtures.get("eliminatorias") or [])
-        m = next((x for x in all_matches if str(x.get("id")) == str(match_id)), {})
-        label = f"{m.get('home_name') or report.home_team} vs {m.get('away_name') or report.away_team}"
-        from src.agent.pipeline import _format_kickoff_local
-        kickoff = _format_kickoff_local(m) if m else ""
-        text = build_match_card(label, kickoff, versions, postmortem=asdict(report))
-        upsert_match_card(notifier, match_id, text)
-    except Exception:
-        log.exception("edición de tarjeta con resultado falló | match=%s — fallback clásico", match_id)
-        try:
-            notifier.send_postmortem(report)
-        except Exception:
-            pass
 
 
 def _snapshot_and_recalibrate(match_id) -> None:
