@@ -54,8 +54,11 @@ def root():
 @app.get("/dash/{token}/", response_class=HTMLResponse)
 def page_home(request: Request, token: str):
     _check_token(token)
+    nxt = load_next_match_data()
+    detail = load_match_detail(nxt["match_id"]) if nxt else None
     data = {
-        "next_match": load_next_match_data(),
+        "next": nxt,
+        "match": detail,
         "health": load_system_health(),
     }
     return templates.TemplateResponse(request, "index.html", {"data": data, "token": token, "penca_labels": build_penca_labels()})
