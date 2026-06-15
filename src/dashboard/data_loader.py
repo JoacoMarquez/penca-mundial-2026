@@ -921,6 +921,134 @@ def _secondary_signals(my_ids: set) -> dict:
     return {"modal": modal, "draws": draws}
 
 
+def _strategy_diagnostics(my_ids: set) -> dict:
+    """Rendimiento por estrategia y utilidad del ajuste LLM (Capa 4), desde postmortems."""
+    from collections import Counter, defaultdict
+    pmdir = _data_dir() / "postmortems"
+    pts: dict = defaultdict(int)
+    npick: dict = defaultdict(int)
+    exact: dict = defaultdict(int)
+    win: dict = defaultdict(int)
+    llm: Counter = Counter()
+    n_matches = 0
+    if pmdir.exists():
+        for f in pmdir.glob("*.json"):
+            if ".bak" in f.name:
+                continue
+            try:
+                pm = json.loads(f.read_text())
+            except Exception:
+                continue
+            if pm.get("actual_home") is None:
+                continue
+            n_matches += 1
+            for r in pm.get("pencas_results", []):
+                if int(r.get("penca_id", 0)) not in my_ids:
+                    continue
+                s = r.get("strategy_used", "?")
+                pts[s] += r.get("points_earned", 0)
+                npick[s] += 1
+                if r.get("is_exact"):
+                    exact[s] += 1
+                if r.get("correct_winner"):
+                    win[s] += 1
+            lh = pm.get("llm_adjustment_was_helpful")
+            if lh:
+                llm[lh] += 1
+    by_strategy = sorted(
+        (
+            {
+                "strategy": s,
+                "picks": npick[s],
+                "points": pts[s],
+                "ppp": round(pts[s] / npick[s], 2) if npick[s] else 0,
+                "win_pct": round(100 * win[s] / npick[s]) if npick[s] else 0,
+                "exacts": exact[s],
+            }
+            for s in npick
+        ),
+        key=lambda d: -d["ppp"],
+    )
+    return {
+        "n_matches": n_matches,
+        "by_strategy": by_strategy,
+        "llm": {"yes": llm.get("yes", 0), "no": llm.get("no", 0), "neutral": llm.get("neutral", 0)},
+    }
+
+
+def load_strategy_metrics() -> dict[str, Any]:
+    """Estado de la estrategia para decidir si hay que ajustar: veredicto + palancas + diagnósticos."""
+    return _cached("strategy_metrics", 30.0, _load_strategy_metrics_uncached)
+
+
+def _load_strategy_metrics_uncached() -> dict[str, Any]:
+    from src.utils.env import get_int_list
+
+    pl = load_pool_intelligence()
+    if pl.get("error"):
+        return {"error": pl["error"]}
+    sig = pl.get("signals", {})
+    diag = _strategy_diagnostics(set(get_int_list("PENCA_IDS")))
+
+    tail = sig.get("tail", {})
+    spread = sig.get("spread", {})
+    tb = sig.get("tailbet", {})
+    draws = sig.get("draws", {})
+
+    # Palancas de ajuste: cada una con su condición de disparo y la acción sugerida.
+    levers = [
+        {
+            "name": "Timing del tail-bet (β)",
+            "when": 'sigue en "Sumando" con ≤16 partidos restantes',
+            "triggered": tb.get("status") == "warn",
+            "action": "bajar PENCA_HORIZON_BETA (hoy 2.0) para que arranque antes — con backtest",
+        },
+        {
+            "name": "Cobertura de empates",
+            "when": "racha de empates y cubrimos <20% de ellos",
+            "triggered": draws.get("status") == "warn",
+            "action": "subir la exposición a empates en la asignación — con backtest",
+        },
+        {
+            "name": "¿Perdimos la cola?",
+            "when": "la mejor penca cae > #30 de forma sostenida",
+            "triggered": tail.get("status") == "alert",
+            "action": "revisar modelo y asignación: estaríamos fuera de zona ganadora",
+        },
+        {
+            "name": "¿Converge a chalk?",
+            "when": "el spread interno colapsa hacia 0",
+            "triggered": spread.get("status") == "alert",
+            "action": "revisar el motor de diversificación de la asignación",
+        },
+    ]
+
+    urgent = "alert" in (tail.get("status"), spread.get("status"), tb.get("status"))
+    triggered = [lv["name"] for lv in levers if lv["triggered"]]
+    if urgent:
+        verdict = {"level": "alert", "headline": "Hay que ajustar",
+                   "sub": "una señal principal está en alerta"}
+    elif triggered:
+        verdict = {"level": "warn", "headline": "Sin ajustes urgentes — vigilar",
+                   "sub": "para mirar: " + ", ".join(triggered)}
+    else:
+        verdict = {"level": "ok", "headline": "Sin ajustes",
+                   "sub": "la estrategia viene sana; dejar correr"}
+
+    return {
+        "pool_size": pl.get("pool_size"),
+        "median": pl.get("median_points"),
+        "us": pl.get("us"),
+        "signals": sig,
+        "trajectory": pl.get("trajectory"),
+        "verdict": verdict,
+        "levers": levers,
+        "by_strategy": diag["by_strategy"],
+        "llm": diag["llm"],
+        "n_matches": diag["n_matches"],
+    }
+
+
 # ---------- detalle por penca ----------
 
 def llm_counterfactual(pred: dict) -> dict:

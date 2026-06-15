@@ -36,7 +36,7 @@
         {% endif %}
       </div>
       <div class="flex items-center gap-1 text-sm">
-        {% set tabs = [('', '🎯 Próximo'), ('matches', '📅 Partidos'), ('pencas', '📊 Pencas'), ('pool', '🏆 Pool'), ('history', '📋 Historial'), ('system', '⚙️ Sistema')] %}
+        {% set tabs = [('', '🎯 Próximo'), ('matches', '📅 Partidos'), ('pencas', '📊 Pencas'), ('pool', '🏆 Pool'), ('metricas', '📈 Métricas'), ('history', '📋 Historial'), ('system', '⚙️ Sistema')] %}
         {% for slug, label in tabs %}
           {% set is_active = (current_page == slug) %}
           <a href="/dash/{{ token }}/{{ slug }}{% if slug %}/{% endif %}"
@@ -67,8 +67,8 @@
   </main>
 
   {# ---------- MOBILE BOTTOM NAV ---------- #}
-  <nav class="lg:hidden fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700 grid grid-cols-6 z-10">
-    {% set tabs = [('', '🎯', 'Próx.'), ('matches', '📅', 'Partidos'), ('pencas', '📊', 'Pencas'), ('pool', '🏆', 'Pool'), ('history', '📋', 'Histor.'), ('system', '⚙️', 'Sist.')] %}
+  <nav class="lg:hidden fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700 grid grid-cols-7 z-10">
+    {% set tabs = [('', '🎯', 'Próx.'), ('matches', '📅', 'Partidos'), ('pencas', '📊', 'Pencas'), ('pool', '🏆', 'Pool'), ('metricas', '📈', 'Métric.'), ('history', '📋', 'Histor.'), ('system', '⚙️', 'Sist.')] %}
     {% for slug, emoji, label in tabs %}
       {% set is_active = (current_page == slug) %}
       <a href="/dash/{{ token }}/{{ slug }}{% if slug %}/{% endif %}"

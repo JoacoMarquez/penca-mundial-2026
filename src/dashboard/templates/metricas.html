@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% set current_page = "metricas" %}
+{% block title %}Métricas — Penca JMLM 2026{% endblock %}
+
+{% block content %}
+{% set m = data.metrics %}
+
+<h1 class="text-2xl lg:text-3xl font-bold mb-1">📈 Estado de la estrategia</h1>
+<p class="text-sm text-slate-400 mb-5">¿Hay que ajustar o dejar correr? Veredicto, palancas y diagnósticos en un solo lugar.</p>
+
+{% if m.error %}
+<section class="bg-red-900/20 border border-red-700/40 rounded-xl p-5">
+  <p class="text-red-300">No pude calcular las métricas: {{ m.error }}</p>
+</section>
+{% else %}
+
+{# ===== Veredicto ===== #}
+{% set v = m.verdict %}
+{% set vc = {
+  'ok':    {'bg':'bg-green-900/20','bd':'border-green-700/50','tx':'text-green-300','ic':'✅'},
+  'warn':  {'bg':'bg-amber-900/20','bd':'border-amber-700/50','tx':'text-amber-300','ic':'👀'},
+  'alert': {'bg':'bg-red-900/20','bd':'border-red-700/50','tx':'text-red-300','ic':'🔧'}
+} %}
+{% set c = vc[v.level] %}
+<section class="{{ c.bg }} border {{ c.bd }} rounded-xl p-5 mb-5">
+  <div class="flex items-start gap-3">
+    <span class="text-3xl leading-none">{{ c.ic }}</span>
+    <div>
+      <div class="text-xl lg:text-2xl font-bold {{ c.tx }}">{{ v.headline }}</div>
+      <div class="text-sm text-slate-300 mt-1">{{ v.sub }}</div>
+    </div>
+  </div>
+  {% if m.us %}
+  <div class="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-3 text-center">
+    <div class="bg-slate-900/40 rounded-lg p-2.5"><div class="text-xl font-bold">#{{ m.us.best_rank }}</div><div class="text-[11px] text-slate-500">mejor penca / {{ m.pool_size }}</div></div>
+    <div class="bg-slate-900/40 rounded-lg p-2.5"><div class="text-xl font-bold">{{ m.us.best_points }}</div><div class="text-[11px] text-slate-500">pts (mediana pool {{ m.median }})</div></div>
+    <div class="bg-slate-900/40 rounded-lg p-2.5"><div class="text-xl font-bold">{{ m.signals.spread.value }}</div><div class="text-[11px] text-slate-500">spread interno</div></div>
+    <div class="bg-slate-900/40 rounded-lg p-2.5"><div class="text-xl font-bold">{{ m.n_matches }}</div><div class="text-[11px] text-slate-500">partidos analizados</div></div>
+  </div>
+  {% endif %}
+</section>
+
+{# ===== Señales (resumen compacto) ===== #}
+{% set sig = m.signals %}
+{% set dot = {'ok':'bg-green-400','warn':'bg-amber-400','alert':'bg-red-400','info':'bg-slate-500'} %}
+{% set chips = [
+  ('Cola ganadora', sig.tail.status, '#' ~ sig.tail.best_rank),
+  ('Diversificación', sig.spread.status, sig.spread.value ~ ' pts'),
+  ('Tail-bet', sig.tailbet.status, 'A ganar' if sig.tailbet.active else 'Sumando'),
+  ('Favoritos mercado', sig.modal.status, (sig.modal.winner_rate ~ '%') if sig.modal.winner_rate is not none else '—'),
+  ('Cobertura empates', sig.draws.status, (sig.draws.coverage_pct ~ '%') if sig.draws.coverage_pct is not none else '—')
+] %}
+<section class="bg-slate-800 rounded-xl p-5 shadow mb-5">
+  <div class="flex items-center justify-between mb-3">
+    <h2 class="text-sm uppercase tracking-wider text-slate-400">Señales</h2>
+    <a href="/dash/{{ token }}/pool/" class="text-xs text-indigo-300 hover:underline">ver detalle en Pool →</a>
+  </div>
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+    {% for name, status, value in chips %}
+    <div class="flex items-center gap-2 bg-slate-900/40 rounded-lg px-3 py-2">
+      <span class="w-2.5 h-2.5 rounded-full {{ dot[status] }} shrink-0"></span>
+      <div class="min-w-0">
+        <div class="text-sm font-semibold truncate">{{ value }}</div>
+        <div class="text-[11px] text-slate-500 truncate">{{ name }}</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+{# ===== Palancas de ajuste ===== #}
+<section class="bg-slate-800 rounded-xl p-5 shadow mb-5">
+  <h2 class="text-sm uppercase tracking-wider text-slate-400 mb-1">Palancas de ajuste</h2>
+  <p class="text-xs text-slate-500 mb-3">Cada dial se enciende solo cuando se cumple su condición. Si están todos apagados, no hay nada que tocar.</p>
+  <div class="space-y-2">
+    {% for lv in m.levers %}
+    <div class="rounded-lg p-3 border {{ 'bg-amber-900/15 border-amber-700/40' if lv.triggered else 'bg-slate-900/40 border-slate-700/40' }}">
+      <div class="flex items-center justify-between gap-3">
+        <span class="font-medium text-sm">{{ lv.name }}</span>
+        {% if lv.triggered %}
+        <span class="text-[11px] font-semibold text-amber-300 whitespace-nowrap">● activada</span>
+        {% else %}
+        <span class="text-[11px] text-slate-500 whitespace-nowrap">○ sin disparar</span>
+        {% endif %}
+      </div>
+      <div class="text-xs text-slate-400 mt-1">Se activa si: {{ lv.when }}</div>
+      {% if lv.triggered %}<div class="text-xs text-amber-200/90 mt-1">→ {{ lv.action }}</div>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+{# ===== Rendimiento por estrategia ===== #}
+{% if m.by_strategy %}
+<section class="bg-slate-800 rounded-xl p-5 shadow mb-5">
+  <h2 class="text-sm uppercase tracking-wider text-slate-400 mb-1">Rendimiento por estrategia</h2>
+  <p class="text-xs text-slate-500 mb-3">Cuánto rinde cada objetivo por pick. El ancla <span class="font-mono">ev</span> debería liderar; las perturbaciones rinden menos pero cubren sorpresas.</p>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="text-xs text-slate-500 border-b border-slate-700">
+          <th class="text-left py-2">Estrategia</th>
+          <th class="text-right py-2">pts/pick</th>
+          <th class="text-right py-2">ganador</th>
+          <th class="text-right py-2">exactos</th>
+          <th class="text-right py-2">picks</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in m.by_strategy %}
+        <tr class="border-b border-slate-800">
+          <td class="py-2 font-mono">{{ r.strategy }}</td>
+          <td class="py-2 text-right font-semibold">{{ r.ppp }}</td>
+          <td class="py-2 text-right text-slate-300">{{ r.win_pct }}%</td>
+          <td class="py-2 text-right text-slate-300">{{ r.exacts }}</td>
+          <td class="py-2 text-right text-slate-500">{{ r.picks }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+{# ===== Ajuste LLM (Capa 4) ===== #}
+{% set l = m.llm %}
+{% set ltot = l.yes + l.no + l.neutral %}
+<section class="bg-slate-800 rounded-xl p-5 shadow">
+  <h2 class="text-sm uppercase tracking-wider text-slate-400 mb-1">Ajuste cualitativo (LLM · Capa 4)</h2>
+  <p class="text-xs text-slate-500 mb-3">Si el ajuste del LLM acercó o alejó la predicción del resultado real. Empate ≈ sin edge medible (está acotado, no hace daño).</p>
+  <div class="grid grid-cols-3 gap-3 text-center">
+    <div class="bg-slate-900/40 rounded-lg p-3"><div class="text-2xl font-bold text-green-400">{{ l.yes }}</div><div class="text-[11px] text-slate-500">ayudó</div></div>
+    <div class="bg-slate-900/40 rounded-lg p-3"><div class="text-2xl font-bold text-red-300">{{ l.no }}</div><div class="text-[11px] text-slate-500">perjudicó</div></div>
+    <div class="bg-slate-900/40 rounded-lg p-3"><div class="text-2xl font-bold text-slate-300">{{ l.neutral }}</div><div class="text-[11px] text-slate-500">neutral</div></div>
+  </div>
+  {% if ltot == 0 %}<p class="text-xs text-slate-600 mt-3">Sin datos de ajuste LLM todavía.</p>{% endif %}
+</section>
+
+{% endif %}
+{% endblock %}
