@@ -67,7 +67,7 @@
       </div>
       <div class="text-2xl font-bold">{% if t.best_rank %}#{{ t.best_rank }}{% else %}—{% endif %} <span class="text-sm text-slate-500 font-normal">la mejor</span></div>
       <div class="text-xs text-slate-400 mt-1">gap al líder: {{ t.gap_to_top }}pt · top-10: {{ t.in_top10 }} · top-50: {{ t.in_top50 }} · top-100: {{ t.in_top100 }}</div>
-      <div class="text-[11px] text-slate-600 mt-2">sano: ≥1 en top-10 · alerta si la mejor cae &gt; #30</div>
+      <div class="text-[11px] text-slate-500 mt-2 leading-relaxed">Para ganar el pool alcanza con que <b>una</b> de las 15 termine arriba. Acá mirás en qué puesto va la mejor — la querés en el top-10.</div>
     </div>
 
     {% set s = sg.spread %}{% set b = badge[s.status] %}
@@ -78,7 +78,7 @@
       </div>
       <div class="text-2xl font-bold">{{ s.value }} <span class="text-sm text-slate-500 font-normal">pts spread</span></div>
       <div class="text-xs text-slate-400 mt-1">mejor {{ s.best }} − peor {{ s.worst }}</div>
-      <div class="text-[11px] text-slate-600 mt-2">sano: no colapsa a 0 (sería converger a chalk)</div>
+      <div class="text-[11px] text-slate-500 mt-2 leading-relaxed">Qué tan distintas son las 15 entre sí. Si se parecen demasiado, ganan o pierden todas juntas y perdés la apuesta de varianza.</div>
     </div>
 
     {% set tb = sg.tailbet %}{% set b = badge[tb.status] %}
@@ -90,7 +90,43 @@
       <div class="text-2xl font-bold">{% if tb.active %}A ganar{% else %}Sumando{% endif %}</div>
       <div class="text-xs text-slate-400 mt-1">objetivo: <span class="font-mono text-[11px]">{{ tb.objective }}</span></div>
       <div class="text-xs text-slate-400">corte {{ tb.threshold }} · premium {{ tb.premium if tb.premium is not none else '—' }}{% if tb.matches_remaining %} · ~{{ tb.matches_remaining }} part. rest.{% endif %}</div>
-      <div class="text-[11px] text-slate-600 mt-2">{% if tb.active %}persiguiendo el corte{% else %}fallback E[max] (esperado temprano); se reactiva cuando el corte sea alcanzable{% endif %}</div>
+      <div class="text-[11px] text-slate-500 mt-2 leading-relaxed">Si el sistema todavía junta puntos sin arriesgar (Sumando) o ya juega a ganar el primer puesto (A ganar). El cambio ocurre solo, cerca del final.</div>
+      <div class="text-[11px] text-slate-600 mt-1">{% if tb.active %}persiguiendo el corte{% else %}fallback E[max]; se reactiva cuando el corte sea alcanzable{% endif %}</div>
+    </div>
+
+  </div>
+</section>
+
+{# --- contexto (no son pasa/falla) --- #}
+{% set cbadge = {
+  'info': {'txt':'text-slate-400','dot':'bg-slate-500','lbl':'contexto'},
+  'warn': {'txt':'text-amber-300','dot':'bg-amber-400','lbl':'a vigilar'}
+} %}
+<section class="mb-5">
+  <h2 class="text-sm uppercase tracking-wider text-slate-400 mb-1">Contexto</h2>
+  <p class="text-xs text-slate-500 mb-3">No son pasa/falla — ayudan a leer cómo viene el torneo.</p>
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+
+    {% set m = sg.modal %}{% set cb = cbadge[m.status] %}
+    <div class="bg-slate-800 rounded-xl p-4 border border-slate-700/50">
+      <div class="flex items-center justify-between mb-1">
+        <span class="text-xs uppercase tracking-wider text-slate-500">Favoritos del mercado</span>
+        <span class="inline-flex items-center gap-1 text-[11px] font-semibold {{ cb.txt }}"><span class="w-2 h-2 rounded-full {{ cb.dot }}"></span>{{ cb.lbl }}</span>
+      </div>
+      <div class="text-2xl font-bold">{% if m.winner_rate is not none %}{{ m.winner_rate }}%{% else %}—{% endif %} <span class="text-sm text-slate-500 font-normal">gana el favorito</span></div>
+      <div class="text-xs text-slate-400 mt-1">{{ m.winner_hits }}/{{ m.n }} ganador · {{ m.exact_hits }}/{{ m.n }} marcador exacto</div>
+      <div class="text-[11px] text-slate-500 mt-2 leading-relaxed">Qué tan seguido el resultado más probable del mercado termina ganando. Cuanto más bajo, más impredecible viene el torneo — y eso nos conviene (más varianza).</div>
+    </div>
+
+    {% set d = sg.draws %}{% set cb = cbadge[d.status] %}
+    <div class="bg-slate-800 rounded-xl p-4 border {{ 'border-amber-700/40' if d.status == 'warn' else 'border-slate-700/50' }}">
+      <div class="flex items-center justify-between mb-1">
+        <span class="text-xs uppercase tracking-wider text-slate-500">Cobertura de empates</span>
+        <span class="inline-flex items-center gap-1 text-[11px] font-semibold {{ cb.txt }}"><span class="w-2 h-2 rounded-full {{ cb.dot }}"></span>{{ cb.lbl }}</span>
+      </div>
+      <div class="text-2xl font-bold">{% if d.coverage_pct is not none %}{{ d.coverage_pct }}%{% else %}—{% endif %} <span class="text-sm text-slate-500 font-normal">de empates cubiertos</span></div>
+      <div class="text-xs text-slate-400 mt-1">{{ d.n_draws }} partidos terminaron empate · ~{{ d.avg_per_match if d.avg_per_match is not none else 0 }} de 15 por partido</div>
+      <div class="text-[11px] text-slate-500 mt-2 leading-relaxed">En los partidos que salieron empate, cuántas de las 15 lo habían previsto. Si vienen muchos empates y cubrimos pocos, dejamos puntos sobre la mesa.</div>
     </div>
 
   </div>
