@@ -729,6 +729,9 @@ def _load_pool_intelligence_uncached() -> dict[str, Any]:
     # Trayectoria desde los snapshots (uno por partido jugado)
     trajectory = _pool_trajectory(my_ids)
 
+    # Señales de salud de la estrategia (lo que conviene monitorear jornada a jornada)
+    signals = _strategy_signals(mine, ranked)
+
     return {
         "pool_size": n,
         "prize_zone": prize_zone,
@@ -736,6 +739,7 @@ def _load_pool_intelligence_uncached() -> dict[str, Any]:
         "distribution": distribution,
         "trajectory": trajectory,
         "median_points": pts[n // 2] if pts else 0,
+        "signals": signals,
     }
 
 
@@ -776,6 +780,81 @@ def _pool_trajectory(my_ids: set) -> list[dict]:
             "our_best_rank": (best[0] + 1) if best else None,
         })
     return out
+
+
+def _strategy_signals(mine: list, ranked: list) -> dict:
+    """Las 3 señales que importan para el objetivo P(al menos una penca gana el pool).
+
+    Cada una trae un `status`: ok (verde) / warn (amber) / alert (rojo) / info (neutral).
+    Mismo criterio que scripts/monitor_estrategia.py.
+        1. tail   — ¿tenemos una penca en la cola ganadora? (rank de la mejor + cobertura top-N)
+        2. spread — ¿se mantiene la diversificación? (puntos mejor − peor; 0 = convergencia a chalk)
+        3. tailbet— ¿el optimizador persigue el corte (p_top_k) o suma puntos (e_max fallback)?
+    """
+    my_ranks = sorted(i + 1 for i, _ in mine)
+    my_pts = [e.get("points_total", 0) for _, e in mine]
+    top_pts = ranked[0].get("points_total", 0) if ranked else 0
+
+    # --- Señal 1: cola ganadora ---
+    best_rank = my_ranks[0] if my_ranks else None
+    best_pts = max(my_pts) if my_pts else 0
+    if best_rank is None:
+        tail_status = "alert"
+    elif best_rank <= 10:
+        tail_status = "ok"
+    elif best_rank <= 30:
+        tail_status = "warn"
+    else:
+        tail_status = "alert"
+    tail = {
+        "best_rank": best_rank,
+        "gap_to_top": top_pts - best_pts,
+        "in_top10": sum(1 for r in my_ranks if r <= 10),
+        "in_top50": sum(1 for r in my_ranks if r <= 50),
+        "in_top100": sum(1 for r in my_ranks if r <= 100),
+        "status": tail_status,
+    }
+
+    # --- Señal 2: diversificación (spread interno) ---
+    spread = (max(my_pts) - min(my_pts)) if my_pts else 0
+    spread_status = "ok" if spread >= 6 else ("warn" if spread >= 3 else "alert")
+    spread_sig = {
+        "value": spread,
+        "best": max(my_pts) if my_pts else 0,
+        "worst": min(my_pts) if my_pts else 0,
+        "status": spread_status,
+    }
+
+    # --- Señal 3: tail-bet (objetivo del optimizador) ---
+    import math
+    nm = load_next_match_data() or {}
+    meta = nm.get("assignment_meta") or {}
+    obj = meta.get("objective") or "—"
+    premium = meta.get("horizon_premium")
+    active = obj.startswith("p_top_k")
+    beta = 0.0
+    try:
+        beta = float(os.environ.get("PENCA_HORIZON_BETA", "2.0"))
+    except ValueError:
+        beta = 2.0
+    remaining = round((premium / beta) ** 2) if (premium and beta) else None
+    if active:
+        tb_status = "ok"          # ya persigue el corte
+    elif remaining is not None and remaining <= 16:
+        tb_status = "warn"        # sigue en e_max cerca de/entrando a eliminatorias → revisar β
+    else:
+        tb_status = "info"        # fallback e_max esperado al principio
+    tailbet = {
+        "objective": obj,
+        "active": active,
+        "threshold": meta.get("threshold"),
+        "premium": round(premium, 1) if premium else premium,
+        "matches_remaining": remaining,
+        "next_match_id": nm.get("match_id"),
+        "status": tb_status,
+    }
+
+    return {"tail": tail, "spread": spread_sig, "tailbet": tailbet}
 
 
 # ---------- detalle por penca ----------
