@@ -3,181 +3,46 @@
 {% block title %}Próximo partido — Penca JMLM 2026{% endblock %}
 
 {% block content %}
-{% set m = data.next_match %}
+{% set strategy_emoji = {'ev':'🎯', 'differentiated':'📊', 'tail':'⚡', 'upset':'😲', 'variance':'📈'} %}
+{% set strategy_label = {'ev':'Favorito', 'differentiated':'Diferencial', 'tail':'Goles', 'upset':'Sorpresa', 'variance':'Varianza'} %}
+{% set nm = data.next %}
 
-{% if m %}
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-
-  {# ---- COLUMNA PRINCIPAL: partido + picks (mobile full, desktop col-2) ---- #}
-  <div class="lg:col-span-2 space-y-4">
-
-    {# Card principal: equipos + countdown + odds #}
-    <section class="bg-gradient-to-br from-indigo-900 to-slate-800 rounded-xl p-5 lg:p-6 shadow">
-      <div class="text-xs uppercase tracking-wider text-indigo-300 mb-1">Próximo partido</div>
-      <h1 class="text-2xl lg:text-4xl font-bold">{{ m.home }} <span class="text-slate-400 text-lg lg:text-2xl">vs</span> {{ m.away }}</h1>
-      <div class="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-300 mt-2">
-        <span>📅 {{ m.kickoff_uy }}</span>
-        <span>⏱️ en {{ m.countdown }}</span>
-        {% if m.venue %}<span>📍 {{ m.venue }}</span>{% endif %}
-        {% if m.group %}<span class="bg-slate-700/50 px-2 rounded text-xs">Grupo {{ m.group }}</span>{% endif %}
-      </div>
-
-      {% if m.model %}
-      <div class="mt-5 grid grid-cols-3 gap-2 text-center">
-        <div class="bg-slate-800/60 rounded-lg p-3">
-          <div class="text-[10px] uppercase text-slate-400">Local</div>
-          <div class="text-2xl lg:text-3xl font-bold text-green-400">{{ (m.model.p_home * 100) | round(0, 'common') | int }}%</div>
-        </div>
-        <div class="bg-slate-800/60 rounded-lg p-3">
-          <div class="text-[10px] uppercase text-slate-400">Empate</div>
-          <div class="text-2xl lg:text-3xl font-bold text-yellow-400">{{ (m.model.p_draw * 100) | round(0, 'common') | int }}%</div>
-        </div>
-        <div class="bg-slate-800/60 rounded-lg p-3">
-          <div class="text-[10px] uppercase text-slate-400">Visit</div>
-          <div class="text-2xl lg:text-3xl font-bold text-orange-400">{{ (m.model.p_away * 100) | round(0, 'common') | int }}%</div>
-        </div>
-      </div>
-      <p class="text-xs text-slate-400 mt-3 text-center">E[goles]: {{ "%.1f"|format(m.model.e_goals_L) }} - {{ "%.1f"|format(m.model.e_goals_V) }}</p>
-      {% endif %}
-    </section>
-
-    {# Picks #}
-    {% if m.assignment %}
-    {% set strategy_emoji = {'ev':'🎯', 'differentiated':'📊', 'tail':'⚡', 'upset':'😲', 'variance':'📈'} %}
-    {% set strategy_label = {'ev':'Favorito', 'differentiated':'Diferencial', 'tail':'Goles', 'upset':'Sorpresa', 'variance':'Varianza'} %}
-    <section class="bg-slate-800 rounded-xl p-5 shadow">
-      <div class="flex items-center justify-between mb-3">
-        <h2 class="text-sm uppercase tracking-wider text-slate-400">🎯 Picks (asignación adaptativa)</h2>
-        {% if m.assignment_meta and m.assignment_meta.objective == 'p_top_k' %}
-        <span class="text-xs text-slate-400">P(top-3): {{ (m.assignment_meta.p_top_k_value * 100) | round(0, 'common') | int }}%</span>
-        {% endif %}
-      </div>
-      {% if m.assignment_meta and m.assignment_meta.exposure %}
-      {# Vista de exposición: cuántas pencas en cada marcador (con repetición a N) #}
-      {% set total_exp = m.assignment | length %}
-      <p class="text-xs text-slate-500 mb-2">Exposición de {{ total_exp }} pencas por marcador</p>
-      <div class="space-y-1.5">
-        {% for score, count in m.assignment_meta.exposure | dictsort(by='value', reverse=true) %}
-        <div class="flex items-center gap-3 bg-slate-900/50 rounded-lg px-4 py-2.5">
-          <span class="font-bold text-2xl w-20">{{ score.split('-')[0] }}<span class="text-slate-500 mx-1">-</span>{{ score.split('-')[1] }}</span>
-          <div class="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden">
-            <div class="h-full bg-emerald-500" style="width: {{ (count / total_exp * 100) | round(0, 'common') | int }}%"></div>
-          </div>
-          {% set ps = m.score_pscore.get(score) if m.score_pscore else none %}
-          {% if ps is not none %}<span class="text-xs text-slate-500 w-12 text-right" title="Probabilidad del marcador exacto">{{ (ps * 100) | round(0, 'common') | int }}%</span>{% endif %}
-          <span class="text-sm text-slate-300 w-16 text-right">×{{ count }}</span>
-        </div>
-        {% endfor %}
-      </div>
-      {% else %}
-      <div class="space-y-1.5">
-        {% for a in m.assignment %}
-        <div class="flex items-center justify-between bg-slate-900/50 rounded-lg px-4 py-3">
-          <span class="flex items-center gap-3 text-sm">
-            <span class="font-bold text-slate-400 w-12">P{{ penca_labels.get(a.penca_id, a.penca_id) }}</span>
-            <span class="text-xl">{{ strategy_emoji.get(a.objective, '•') }}</span>
-            <span class="text-slate-200">{{ strategy_label.get(a.objective, a.objective) }}</span>
-          </span>
-          <span class="flex items-baseline gap-2">
-            <span class="font-bold text-2xl">{{ a.score[0] }}<span class="text-slate-500 mx-1">-</span>{{ a.score[1] }}</span>
-            {% if a.p_scoreline is not none %}<span class="text-xs text-slate-500 w-9 text-right" title="Probabilidad del marcador exacto">{{ (a.p_scoreline * 100) | round(0, 'common') | int }}%</span>{% endif %}
-          </span>
-        </div>
-        {% endfor %}
-      </div>
-      {% endif %}
-    </section>
-    {% endif %}
-
-    {# Análisis LLM #}
-    {% if m.qualitative and m.qualitative.reasoning %}
-    <section class="bg-slate-800 rounded-xl p-5 shadow">
-      <div class="flex items-center justify-between mb-2">
-        <h2 class="text-sm uppercase tracking-wider text-slate-400">🧠 Análisis LLM</h2>
-        <div class="text-xs text-slate-400">
-          ΔλL <span class="font-mono">{{ "%+.2f"|format(m.qualitative.delta_lambda_L or 0) }}</span>
-          · ΔλV <span class="font-mono">{{ "%+.2f"|format(m.qualitative.delta_lambda_V or 0) }}</span>
-          · conf <span class="font-mono">{{ "%.2f"|format(m.qualitative.confidence or 0) }}</span>
-        </div>
-      </div>
-      <p class="text-sm text-slate-300 leading-relaxed">{{ m.qualitative.reasoning }}</p>
-    </section>
-    {% endif %}
+{% if nm %}
+{# ---- Hero: equipos + countdown + odds del modelo ---- #}
+<section class="bg-gradient-to-br from-indigo-900 to-slate-800 rounded-xl p-5 lg:p-6 shadow mb-5">
+  <div class="text-xs uppercase tracking-wider text-indigo-300 mb-1">Próximo partido</div>
+  <h1 class="text-2xl lg:text-4xl font-bold">{{ nm.home }} <span class="text-slate-400 text-lg lg:text-2xl">vs</span> {{ nm.away }}</h1>
+  <div class="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-300 mt-2">
+    <span>📅 {{ nm.kickoff_uy }}</span>
+    <span>⏱️ en {{ nm.countdown }}</span>
+    {% if nm.venue %}<span>📍 {{ nm.venue }}</span>{% endif %}
+    {% if nm.group %}<span class="bg-slate-700/50 px-2 rounded text-xs">Grupo {{ nm.group }}</span>{% endif %}
   </div>
 
-  {# ---- COLUMNA LATERAL: ficha + flags + system (mobile abajo, desktop col-1) ---- #}
-  <div class="space-y-4">
-
-    {# Ficha del partido #}
-    {% if m.dossier %}
-    <section class="bg-slate-800 rounded-xl p-5 shadow">
-      <h2 class="text-sm uppercase tracking-wider text-slate-400 mb-3">📋 Ficha</h2>
-      <div class="space-y-2 text-sm">
-        {% if m.dossier.venue_name %}
-        <div><span class="text-slate-500">Sede:</span> {{ m.dossier.venue_name }}</div>
-        {% endif %}
-        {% if m.dossier.venue_elevation_m and m.dossier.venue_elevation_m > 1500 %}
-        <div class="text-amber-300">⛰️ Altura {{ m.dossier.venue_elevation_m }}m</div>
-        {% endif %}
-        {% if m.dossier.home_advantage_status == 'home' %}
-        <div class="text-green-300">🏠 Localía a favor del local</div>
-        {% elif m.dossier.home_advantage_status == 'neutral' %}
-        <div class="text-slate-400">⚖️ Sede neutral</div>
-        {% endif %}
-
-        {% if m.dossier.home.recent_form or m.dossier.away.recent_form %}
-        <div class="pt-2 border-t border-slate-700">
-          <div class="text-[10px] uppercase text-slate-500 mb-1">Forma</div>
-          {% if m.dossier.home.recent_form %}
-          <div><span class="text-slate-400">{{ m.dossier.home.name }}:</span> <span class="font-mono">{{ m.dossier.home.recent_form }}</span></div>
-          {% endif %}
-          {% if m.dossier.away.recent_form %}
-          <div><span class="text-slate-400">{{ m.dossier.away.name }}:</span> <span class="font-mono">{{ m.dossier.away.recent_form }}</span></div>
-          {% endif %}
-        </div>
-        {% endif %}
-
-        {% if m.dossier.home.reported_absences or m.dossier.away.reported_absences %}
-        <div class="pt-2 border-t border-slate-700">
-          <div class="text-[10px] uppercase text-slate-500 mb-1">🩹 Bajas</div>
-          {% for ab in m.dossier.home.reported_absences[:3] %}
-          <div class="text-xs"><span class="text-slate-500">{{ m.dossier.home.name }}:</span> {{ ab }}</div>
-          {% endfor %}
-          {% for ab in m.dossier.away.reported_absences[:3] %}
-          <div class="text-xs"><span class="text-slate-500">{{ m.dossier.away.name }}:</span> {{ ab }}</div>
-          {% endfor %}
-        </div>
-        {% endif %}
-      </div>
-    </section>
-    {% endif %}
-
-    {# Info edge flags #}
-    {% if m.dossier and m.dossier.info_edge_flags %}
-    <section class="bg-amber-900/20 border border-amber-700/40 rounded-xl p-4 shadow">
-      <h2 class="text-sm uppercase tracking-wider text-amber-300 mb-2">⚠️ Señales a revisar</h2>
-      <ul class="space-y-2 text-xs text-amber-200">
-        {% for f in m.dossier.info_edge_flags %}
-        <li class="leading-relaxed">· {{ f }}</li>
-        {% endfor %}
-      </ul>
-    </section>
-    {% endif %}
-
-    {# Mini summary del sistema #}
-    {% set h = data.health %}
-    <section class="bg-slate-800 rounded-xl p-4 shadow">
-      <h2 class="text-sm uppercase tracking-wider text-slate-400 mb-3">⚙️ Estado</h2>
-      <dl class="space-y-1.5 text-sm">
-        <div class="flex justify-between"><dt class="text-slate-400">Predicciones 24h</dt><dd class="font-medium">{{ h.predictions_24h }}</dd></div>
-        <div class="flex justify-between"><dt class="text-slate-400">Anthropic mes</dt><dd class="font-medium">${{ "%.4f"|format(h.anthropic_cost_total) }}</dd></div>
-        {% if h.do_month_to_date is defined and h.do_month_to_date is not none %}
-        <div class="flex justify-between"><dt class="text-slate-400">DO mes</dt><dd class="font-medium">${{ "%.2f"|format(h.do_month_to_date) }}</dd></div>
-        {% endif %}
-      </dl>
-    </section>
+  {% if nm.model %}
+  <div class="mt-5 grid grid-cols-3 gap-2 text-center">
+    <div class="bg-slate-800/60 rounded-lg p-3">
+      <div class="text-[10px] uppercase text-slate-400">Local</div>
+      <div class="text-2xl lg:text-3xl font-bold text-green-400">{{ (nm.model.p_home * 100) | round(0, 'common') | int }}%</div>
+    </div>
+    <div class="bg-slate-800/60 rounded-lg p-3">
+      <div class="text-[10px] uppercase text-slate-400">Empate</div>
+      <div class="text-2xl lg:text-3xl font-bold text-yellow-400">{{ (nm.model.p_draw * 100) | round(0, 'common') | int }}%</div>
+    </div>
+    <div class="bg-slate-800/60 rounded-lg p-3">
+      <div class="text-[10px] uppercase text-slate-400">Visit</div>
+      <div class="text-2xl lg:text-3xl font-bold text-orange-400">{{ (nm.model.p_away * 100) | round(0, 'common') | int }}%</div>
+    </div>
   </div>
-</div>
+  <p class="text-xs text-slate-400 mt-3 text-center">E[goles]: {{ "%.1f"|format(nm.model.e_goals_L) }} - {{ "%.1f"|format(nm.model.e_goals_V) }}</p>
+  {% endif %}
+</section>
+
+{# ---- Mismo detalle que se ve dentro de cada partido de /partidos ---- #}
+{% if data.match %}
+{% set m = data.match %}
+{% include "_match_detail_body.html" %}
+{% endif %}
 
 {% else %}
 <section class="bg-slate-800 rounded-xl p-8 shadow text-center text-slate-400">
