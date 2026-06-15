@@ -976,6 +976,128 @@ def _strategy_diagnostics(my_ids: set) -> dict:
     }
 
 
+def _capa4_eval() -> dict:
+    """Valor MARGINAL del ajuste LLM (Capa 4) con vs sin δ, read-only.
+
+    - Δlog-loss / ΔRPS pareado sobre el 1X2 real: calibración del modelo, señal POR partido
+      (mucho más potente que el binario ayudó/perjudicó a n chico).
+    - Contrafactual de 15 pencas: re-corre greedy_assignment con λ (con LLM) y con λ−δ (sin LLM),
+      MISMOS standings/threshold/premium → el confound del partido se cancela en la resta.
+      `picks_changed` = picks que el δ efectivamente movió; `dpoints` = Δpuntos contra el real.
+    """
+    import math
+    pmdir = _data_dir() / "postmortems"
+    if not pmdir.exists():
+        return {"n_adjusted": 0, "n_matches": 0}
+    try:
+        import numpy as np
+        from src.model.poisson import score_grid, marginals, jmlm_points
+        from src.strategy.portfolio import generate_candidates, picks_to_dicts
+        from src.strategy.assignment import greedy_assignment
+        from src.meta.calibration import get_pool_config
+        from src.meta.pool import pool_pick_distribution
+        pool_cfg = get_pool_config()
+    except Exception:
+        return {"n_adjusted": 0, "n_matches": 0, "error": "imports"}
+
+    def _prior_standings(mid, ids):
+        # standings del snapshot más reciente previo al partido (el error se cancela en pre/post)
+        for prev in range(int(mid) - 1, 0, -1):
+            f = _data_dir() / "pool_snapshots" / f"{prev}.json"
+            if not f.exists():
+                continue
+            try:
+                snap = json.loads(f.read_text())
+            except Exception:
+                continue
+            byid = {e["penca_id"]: e for e in snap.get("entries", [])}
+            return {pid: {"points_total": byid.get(pid, {}).get("points_total", 0)} for pid in ids}
+        return {pid: {"points_total": 0} for pid in ids}
+
+    def _wc(h, a):
+        return 0 if h > a else (1 if h == a else 2)
+
+    n_matches = n_adj = ll_better = ll_worse = picks_changed = dpoints = 0
+    ll_sum = rps_sum = 0.0
+    for f in sorted(pmdir.glob("*.json")):
+        if ".bak" in f.name:
+            continue
+        try:
+            pm = json.loads(f.read_text())
+        except Exception:
+            continue
+        if pm.get("actual_home") is None:
+            continue
+        n_matches += 1
+        mid = pm["match_id"]
+        actual = (pm["actual_home"], pm["actual_away"])
+        pred = _load_latest_prediction(mid)
+        if not pred:
+            continue
+        c = pred.get("constraints") or {}
+        qa = pred.get("qualitative_adjustment") or {}
+        dL = float(qa.get("delta_lambda_L", 0) or 0)
+        dV = float(qa.get("delta_lambda_V", 0) or 0)
+        if abs(dL) + abs(dV) <= 1e-6:
+            continue
+        lL, lV = c.get("lambda_L"), c.get("lambda_V")
+        if lL is None or lV is None:
+            continue
+        l12 = c.get("lambda_12", 0.1)
+        n_adj += 1
+        try:
+            g_post = score_grid(lL, lV, l12, max_goals=7)
+            g_pre = score_grid(max(0.05, lL - dL), max(0.05, lV - dV), l12, max_goals=7)
+            k = _wc(*actual)
+
+            def _p(g):
+                m = marginals(g)
+                return [float(m.p_home_win), float(m.p_draw), float(m.p_away_win)]
+
+            pp, pr = _p(g_post), _p(g_pre)
+            eps = 1e-12
+            dll = (-math.log(max(pr[k], eps))) - (-math.log(max(pp[k], eps)))
+            ll_sum += dll
+            if dll > 1e-9:
+                ll_better += 1
+            elif dll < -1e-9:
+                ll_worse += 1
+            cdf_r = np.cumsum([1 if i == k else 0 for i in range(3)])
+            rps_sum += 0.5 * (
+                float(np.sum((np.cumsum(pr) - cdf_r) ** 2)) - float(np.sum((np.cumsum(pp) - cdf_r) ** 2))
+            )
+        except Exception:
+            continue
+        try:
+            ids = [a["penca_id"] for a in pred.get("assignment", [])]
+            meta = pred.get("assignment_meta") or {}
+            st = _prior_standings(mid, ids)
+            cp = picks_to_dicts(generate_candidates(g_post, market_p_home=c.get("p_home"), market_p_away=c.get("p_away"), pool_config=pool_cfg, max_candidates=10))
+            cr = picks_to_dicts(generate_candidates(g_pre, market_p_home=c.get("p_home"), market_p_away=c.get("p_away"), pool_config=pool_cfg, max_candidates=10))
+            rp, _ = greedy_assignment(cp, ids, g_post, st, pool_top_k_threshold=meta.get("threshold"), pool_q=pool_pick_distribution(g_post, pool_cfg), horizon_premium=meta.get("horizon_premium"))
+            rr, _ = greedy_assignment(cr, ids, g_pre, st, pool_top_k_threshold=meta.get("threshold"), pool_q=pool_pick_distribution(g_pre, pool_cfg), horizon_premium=meta.get("horizon_premium"))
+            post = {pid: tuple(p["score"]) for pid, p, _ in rp}
+            pre = {pid: tuple(p["score"]) for pid, p, _ in rr}
+            for pid in ids:
+                if post.get(pid) != pre.get(pid):
+                    picks_changed += 1
+                    dpoints += jmlm_points(post[pid], actual) - jmlm_points(pre[pid], actual)
+        except Exception:
+            pass
+
+    return {
+        "n_matches": n_matches,
+        "n_adjusted": n_adj,
+        "logloss_sum": round(ll_sum, 2),
+        "logloss_mean": round(ll_sum / n_adj, 3) if n_adj else 0,
+        "ll_better": ll_better,
+        "ll_worse": ll_worse,
+        "rps_sum": round(rps_sum, 3),
+        "picks_changed": picks_changed,
+        "dpoints": dpoints,
+    }
+
+
 def load_strategy_metrics() -> dict[str, Any]:
     """Estado de la estrategia para decidir si hay que ajustar: veredicto + palancas + diagnósticos."""
     return _cached("strategy_metrics", 30.0, _load_strategy_metrics_uncached)
@@ -1046,6 +1168,7 @@ def _load_strategy_metrics_uncached() -> dict[str, Any]:
         "by_strategy": diag["by_strategy"],
         "llm": diag["llm"],
         "n_matches": diag["n_matches"],
+        "capa4": _capa4_eval(),
     }
 
 

@@ -179,18 +179,33 @@
 </section>
 {% endif %}
 
-{# ===== Ajuste LLM (Capa 4) ===== #}
-{% set l = m.llm %}
-{% set ltot = l.yes + l.no + l.neutral %}
+{# ===== Capa 4: valor marginal del ajuste LLM ===== #}
+{% set q = m.capa4 %}
 <section class="bg-slate-800 rounded-xl p-5 shadow">
   <h2 class="text-sm uppercase tracking-wider text-slate-400 mb-1">Ajuste cualitativo (LLM · Capa 4)</h2>
-  <p class="text-xs text-slate-500 mb-3">Si el ajuste del LLM acercó o alejó la predicción del resultado real. Empate ≈ sin edge medible (está acotado, no hace daño).</p>
-  <div class="grid grid-cols-3 gap-3 text-center">
-    <div class="bg-slate-900/40 rounded-lg p-3"><div class="text-2xl font-bold text-green-400">{{ l.yes }}</div><div class="text-[11px] text-slate-500">ayudó</div></div>
-    <div class="bg-slate-900/40 rounded-lg p-3"><div class="text-2xl font-bold text-red-300">{{ l.no }}</div><div class="text-[11px] text-slate-500">perjudicó</div></div>
-    <div class="bg-slate-900/40 rounded-lg p-3"><div class="text-2xl font-bold text-slate-300">{{ l.neutral }}</div><div class="text-[11px] text-slate-500">neutral</div></div>
+  <p class="text-xs text-slate-500 mb-3">Valor marginal del ajuste — el modelo con vs sin el LLM, sobre los {{ q.n_adjusted }} partidos donde ajustó.</p>
+  {% if q.n_adjusted and q.n_adjusted > 0 %}
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+    <div class="bg-slate-900/40 rounded-lg p-3">
+      <div class="text-2xl font-bold {{ 'text-green-400' if q.logloss_sum > 0 else ('text-red-300' if q.logloss_sum < 0 else 'text-slate-300') }}">{% if q.logloss_sum > 0 %}+{% endif %}{{ q.logloss_sum }}</div>
+      <div class="text-[11px] text-slate-500 mt-0.5">calibración (Δ log-loss) · {{ q.ll_better }} mejoró / {{ q.ll_worse }} empeoró</div>
+      <div class="text-[11px] text-slate-600 mt-1 leading-relaxed">¿le dio mejor probabilidad al resultado real con el ajuste? (+) = sí. Es la métrica con más señal a muestra chica.</div>
+    </div>
+    <div class="bg-slate-900/40 rounded-lg p-3">
+      <div class="text-2xl font-bold text-slate-200">{{ q.picks_changed }}</div>
+      <div class="text-[11px] text-slate-500 mt-0.5">picks que el δ cambió · de {{ q.n_adjusted }}×15</div>
+      <div class="text-[11px] text-slate-600 mt-1 leading-relaxed">cuántas veces el ajuste movió lo que se juega. Con la correa en ±0.10 casi nunca cruza una frontera de decisión.</div>
+    </div>
+    <div class="bg-slate-900/40 rounded-lg p-3">
+      <div class="text-2xl font-bold {{ 'text-green-400' if q.dpoints > 0 else ('text-red-300' if q.dpoints < 0 else 'text-slate-300') }}">{% if q.dpoints > 0 %}+{% endif %}{{ q.dpoints }}</div>
+      <div class="text-[11px] text-slate-500 mt-0.5">Δ puntos (con vs sin Capa 4)</div>
+      <div class="text-[11px] text-slate-600 mt-1 leading-relaxed">impacto real en puntos de penca. A esta altura suele venir de 1-2 partidos: leer con cuidado.</div>
+    </div>
   </div>
-  {% if ltot == 0 %}<p class="text-xs text-slate-600 mt-3">Sin datos de ajuste LLM todavía.</p>{% endif %}
+  <p class="text-[11px] text-slate-500 mt-3 leading-relaxed">A n={{ q.n_adjusted }} no hay señal concluyente — sirve para dirección. Como el ajuste rara vez cambia un pick, el dial es la <b>correa</b> (bound ±0.10 / β), no el prompt.</p>
+  {% else %}
+  <p class="text-xs text-slate-600">Todavía no hay partidos con ajuste no trivial del LLM.</p>
+  {% endif %}
 </section>
 
 {% endif %}
