@@ -28,6 +28,7 @@ from src.dashboard.data_loader import (
     load_pool_intelligence,
     load_postmortem_history,
     load_recent_postmortems,
+    load_strategy_metrics,
     load_system_health,
 )
 
@@ -108,6 +109,16 @@ def page_pool(request: Request, token: str):
         "health": load_system_health(),
     }
     return templates.TemplateResponse(request, "pool.html", {"data": data, "token": token, "penca_labels": build_penca_labels()})
+
+
+@app.get("/dash/{token}/metricas/", response_class=HTMLResponse)
+def page_metricas(request: Request, token: str):
+    _check_token(token)
+    data = {
+        "metrics": load_strategy_metrics(),
+        "health": load_system_health(),
+    }
+    return templates.TemplateResponse(request, "metricas.html", {"data": data, "token": token, "penca_labels": build_penca_labels()})
 
 
 @app.get("/dash/{token}/history/", response_class=HTMLResponse)
