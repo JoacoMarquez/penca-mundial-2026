@@ -1162,39 +1162,80 @@ def _load_strategy_metrics_uncached() -> dict[str, Any]:
                    "sub": "la estrategia viene sana; dejar correr"}
 
     # Una sola lista de señales: estado + significado + (si no está verde) qué hacer.
+    # Cada fila trae `stats`/`note`/`rule` para el detalle que se abre al clickear.
     mo = sig.get("modal", {})
+    ps = pl.get("pool_size")
     action_by_key = {lv["key"]: (lv["action"] if lv["triggered"] else None) for lv in levers}
     _best = tail.get("best_rank")
+
+    def _st(label, value):
+        return {"label": label, "value": value}
+
     health_rows = [
         {
-            "name": "Cola ganadora", "status": tail.get("status", "info"),
+            "key": "tail", "name": "Cola ganadora", "status": tail.get("status", "info"),
             "value": (f"#{_best} · top-10: {tail.get('in_top10', 0)}" if _best else "—"),
             "meaning": "que al menos una penca pelee el 1° puesto",
             "action": action_by_key.get("tail"),
+            "stats": [
+                _st("Mejor penca", f"#{_best} de {ps}" if _best else "—"),
+                _st("Gap al líder", f"{tail.get('gap_to_top', 0)} pts"),
+                _st("En top-10 / 50 / 100", f"{tail.get('in_top10', 0)} / {tail.get('in_top50', 0)} / {tail.get('in_top100', 0)}"),
+            ],
+            "note": "Para ganar el pool alcanza con que una de las 15 termine arriba. Acá mirás en qué puesto va la mejor.",
+            "rule": "Sano: al menos 1 en el top-10. Alerta si la mejor cae por encima de #30 de forma sostenida.",
         },
         {
-            "name": "Diversificación", "status": spread.get("status", "info"),
+            "key": "spread", "name": "Diversificación", "status": spread.get("status", "info"),
             "value": f"spread {spread.get('value', 0)} pts",
             "meaning": "las 15 bien distintas entre sí (si no, no hay apuesta de varianza)",
             "action": action_by_key.get("spread"),
+            "stats": [
+                _st("Spread interno", f"{spread.get('value', 0)} pts"),
+                _st("Mejor / peor penca", f"{spread.get('best', 0)} / {spread.get('worst', 0)} pts"),
+            ],
+            "note": "Qué tan distintas son las 15 entre sí. Si se parecen demasiado, ganan o pierden todas juntas y perdés la apuesta de varianza.",
+            "rule": "Sano: el spread no colapsa hacia 0. Si tiende a 0 = convergencia a chalk.",
         },
         {
-            "name": "Tail-bet", "status": tb.get("status", "info"),
+            "key": "tailbet", "name": "Tail-bet", "status": tb.get("status", "info"),
             "value": ("A ganar" if tb.get("active") else "Sumando"),
             "meaning": ("persiguiendo el corte" if tb.get("active") else "juntando puntos — esperado al principio"),
             "action": action_by_key.get("tailbet"),
+            "stats": [
+                _st("Modo", "A ganar (p_top_k)" if tb.get("active") else "Sumando (e_max)"),
+                _st("Corte del pool", f"{tb.get('threshold')} pts" if tb.get("threshold") is not None else "—"),
+                _st("Premium horizonte", f"{tb.get('premium')}" if tb.get("premium") is not None else "—"),
+                _st("Partidos restantes (aprox)", f"~{tb.get('matches_remaining')}" if tb.get("matches_remaining") else "—"),
+            ],
+            "note": "Si el sistema todavía junta puntos sin arriesgar (Sumando) o ya juega a ganar el 1° puesto (A ganar). El cambio ocurre solo, cerca del final, cuando el corte proyectado se vuelve alcanzable en un partido.",
+            "rule": "Esperado: 'Sumando' al principio. A vigilar si sigue en 'Sumando' entrando a eliminatorias (~≤16 partidos) → ahí se baja β.",
         },
         {
-            "name": "Favoritos del mercado", "status": mo.get("status", "info"),
+            "key": "modal", "name": "Favoritos del mercado", "status": mo.get("status", "info"),
             "value": (f"{mo.get('winner_rate')}%" if mo.get("winner_rate") is not None else "—"),
             "meaning": "qué seguido gana el favorito (bajo = más impredecible, nos conviene)",
             "action": None,
+            "stats": [
+                _st("Gana el favorito", f"{mo.get('winner_rate')}%" if mo.get("winner_rate") is not None else "—"),
+                _st("Acertó ganador", f"{mo.get('winner_hits', 0)}/{mo.get('n', 0)}"),
+                _st("Acertó marcador exacto", f"{mo.get('exact_hits', 0)}/{mo.get('n', 0)}"),
+            ],
+            "note": "Qué tan seguido el resultado más probable del mercado termina ganando. Cuanto más bajo, más impredecible viene el torneo — y eso nos conviene (más varianza).",
+            "rule": "Contexto, no pasa/falla.",
         },
         {
-            "name": "Cobertura de empates", "status": draws.get("status", "info"),
+            "key": "draws", "name": "Cobertura de empates", "status": draws.get("status", "info"),
             "value": (f"{draws.get('coverage_pct')}%" if draws.get("coverage_pct") is not None else "—"),
             "meaning": "de los empates que salieron, cuántos previmos",
             "action": action_by_key.get("draws"),
+            "stats": [
+                _st("Empates cubiertos", f"{draws.get('coverage_pct')}%" if draws.get("coverage_pct") is not None else "—"),
+                _st("Partidos que salieron empate", f"{draws.get('n_draws', 0)}"),
+                _st("Promedio cubierto", f"~{draws.get('avg_per_match', 0)} de 15 por partido"),
+            ],
+            "note": "En los partidos que salieron empate, cuántas de las 15 lo habían previsto. Si vienen muchos empates y cubrimos pocos, dejamos puntos.",
+            "rule": "A vigilar si hay ≥4 empates y cubrimos <20% (sesgo pro-favorito).",
         },
     ]
 

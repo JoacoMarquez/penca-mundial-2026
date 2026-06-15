@@ -46,22 +46,48 @@
   'alert': {'dot':'bg-red-400','row':'bg-red-900/15 border-red-700/50'},
   'info':  {'dot':'bg-slate-500','row':'bg-slate-800 border-slate-700/40'}
 } %}
+<style>
+  details.sig > summary { list-style: none; }
+  details.sig > summary::-webkit-details-marker { display: none; }
+  details.sig .chev { transition: transform .15s ease; }
+  details.sig[open] .chev { transform: rotate(90deg); }
+</style>
 <section class="mb-5">
-  <h2 class="text-sm uppercase tracking-wider text-slate-400 mb-3">Señales</h2>
+  <div class="flex items-baseline justify-between mb-3">
+    <h2 class="text-sm uppercase tracking-wider text-slate-400">Señales</h2>
+    <span class="text-[11px] text-slate-500">tocá una para ver el detalle</span>
+  </div>
   <div class="space-y-2">
     {% for r in m.health_rows %}
     {% set s = rc[r.status] %}
-    <div class="flex items-start gap-3 rounded-lg px-4 py-3 border {{ s.row }}">
-      <span class="w-2.5 h-2.5 rounded-full {{ s.dot }} mt-1.5 shrink-0"></span>
-      <div class="flex-1 min-w-0">
-        <div class="flex items-baseline justify-between gap-3">
-          <span class="font-medium">{{ r.name }}</span>
-          <span class="font-semibold text-slate-200 whitespace-nowrap">{{ r.value }}</span>
+    <details class="sig rounded-lg border {{ s.row }}">
+      <summary class="cursor-pointer flex items-start gap-3 px-4 py-3">
+        <span class="w-2.5 h-2.5 rounded-full {{ s.dot }} mt-1.5 shrink-0"></span>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-baseline justify-between gap-3">
+            <span class="font-medium">{{ r.name }}</span>
+            <span class="flex items-center gap-2 whitespace-nowrap">
+              <span class="font-semibold text-slate-200">{{ r.value }}</span>
+              <span class="chev text-slate-500 text-xs">▸</span>
+            </span>
+          </div>
+          <div class="text-xs text-slate-500 mt-0.5">{{ r.meaning }}</div>
+          {% if r.action %}<div class="text-sm text-amber-200/90 mt-1.5">→ {{ r.action }}</div>{% endif %}
         </div>
-        <div class="text-xs text-slate-500 mt-0.5">{{ r.meaning }}</div>
-        {% if r.action %}<div class="text-sm text-amber-200/90 mt-1.5">→ {{ r.action }}</div>{% endif %}
+      </summary>
+      <div class="px-4 pb-4 pt-3 border-t border-slate-700/40">
+        <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-1.5 text-sm">
+          {% for st in r.stats %}
+          <div class="flex justify-between gap-3">
+            <dt class="text-slate-500">{{ st.label }}</dt>
+            <dd class="text-slate-200 font-medium text-right">{{ st.value }}</dd>
+          </div>
+          {% endfor %}
+        </dl>
+        <p class="text-xs text-slate-400 mt-3 leading-relaxed">{{ r.note }}</p>
+        <p class="text-[11px] text-slate-500 mt-1.5 leading-relaxed"><span class="uppercase tracking-wider text-slate-600">Regla:</span> {{ r.rule }}</p>
       </div>
-    </div>
+    </details>
     {% endfor %}
   </div>
 </section>
