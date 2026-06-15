@@ -5,7 +5,7 @@
 {% block content %}
 {% set m = data.metrics %}
 
-<p class="text-sm text-slate-400 mb-5">¿Hay que ajustar o dejar correr? Veredicto, palancas y diagnósticos en un solo lugar.</p>
+<p class="text-sm text-slate-400 mb-5">¿Hay que ajustar o dejar correr? La respuesta, de un vistazo.</p>
 
 {% if m.error %}
 <section class="bg-red-900/20 border border-red-700/40 rounded-xl p-5">
@@ -32,181 +32,107 @@
   {% if m.us %}
   <div class="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-3 text-center">
     <div class="bg-slate-900/40 rounded-lg p-2.5"><div class="text-xl font-bold">#{{ m.us.best_rank }}</div><div class="text-[11px] text-slate-500">mejor penca / {{ m.pool_size }}</div></div>
-    <div class="bg-slate-900/40 rounded-lg p-2.5"><div class="text-xl font-bold">{{ m.us.best_points }}</div><div class="text-[11px] text-slate-500">pts (mediana pool {{ m.median }})</div></div>
+    <div class="bg-slate-900/40 rounded-lg p-2.5"><div class="text-xl font-bold">{{ m.us.best_points }}</div><div class="text-[11px] text-slate-500">pts (mediana {{ m.median }})</div></div>
     <div class="bg-slate-900/40 rounded-lg p-2.5"><div class="text-xl font-bold">{{ m.signals.spread.value }}</div><div class="text-[11px] text-slate-500">spread interno</div></div>
-    <div class="bg-slate-900/40 rounded-lg p-2.5"><div class="text-xl font-bold">{{ m.n_matches }}</div><div class="text-[11px] text-slate-500">partidos analizados</div></div>
+    <div class="bg-slate-900/40 rounded-lg p-2.5"><div class="text-xl font-bold">{{ m.n_matches }}</div><div class="text-[11px] text-slate-500">partidos</div></div>
   </div>
   {% endif %}
 </section>
 
-{# ===== Señales principales (detalle) ===== #}
-{% set sig = m.signals %}
-{% set badge = {
-  'ok':    {'box':'border-green-700/40','txt':'text-green-400','dot':'bg-green-400','lbl':'OK'},
-  'warn':  {'box':'border-amber-700/40','txt':'text-amber-300','dot':'bg-amber-400','lbl':'ATENCIÓN'},
-  'alert': {'box':'border-red-700/40','txt':'text-red-300','dot':'bg-red-400','lbl':'ALERTA'},
-  'info':  {'box':'border-slate-600/50','txt':'text-indigo-300','dot':'bg-indigo-400','lbl':'ESPERADO'}
+{# ===== Señales (lista única: estado · significado · qué hacer) ===== #}
+{% set rc = {
+  'ok':    {'dot':'bg-green-400','row':'bg-slate-800 border-slate-700/40'},
+  'warn':  {'dot':'bg-amber-400','row':'bg-amber-900/15 border-amber-700/50'},
+  'alert': {'dot':'bg-red-400','row':'bg-red-900/15 border-red-700/50'},
+  'info':  {'dot':'bg-slate-500','row':'bg-slate-800 border-slate-700/40'}
 } %}
 <section class="mb-5">
-  <h2 class="text-sm uppercase tracking-wider text-slate-400 mb-1">Señales principales</h2>
-  <p class="text-xs text-slate-500 mb-3">Salud del objetivo: que al menos una penca pelee el primer puesto.</p>
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
-
-    {% set t = sig.tail %}{% set b = badge[t.status] %}
-    <div class="bg-slate-800 rounded-xl p-4 border {{ b.box }}">
-      <div class="flex items-center justify-between mb-1">
-        <span class="text-xs uppercase tracking-wider text-slate-500">1 · Cola ganadora</span>
-        <span class="inline-flex items-center gap-1 text-[11px] font-semibold {{ b.txt }}"><span class="w-2 h-2 rounded-full {{ b.dot }}"></span>{{ b.lbl }}</span>
-      </div>
-      <div class="text-2xl font-bold">{% if t.best_rank %}#{{ t.best_rank }}{% else %}—{% endif %} <span class="text-sm text-slate-500 font-normal">la mejor</span></div>
-      <div class="text-xs text-slate-400 mt-1">gap al líder: {{ t.gap_to_top }}pt · top-10: {{ t.in_top10 }} · top-50: {{ t.in_top50 }} · top-100: {{ t.in_top100 }}</div>
-      <div class="text-[11px] text-slate-500 mt-2 leading-relaxed">Para ganar el pool alcanza con que <b>una</b> de las 15 termine arriba. Acá mirás en qué puesto va la mejor — la querés en el top-10.</div>
-    </div>
-
-    {% set sp = sig.spread %}{% set b = badge[sp.status] %}
-    <div class="bg-slate-800 rounded-xl p-4 border {{ b.box }}">
-      <div class="flex items-center justify-between mb-1">
-        <span class="text-xs uppercase tracking-wider text-slate-500">2 · Diversificación</span>
-        <span class="inline-flex items-center gap-1 text-[11px] font-semibold {{ b.txt }}"><span class="w-2 h-2 rounded-full {{ b.dot }}"></span>{{ b.lbl }}</span>
-      </div>
-      <div class="text-2xl font-bold">{{ sp.value }} <span class="text-sm text-slate-500 font-normal">pts spread</span></div>
-      <div class="text-xs text-slate-400 mt-1">mejor {{ sp.best }} − peor {{ sp.worst }}</div>
-      <div class="text-[11px] text-slate-500 mt-2 leading-relaxed">Qué tan distintas son las 15 entre sí. Si se parecen demasiado, ganan o pierden todas juntas y perdés la apuesta de varianza.</div>
-    </div>
-
-    {% set tb = sig.tailbet %}{% set b = badge[tb.status] %}
-    <div class="bg-slate-800 rounded-xl p-4 border {{ b.box }}">
-      <div class="flex items-center justify-between mb-1">
-        <span class="text-xs uppercase tracking-wider text-slate-500">3 · Tail-bet</span>
-        <span class="inline-flex items-center gap-1 text-[11px] font-semibold {{ b.txt }}"><span class="w-2 h-2 rounded-full {{ b.dot }}"></span>{{ b.lbl }}</span>
-      </div>
-      <div class="text-2xl font-bold">{% if tb.active %}A ganar{% else %}Sumando{% endif %}</div>
-      <div class="text-xs text-slate-400 mt-1">objetivo: <span class="font-mono text-[11px]">{{ tb.objective }}</span></div>
-      <div class="text-xs text-slate-400">corte {{ tb.threshold }} · premium {{ tb.premium if tb.premium is not none else '—' }}{% if tb.matches_remaining %} · ~{{ tb.matches_remaining }} part. rest.{% endif %}</div>
-      <div class="text-[11px] text-slate-500 mt-2 leading-relaxed">Si el sistema todavía junta puntos sin arriesgar (Sumando) o ya juega a ganar el primer puesto (A ganar). El cambio ocurre solo, cerca del final.</div>
-      <div class="text-[11px] text-slate-600 mt-1">{% if tb.active %}persiguiendo el corte{% else %}fallback E[max]; se reactiva cuando el corte sea alcanzable{% endif %}</div>
-    </div>
-
-  </div>
-</section>
-
-{# ===== Señales de contexto (detalle) ===== #}
-{% set cbadge = {
-  'info': {'txt':'text-slate-400','dot':'bg-slate-500','lbl':'contexto'},
-  'warn': {'txt':'text-amber-300','dot':'bg-amber-400','lbl':'a vigilar'}
-} %}
-<section class="mb-5">
-  <h2 class="text-sm uppercase tracking-wider text-slate-400 mb-1">Contexto</h2>
-  <p class="text-xs text-slate-500 mb-3">No son pasa/falla — ayudan a leer cómo viene el torneo.</p>
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
-
-    {% set mo = sig.modal %}{% set cb = cbadge[mo.status] %}
-    <div class="bg-slate-800 rounded-xl p-4 border border-slate-700/50">
-      <div class="flex items-center justify-between mb-1">
-        <span class="text-xs uppercase tracking-wider text-slate-500">Favoritos del mercado</span>
-        <span class="inline-flex items-center gap-1 text-[11px] font-semibold {{ cb.txt }}"><span class="w-2 h-2 rounded-full {{ cb.dot }}"></span>{{ cb.lbl }}</span>
-      </div>
-      <div class="text-2xl font-bold">{% if mo.winner_rate is not none %}{{ mo.winner_rate }}%{% else %}—{% endif %} <span class="text-sm text-slate-500 font-normal">gana el favorito</span></div>
-      <div class="text-xs text-slate-400 mt-1">{{ mo.winner_hits }}/{{ mo.n }} ganador · {{ mo.exact_hits }}/{{ mo.n }} marcador exacto</div>
-      <div class="text-[11px] text-slate-500 mt-2 leading-relaxed">Qué tan seguido el resultado más probable del mercado termina ganando. Cuanto más bajo, más impredecible viene el torneo — y eso nos conviene (más varianza).</div>
-    </div>
-
-    {% set dr = sig.draws %}{% set cb = cbadge[dr.status] %}
-    <div class="bg-slate-800 rounded-xl p-4 border {{ 'border-amber-700/40' if dr.status == 'warn' else 'border-slate-700/50' }}">
-      <div class="flex items-center justify-between mb-1">
-        <span class="text-xs uppercase tracking-wider text-slate-500">Cobertura de empates</span>
-        <span class="inline-flex items-center gap-1 text-[11px] font-semibold {{ cb.txt }}"><span class="w-2 h-2 rounded-full {{ cb.dot }}"></span>{{ cb.lbl }}</span>
-      </div>
-      <div class="text-2xl font-bold">{% if dr.coverage_pct is not none %}{{ dr.coverage_pct }}%{% else %}—{% endif %} <span class="text-sm text-slate-500 font-normal">de empates cubiertos</span></div>
-      <div class="text-xs text-slate-400 mt-1">{{ dr.n_draws }} partidos terminaron empate · ~{{ dr.avg_per_match if dr.avg_per_match is not none else 0 }} de 15 por partido</div>
-      <div class="text-[11px] text-slate-500 mt-2 leading-relaxed">En los partidos que salieron empate, cuántas de las 15 lo habían previsto. Si vienen muchos empates y cubrimos pocos, dejamos puntos sobre la mesa.</div>
-    </div>
-
-  </div>
-</section>
-
-{# ===== Palancas de ajuste ===== #}
-<section class="bg-slate-800 rounded-xl p-5 shadow mb-5">
-  <h2 class="text-sm uppercase tracking-wider text-slate-400 mb-1">Palancas de ajuste</h2>
-  <p class="text-xs text-slate-500 mb-3">Cada dial se enciende solo cuando se cumple su condición. Si están todos apagados, no hay nada que tocar.</p>
+  <h2 class="text-sm uppercase tracking-wider text-slate-400 mb-3">Señales</h2>
   <div class="space-y-2">
-    {% for lv in m.levers %}
-    <div class="rounded-lg p-3 border {{ 'bg-amber-900/15 border-amber-700/40' if lv.triggered else 'bg-slate-900/40 border-slate-700/40' }}">
-      <div class="flex items-center justify-between gap-3">
-        <span class="font-medium text-sm">{{ lv.name }}</span>
-        {% if lv.triggered %}
-        <span class="text-[11px] font-semibold text-amber-300 whitespace-nowrap">● activada</span>
-        {% else %}
-        <span class="text-[11px] text-slate-500 whitespace-nowrap">○ sin disparar</span>
-        {% endif %}
+    {% for r in m.health_rows %}
+    {% set s = rc[r.status] %}
+    <div class="flex items-start gap-3 rounded-lg px-4 py-3 border {{ s.row }}">
+      <span class="w-2.5 h-2.5 rounded-full {{ s.dot }} mt-1.5 shrink-0"></span>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-baseline justify-between gap-3">
+          <span class="font-medium">{{ r.name }}</span>
+          <span class="font-semibold text-slate-200 whitespace-nowrap">{{ r.value }}</span>
+        </div>
+        <div class="text-xs text-slate-500 mt-0.5">{{ r.meaning }}</div>
+        {% if r.action %}<div class="text-sm text-amber-200/90 mt-1.5">→ {{ r.action }}</div>{% endif %}
       </div>
-      <div class="text-xs text-slate-400 mt-1">Se activa si: {{ lv.when }}</div>
-      {% if lv.triggered %}<div class="text-xs text-amber-200/90 mt-1">→ {{ lv.action }}</div>{% endif %}
     </div>
     {% endfor %}
   </div>
 </section>
 
-{# ===== Rendimiento por estrategia ===== #}
-{% if m.by_strategy %}
-<section class="bg-slate-800 rounded-xl p-5 shadow mb-5">
-  <h2 class="text-sm uppercase tracking-wider text-slate-400 mb-1">Rendimiento por estrategia</h2>
-  <p class="text-xs text-slate-500 mb-3">Cuánto rinde cada objetivo por pick. El ancla <span class="font-mono">ev</span> debería liderar; las perturbaciones rinden menos pero cubren sorpresas.</p>
-  <div class="overflow-x-auto">
-    <table class="w-full text-sm">
-      <thead>
-        <tr class="text-xs text-slate-500 border-b border-slate-700">
-          <th class="text-left py-2">Estrategia</th>
-          <th class="text-right py-2">pts/pick</th>
-          <th class="text-right py-2">ganador</th>
-          <th class="text-right py-2">exactos</th>
-          <th class="text-right py-2">picks</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for r in m.by_strategy %}
-        <tr class="border-b border-slate-800">
-          <td class="py-2 font-mono">{{ r.strategy }}</td>
-          <td class="py-2 text-right font-semibold">{{ r.ppp }}</td>
-          <td class="py-2 text-right text-slate-300">{{ r.win_pct }}%</td>
-          <td class="py-2 text-right text-slate-300">{{ r.exacts }}</td>
-          <td class="py-2 text-right text-slate-500">{{ r.picks }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</section>
-{% endif %}
+{# ===== Diagnóstico (plegable) ===== #}
+<details class="border border-slate-700/50 rounded-xl">
+  <summary class="cursor-pointer select-none px-5 py-3 text-sm uppercase tracking-wider text-slate-400 hover:text-slate-200">
+    Ver diagnóstico — estrategias · Capa 4
+  </summary>
+  <div class="px-5 pb-5 space-y-5">
 
-{# ===== Capa 4: valor marginal del ajuste LLM ===== #}
-{% set q = m.capa4 %}
-<section class="bg-slate-800 rounded-xl p-5 shadow">
-  <h2 class="text-sm uppercase tracking-wider text-slate-400 mb-1">Ajuste cualitativo (LLM · Capa 4)</h2>
-  <p class="text-xs text-slate-500 mb-3">Valor marginal del ajuste — el modelo con vs sin el LLM, sobre los {{ q.n_adjusted }} partidos donde ajustó.</p>
-  {% if q.n_adjusted and q.n_adjusted > 0 %}
-  <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-    <div class="bg-slate-900/40 rounded-lg p-3">
-      <div class="text-2xl font-bold {{ 'text-green-400' if q.logloss_sum > 0 else ('text-red-300' if q.logloss_sum < 0 else 'text-slate-300') }}">{% if q.logloss_sum > 0 %}+{% endif %}{{ q.logloss_sum }}</div>
-      <div class="text-[11px] text-slate-500 mt-0.5">calibración (Δ log-loss) · {{ q.ll_better }} mejoró / {{ q.ll_worse }} empeoró</div>
-      <div class="text-[11px] text-slate-600 mt-1 leading-relaxed">¿le dio mejor probabilidad al resultado real con el ajuste? (+) = sí. Es la métrica con más señal a muestra chica.</div>
+    {# Rendimiento por estrategia #}
+    {% if m.by_strategy %}
+    <div>
+      <h3 class="text-sm uppercase tracking-wider text-slate-400 mb-1">Rendimiento por estrategia</h3>
+      <p class="text-xs text-slate-500 mb-3">Cuánto rinde cada objetivo por pick. El ancla <span class="font-mono">ev</span> debería liderar; las perturbaciones rinden menos pero cubren sorpresas.</p>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-xs text-slate-500 border-b border-slate-700">
+              <th class="text-left py-2">Estrategia</th>
+              <th class="text-right py-2">pts/pick</th>
+              <th class="text-right py-2">ganador</th>
+              <th class="text-right py-2">exactos</th>
+              <th class="text-right py-2">picks</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in m.by_strategy %}
+            <tr class="border-b border-slate-800">
+              <td class="py-2 font-mono">{{ r.strategy }}</td>
+              <td class="py-2 text-right font-semibold">{{ r.ppp }}</td>
+              <td class="py-2 text-right text-slate-300">{{ r.win_pct }}%</td>
+              <td class="py-2 text-right text-slate-300">{{ r.exacts }}</td>
+              <td class="py-2 text-right text-slate-500">{{ r.picks }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </div>
-    <div class="bg-slate-900/40 rounded-lg p-3">
-      <div class="text-2xl font-bold text-slate-200">{{ q.picks_changed }}</div>
-      <div class="text-[11px] text-slate-500 mt-0.5">picks que el δ cambió · de {{ q.n_adjusted }}×15</div>
-      <div class="text-[11px] text-slate-600 mt-1 leading-relaxed">cuántas veces el ajuste movió lo que se juega. Con la correa en ±0.10 casi nunca cruza una frontera de decisión.</div>
+    {% endif %}
+
+    {# Capa 4 #}
+    {% set q = m.capa4 %}
+    <div class="border-t border-slate-700/50 pt-5">
+      <h3 class="text-sm uppercase tracking-wider text-slate-400 mb-1">Ajuste cualitativo (LLM · Capa 4)</h3>
+      <p class="text-xs text-slate-500 mb-3">Valor marginal del ajuste — el modelo con vs sin el LLM, sobre los {{ q.n_adjusted }} partidos donde ajustó.</p>
+      {% if q.n_adjusted and q.n_adjusted > 0 %}
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div class="bg-slate-900/40 rounded-lg p-3">
+          <div class="text-2xl font-bold {{ 'text-green-400' if q.logloss_sum > 0 else ('text-red-300' if q.logloss_sum < 0 else 'text-slate-300') }}">{% if q.logloss_sum > 0 %}+{% endif %}{{ q.logloss_sum }}</div>
+          <div class="text-[11px] text-slate-500 mt-0.5">calibración (Δ log-loss) · {{ q.ll_better }} mejoró / {{ q.ll_worse }} empeoró</div>
+        </div>
+        <div class="bg-slate-900/40 rounded-lg p-3">
+          <div class="text-2xl font-bold text-slate-200">{{ q.picks_changed }}</div>
+          <div class="text-[11px] text-slate-500 mt-0.5">picks que el δ cambió · de {{ q.n_adjusted }}×15</div>
+        </div>
+        <div class="bg-slate-900/40 rounded-lg p-3">
+          <div class="text-2xl font-bold {{ 'text-green-400' if q.dpoints > 0 else ('text-red-300' if q.dpoints < 0 else 'text-slate-300') }}">{% if q.dpoints > 0 %}+{% endif %}{{ q.dpoints }}</div>
+          <div class="text-[11px] text-slate-500 mt-0.5">Δ puntos (con vs sin Capa 4)</div>
+        </div>
+      </div>
+      <p class="text-[11px] text-slate-500 mt-3 leading-relaxed">A n={{ q.n_adjusted }} no hay señal concluyente — sirve para dirección. Como el ajuste rara vez cambia un pick, el dial es la <b>correa</b> (bound ±0.10 / β), no el prompt.</p>
+      {% else %}
+      <p class="text-xs text-slate-600">Todavía no hay partidos con ajuste no trivial del LLM.</p>
+      {% endif %}
     </div>
-    <div class="bg-slate-900/40 rounded-lg p-3">
-      <div class="text-2xl font-bold {{ 'text-green-400' if q.dpoints > 0 else ('text-red-300' if q.dpoints < 0 else 'text-slate-300') }}">{% if q.dpoints > 0 %}+{% endif %}{{ q.dpoints }}</div>
-      <div class="text-[11px] text-slate-500 mt-0.5">Δ puntos (con vs sin Capa 4)</div>
-      <div class="text-[11px] text-slate-600 mt-1 leading-relaxed">impacto real en puntos de penca. A esta altura suele venir de 1-2 partidos: leer con cuidado.</div>
-    </div>
+
   </div>
-  <p class="text-[11px] text-slate-500 mt-3 leading-relaxed">A n={{ q.n_adjusted }} no hay señal concluyente — sirve para dirección. Como el ajuste rara vez cambia un pick, el dial es la <b>correa</b> (bound ±0.10 / β), no el prompt.</p>
-  {% else %}
-  <p class="text-xs text-slate-600">Todavía no hay partidos con ajuste no trivial del LLM.</p>
-  {% endif %}
-</section>
+</details>
 
 {% endif %}
 {% endblock %}

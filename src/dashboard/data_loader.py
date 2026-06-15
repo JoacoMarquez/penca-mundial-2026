@@ -1120,24 +1120,28 @@ def _load_strategy_metrics_uncached() -> dict[str, Any]:
     # Palancas de ajuste: cada una con su condición de disparo y la acción sugerida.
     levers = [
         {
+            "key": "tailbet",
             "name": "Timing del tail-bet (β)",
             "when": 'sigue en "Sumando" con ≤16 partidos restantes',
             "triggered": tb.get("status") == "warn",
             "action": "bajar PENCA_HORIZON_BETA (hoy 2.0) para que arranque antes — con backtest",
         },
         {
+            "key": "draws",
             "name": "Cobertura de empates",
             "when": "racha de empates y cubrimos <20% de ellos",
             "triggered": draws.get("status") == "warn",
             "action": "subir la exposición a empates en la asignación — con backtest",
         },
         {
+            "key": "tail",
             "name": "¿Perdimos la cola?",
             "when": "la mejor penca cae > #30 de forma sostenida",
             "triggered": tail.get("status") == "alert",
             "action": "revisar modelo y asignación: estaríamos fuera de zona ganadora",
         },
         {
+            "key": "spread",
             "name": "¿Converge a chalk?",
             "when": "el spread interno colapsa hacia 0",
             "triggered": spread.get("status") == "alert",
@@ -1157,6 +1161,43 @@ def _load_strategy_metrics_uncached() -> dict[str, Any]:
         verdict = {"level": "ok", "headline": "Sin ajustes",
                    "sub": "la estrategia viene sana; dejar correr"}
 
+    # Una sola lista de señales: estado + significado + (si no está verde) qué hacer.
+    mo = sig.get("modal", {})
+    action_by_key = {lv["key"]: (lv["action"] if lv["triggered"] else None) for lv in levers}
+    _best = tail.get("best_rank")
+    health_rows = [
+        {
+            "name": "Cola ganadora", "status": tail.get("status", "info"),
+            "value": (f"#{_best} · top-10: {tail.get('in_top10', 0)}" if _best else "—"),
+            "meaning": "que al menos una penca pelee el 1° puesto",
+            "action": action_by_key.get("tail"),
+        },
+        {
+            "name": "Diversificación", "status": spread.get("status", "info"),
+            "value": f"spread {spread.get('value', 0)} pts",
+            "meaning": "las 15 bien distintas entre sí (si no, no hay apuesta de varianza)",
+            "action": action_by_key.get("spread"),
+        },
+        {
+            "name": "Tail-bet", "status": tb.get("status", "info"),
+            "value": ("A ganar" if tb.get("active") else "Sumando"),
+            "meaning": ("persiguiendo el corte" if tb.get("active") else "juntando puntos — esperado al principio"),
+            "action": action_by_key.get("tailbet"),
+        },
+        {
+            "name": "Favoritos del mercado", "status": mo.get("status", "info"),
+            "value": (f"{mo.get('winner_rate')}%" if mo.get("winner_rate") is not None else "—"),
+            "meaning": "qué seguido gana el favorito (bajo = más impredecible, nos conviene)",
+            "action": None,
+        },
+        {
+            "name": "Cobertura de empates", "status": draws.get("status", "info"),
+            "value": (f"{draws.get('coverage_pct')}%" if draws.get("coverage_pct") is not None else "—"),
+            "meaning": "de los empates que salieron, cuántos previmos",
+            "action": action_by_key.get("draws"),
+        },
+    ]
+
     return {
         "pool_size": pl.get("pool_size"),
         "median": pl.get("median_points"),
@@ -1165,6 +1206,7 @@ def _load_strategy_metrics_uncached() -> dict[str, Any]:
         "trajectory": pl.get("trajectory"),
         "verdict": verdict,
         "levers": levers,
+        "health_rows": health_rows,
         "by_strategy": diag["by_strategy"],
         "llm": diag["llm"],
         "n_matches": diag["n_matches"],
