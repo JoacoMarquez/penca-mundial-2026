@@ -793,6 +793,7 @@ def _strategy_signals(mine: list, ranked: list) -> dict:
     """
     my_ranks = sorted(i + 1 for i, _ in mine)
     my_pts = [e.get("points_total", 0) for _, e in mine]
+    my_ids = {int(e.get("penca_id", 0)) for _, e in mine}
     top_pts = ranked[0].get("points_total", 0) if ranked else 0
 
     # --- Señal 1: cola ganadora ---
@@ -854,7 +855,70 @@ def _strategy_signals(mine: list, ranked: list) -> dict:
         "status": tb_status,
     }
 
-    return {"tail": tail, "spread": spread_sig, "tailbet": tailbet}
+    secondary = _secondary_signals(my_ids)
+    return {
+        "tail": tail, "spread": spread_sig, "tailbet": tailbet,
+        "modal": secondary["modal"], "draws": secondary["draws"],
+    }
+
+
+def _secondary_signals(my_ids: set) -> dict:
+    """Señales de contexto (no son pasa/falla), leídas de los postmortems ya computados.
+
+        modal — qué tan seguido el resultado más probable del mercado le pega al ganador.
+                Bajo = torneo impredecible → la varianza nos conviene. Siempre informativo.
+        draws — en los partidos que terminaron empate, cuántas de nuestras picks lo previeron.
+                Cobertura baja con racha de empates = sesgo pro-favorito a revisar (warn).
+    """
+    pmdir = _data_dir() / "postmortems"
+    modal_n = modal_win = modal_exact = 0
+    draw_matches = draw_covered = draw_slots = 0
+    if pmdir.exists():
+        for f in pmdir.glob("*.json"):
+            if ".bak" in f.name:
+                continue
+            try:
+                pm = json.loads(f.read_text())
+            except Exception:
+                continue
+            ah, aa = pm.get("actual_home"), pm.get("actual_away")
+            if ah is None or aa is None:
+                continue
+            mm = pm.get("market_modal_score")
+            if mm and len(mm) == 2:
+                modal_n += 1
+                _w = lambda h, a: 0 if h > a else (1 if h == a else 2)
+                if _w(mm[0], mm[1]) == _w(ah, aa):
+                    modal_win += 1
+                if list(mm) == [ah, aa]:
+                    modal_exact += 1
+            if ah == aa:
+                ours = [r for r in pm.get("pencas_results", []) if int(r.get("penca_id", 0)) in my_ids]
+                if ours:
+                    draw_matches += 1
+                    draw_slots += len(ours)
+                    draw_covered += sum(
+                        1 for r in ours
+                        if (r.get("predicted_score") or [0, 1])[0] == (r.get("predicted_score") or [0, 1])[1]
+                    )
+
+    modal_rate = round(100 * modal_win / modal_n) if modal_n else None
+    modal = {
+        "n": modal_n,
+        "winner_hits": modal_win,
+        "exact_hits": modal_exact,
+        "winner_rate": modal_rate,
+        "status": "info",  # contexto puro: bajo es bueno para nosotros, no es alarma
+    }
+
+    cov_pct = round(100 * draw_covered / draw_slots) if draw_slots else None
+    draws = {
+        "n_draws": draw_matches,
+        "coverage_pct": cov_pct,
+        "avg_per_match": round(draw_covered / draw_matches, 1) if draw_matches else None,
+        "status": "warn" if (draw_matches >= 4 and cov_pct is not None and cov_pct < 20) else "info",
+    }
+    return {"modal": modal, "draws": draws}
 
 
 # ---------- detalle por penca ----------
