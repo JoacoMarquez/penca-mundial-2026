@@ -39,6 +39,76 @@
   {% endif %}
 </section>
 
+{# ===== De un vistazo (visual) ===== #}
+{% if m.gap_gauge or m.traj_chart or m.distribution %}
+<section class="bg-slate-800 rounded-xl p-5 shadow mb-5 space-y-5">
+  <h2 class="text-sm uppercase tracking-wider text-slate-400">📊 De un vistazo</h2>
+
+  {# --- Distancia al líder (gauge) --- #}
+  {% if m.gap_gauge %}{% set g = m.gap_gauge %}
+  <div>
+    <div class="flex items-baseline justify-between mb-1.5">
+      <span class="text-xs uppercase tracking-wider text-slate-500">Distancia al líder</span>
+      <span class="text-xs">{% if g.gap <= 0 %}<b class="text-green-400">lideramos el pool 🏆</b>{% else %}a <b class="text-amber-300">{{ g.gap }}pt{{ 's' if g.gap != 1 else '' }}</b> del 1°{% endif %}</span>
+    </div>
+    <div class="relative h-7 bg-slate-900/60 rounded-full overflow-hidden">
+      <div class="absolute inset-y-0 left-0 bg-emerald-500/25" style="width: {{ g.our_pct }}%"></div>
+      <div class="absolute inset-y-0 w-px bg-slate-400/80" style="left: {{ g.median_pct }}%"></div>
+      <div class="absolute inset-y-0 w-1 bg-emerald-400 rounded" style="left: calc({{ g.our_pct }}% - 2px)"></div>
+    </div>
+    <div class="flex flex-wrap gap-x-4 gap-y-1 text-[11px] mt-1.5">
+      <span class="text-emerald-300">● nuestra mejor {{ g.our_best }}pts{% if g.rank %} (#{{ g.rank }}){% endif %}</span>
+      <span class="text-slate-400">● mediana {{ g.median }}pts</span>
+      <span class="text-indigo-300">● líder {{ g.leader }}pts</span>
+    </div>
+  </div>
+  {% endif %}
+
+  {# --- Trayectoria (sparkline) --- #}
+  {% if m.traj_chart %}{% set tc = m.traj_chart %}
+  <div>
+    <div class="flex items-baseline justify-between flex-wrap gap-2 mb-1.5">
+      <span class="text-xs uppercase tracking-wider text-slate-500">Trayectoria · {{ tc.n }} jornadas</span>
+      <span class="flex gap-3 text-[11px]">
+        <span class="text-indigo-300">● líder</span>
+        <span class="text-slate-400">● mediana</span>
+        <span class="text-emerald-300">● nuestra mejor</span>
+      </span>
+    </div>
+    <svg viewBox="0 0 {{ tc.w }} {{ tc.h }}" class="w-full h-auto" role="img" aria-label="Trayectoria de puntos por jornada">
+      <polyline fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="3 3" points="{{ tc.median }}"/>
+      <polyline fill="none" stroke="#818cf8" stroke-width="2" points="{{ tc.top }}"/>
+      <polyline fill="none" stroke="#34d399" stroke-width="2" points="{{ tc.our }}"/>
+      {% if tc.top_end %}<circle cx="{{ tc.top_end.x }}" cy="{{ tc.top_end.y }}" r="2.6" fill="#818cf8"/>{% endif %}
+      {% if tc.our_end %}<circle cx="{{ tc.our_end.x }}" cy="{{ tc.our_end.y }}" r="2.6" fill="#34d399"/>{% endif %}
+    </svg>
+    <div class="text-[11px] text-slate-600 mt-0.5">rango {{ tc.ymin }}–{{ tc.ymax }}pts</div>
+  </div>
+  {% else %}
+  <p class="text-xs text-slate-600">La trayectoria aparece cuando haya snapshots de ≥2 jornadas.</p>
+  {% endif %}
+
+  {# --- Distribución del pool (compacta) --- #}
+  {% if m.distribution %}
+  <div>
+    <div class="text-xs uppercase tracking-wider text-slate-500 mb-2">Distribución del pool · <span class="text-emerald-300">★ = nuestras pencas</span></div>
+    <div class="space-y-1">
+      {% for d in m.distribution %}
+      <div class="flex items-center gap-2 text-xs">
+        <span class="w-10 text-right font-mono {{ 'text-emerald-300 font-semibold' if d.mine else 'text-slate-400' }}">{{ d.points }}</span>
+        <div class="flex-1 h-3.5 bg-slate-900/50 rounded overflow-hidden">
+          <div class="h-full {{ 'bg-emerald-500/80' if d.mine else 'bg-indigo-500/60' }}" style="width: {{ d.bar_pct }}%"></div>
+        </div>
+        <span class="w-20 text-slate-500 text-right">{{ d.count }} · {{ d.pct }}%</span>
+        <span class="w-9 text-emerald-300 font-semibold text-right">{% if d.mine %}★{{ d.mine }}{% endif %}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</section>
+{% endif %}
+
 {# ===== Señales (lista única: estado · significado · qué hacer) ===== #}
 {% set rc = {
   'ok':    {'dot':'bg-green-400','row':'bg-slate-800 border-slate-700/40'},
