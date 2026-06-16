@@ -90,8 +90,10 @@
   </div>
 </details>
 
-{# Señales a revisar (info edge) #}
-{% if d.info_edge_flags %}
+{# Señales a revisar (info edge). En Próximo partido (is_next) solo se muestra
+   si el análisis LLM efectivamente cambió algún pick. #}
+{% set llm_changed_picks = m.llm_impact and m.llm_impact.ran and m.llm_impact.n_changed and m.llm_impact.n_changed > 0 %}
+{% if d.info_edge_flags and (not is_next or llm_changed_picks) %}
 <section class="bg-amber-900/20 border border-amber-700/40 rounded-xl p-4 shadow mb-5">
   <h2 class="text-sm uppercase tracking-wider text-amber-300 mb-2">⚠️ Señales a revisar</h2>
   <ul class="space-y-1.5 text-xs text-amber-200">
