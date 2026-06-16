@@ -1114,6 +1114,101 @@ def _secondary_signals(my_ids: set) -> dict:
     return {"modal": modal, "draws": draws}
 
 
+def _publication_signal() -> dict:
+    """¿Las picks de los próximos partidos están REALMENTE cargadas en el pool?
+
+    Clave: no alcanza con `published == True`. Bajo DRY_RUN el NullPublisher marca
+    published=True sin tocar la API (loguea y nada más). Por eso cruzamos el flag del
+    archivo con el MODO real de publicación (DRY_RUN / API configurada). Una pick que no
+    llegó al pool = 0 fijo en esa penca.
+    """
+    import yaml
+    dry_run = os.environ.get("DRY_RUN", "true").lower() == "true"
+    has_api = bool(os.environ.get("PENCA_API_BASE_URL") and os.environ.get("PENCA_API_KEY"))
+    real = (not dry_run) and has_api  # ¿publicamos de verdad?
+
+    now = datetime.now(timezone.utc)
+    horizon = now + timedelta(hours=24)
+    try:
+        fixtures_path = Path(__file__).resolve().parents[2] / "config" / "fixtures.yaml"
+        fixtures = yaml.safe_load(fixtures_path.read_text()) or {}
+    except Exception:
+        fixtures = {}
+    all_matches = (fixtures.get("fase_grupos") or []) + (fixtures.get("eliminatorias") or [])
+
+    upcoming = []
+    for mm in all_matches:
+        ko_raw = mm.get("kickoff_utc")
+        if not ko_raw:
+            continue
+        try:
+            ko = datetime.fromisoformat(str(ko_raw).replace("Z", "+00:00"))
+        except Exception:
+            continue
+        if not (now < ko <= horizon):
+            continue
+        pred = _load_latest_prediction(mm["id"])
+        published = pred.get("published") if pred else None
+        upcoming.append({
+            "match_id": mm["id"],
+            "label": f'{mm.get("home_name") or mm.get("home", "?")} vs {mm.get("away_name") or mm.get("away", "?")}',
+            "hours_to": (ko - now).total_seconds() / 3600,
+            "published": published,
+            "real_pub": bool(real and published is True),  # existe DE VERDAD en el pool
+        })
+    upcoming.sort(key=lambda u: u["hours_to"])
+    n = len(upcoming)
+    n_real = sum(1 for u in upcoming if u["real_pub"])
+
+    if not real:
+        why = "DRY_RUN está activo" if dry_run else "la API del pool no está configurada"
+        if n == 0:
+            status, reason = "info", (
+                f"Modo prueba: {why}, así que las picks no se cargan en el pool (solo se loguean). "
+                f"No hay partidos en las próximas 24h, pero ojo cuando los haya.")
+        else:
+            imminent = any(u["hours_to"] <= 0.5 for u in upcoming)
+            status = "alert" if imminent else "warn"
+            reason = (
+                f"Modo prueba: {why}. Hay {n} partido(s) en 24h y las picks NO están llegando al pool, "
+                f"aunque el sistema las marque como «publicadas». "
+                f"{'Uno arranca en menos de 30min. ' if imminent else ''}"
+                f"Para jugar de verdad: DRY_RUN=false y la API configurada.")
+    else:
+        blocked = [u for u in upcoming if u["published"] is False]
+        missing_late = [u for u in upcoming if u["published"] is not True and u["hours_to"] <= 3]
+        imminent_bad = [u for u in upcoming if not u["real_pub"] and u["hours_to"] <= 0.5]
+        if imminent_bad or any(u["hours_to"] <= 1.5 for u in blocked):
+            status, reason = "alert", (
+                "Hay picks sin confirmar en el pool con el partido encima. Reintentá la pasada del "
+                "partido afectado ya.")
+        elif blocked or missing_late:
+            status, reason = "warn", (
+                "Falta confirmar la publicación de algún partido próximo (puede que la pasada tardía "
+                "no haya corrido). Revisá antes del kickoff.")
+        elif n == 0:
+            status, reason = "ok", "Publicando de verdad. No hay partidos en las próximas 24h."
+        else:
+            status, reason = "ok", (
+                f"Publicando de verdad: las {n} pick(s) de las próximas 24h están cargadas en el pool.")
+
+    if not real:
+        value = "Modo prueba"
+    elif status == "ok":
+        value = "Al día" if n else "Sin partidos"
+    elif status == "alert":
+        value = "¡Sin cargar!"
+    else:
+        value = "Revisar"
+
+    return {
+        "status": status, "value": value, "reason": reason,
+        "real": real, "dry_run": dry_run, "has_api": has_api,
+        "n_upcoming": n, "n_real": n_real,
+        "next": upcoming[0] if upcoming else None,
+    }
+
+
 def _strategy_diagnostics(my_ids: set) -> dict:
     """Rendimiento por estrategia y utilidad del ajuste LLM (Capa 4), desde postmortems."""
     from collections import Counter, defaultdict
@@ -1342,8 +1437,11 @@ def _load_strategy_metrics_uncached() -> dict[str, Any]:
         },
     ]
 
-    urgent = "alert" in (tail.get("status"), spread.get("status"), tb.get("status"))
+    pub = _publication_signal()
+    urgent = "alert" in (pub.get("status"), tail.get("status"), spread.get("status"), tb.get("status"))
     triggered = [lv["name"] for lv in levers if lv["triggered"]]
+    if pub.get("status") == "warn":
+        triggered = ["Publicación de picks"] + triggered
     if urgent:
         verdict = {"level": "alert", "headline": "Hay que ajustar",
                    "sub": "una señal principal está en alerta"}
@@ -1370,7 +1468,40 @@ def _load_strategy_metrics_uncached() -> dict[str, Any]:
             return None
         return {"pct": max(0, min(100, round(pct))), "status": status}
 
+    if pub.get("real"):
+        pub_mode = "Publicando de verdad"
+    elif pub.get("dry_run"):
+        pub_mode = "Prueba (DRY_RUN activo)"
+    else:
+        pub_mode = "API sin configurar"
+    pub_next = pub.get("next")
+    pub_action = None
+    if pub.get("status") in ("warn", "alert"):
+        pub_action = ("Poné DRY_RUN=false y verificá la API del pool en /etc/penca/env."
+                      if not pub.get("real")
+                      else "Reintentá la pasada del partido afectado antes del kickoff.")
+
     health_rows = [
+        {
+            "key": "pub", "name": "Publicación de picks", "status": pub.get("status", "info"),
+            "value": pub.get("value", "—"),
+            "meaning": "que las picks lleguen de verdad al pool (no solo guardadas en disco)",
+            "action": pub_action,
+            "reason": pub.get("reason"),
+            "bar": _bar(100 * pub["n_real"] / pub["n_upcoming"] if pub.get("n_upcoming") else None,
+                        pub.get("status", "info")),
+            "stats": [
+                _st("Modo", pub_mode),
+                _st("Partidos en 24h", f"{pub.get('n_upcoming', 0)}"),
+                _st("Picks cargadas en el pool", f"{pub.get('n_real', 0)} / {pub.get('n_upcoming', 0)}"),
+                _st("Próximo", f"{pub_next['label']} (en {pub_next['hours_to']:.0f}h)" if pub_next else "—"),
+            ],
+            "note": "Una pick que no llega al pool antes del kickoff = 0 fijo en esa penca. Ojo: bajo "
+                    "DRY_RUN el sistema marca «publicado» sin cargar nada — por eso acá cruzamos el "
+                    "flag con el modo real (DRY_RUN / API).",
+            "rule": "OK: publicando de verdad y las picks de 24h cargadas. Vigilar: modo prueba con "
+                    "partidos próximos, o falta confirmar alguna. Alerta: partido en <30min sin pick real.",
+        },
         {
             "key": "tail", "name": "Cola ganadora", "status": tail.get("status", "info"),
             "value": (f"#{_best} · top-10: {tail.get('in_top10', 0)}" if _best else "—"),
