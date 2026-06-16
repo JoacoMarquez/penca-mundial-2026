@@ -5,6 +5,48 @@
 {% block content %}
 {% set strategy_emoji = {'ev':'🎯', 'differentiated':'📊', 'tail':'⚡', 'upset':'😲', 'variance':'📈'} %}
 {% set strategy_label = {'ev':'Favorito', 'differentiated':'Diferencial', 'tail':'Goles', 'upset':'Sorpresa', 'variance':'Varianza'} %}
+
+{# ---- Partido EN JUEGO (status live): picks + puntos provisionales ---- #}
+{% if data.live %}
+{% set lv = data.live %}
+<section class="bg-gradient-to-br from-red-900/40 to-slate-800 border border-red-700/40 rounded-xl p-5 mb-5">
+  <div class="flex items-center justify-between mb-1">
+    <span class="text-xs uppercase tracking-wider text-red-300 flex items-center gap-2"><span class="inline-block w-2 h-2 rounded-full bg-red-400"></span>En juego ahora</span>
+    <a href="/dash/{{ token }}/match/{{ lv.match_id }}/" class="text-xs text-indigo-300 hover:underline">ver detalle &rarr;</a>
+  </div>
+  <h2 class="text-xl lg:text-3xl font-bold">
+    {{ lv.home }}
+    {% if lv.has_score %}<span class="text-red-300 mx-1">{{ lv.home_score }}-{{ lv.away_score }}</span>{% else %}<span class="text-slate-500 text-lg mx-1">vs</span>{% endif %}
+    {{ lv.away }}
+  </h2>
+  <div class="text-xs text-slate-400 mt-1">{% if lv.group %}Grupo {{ lv.group }} · {% endif %}{{ lv.total_pencas }} picks nuestras</div>
+
+  {% if lv.has_score %}
+  <div class="mt-3 flex flex-wrap gap-2 text-sm">
+    <span class="bg-slate-900/50 rounded-lg px-3 py-1.5">Si termina así → mejor penca <b class="text-green-400">{{ lv.best_prov }} pts</b></span>
+    <span class="bg-slate-900/50 rounded-lg px-3 py-1.5"><b>{{ lv.n_scoring }}</b> de {{ lv.total_pencas }} puntuando</span>
+  </div>
+  {% else %}
+  <div class="mt-3 text-xs text-amber-200/80 bg-amber-900/15 rounded-lg px-3 py-2 leading-relaxed">⏳ En juego — la API todavía no publica el marcador en vivo. Cuando aparezca, acá ves los puntos provisionales de cada pick.</div>
+  {% endif %}
+
+  {% if lv.exposure %}
+  <div class="mt-3 space-y-1.5">
+    <div class="text-[10px] uppercase tracking-wider text-slate-500">{% if lv.has_score %}Nuestros marcadores (puntos si termina así){% else %}Nuestros marcadores{% endif %}</div>
+    {% for e in lv.exposure %}
+    <div class="flex items-center gap-3 bg-slate-900/40 rounded-lg px-3 py-2 text-sm">
+      <span class="font-bold text-lg w-16">{{ e.score.split('-')[0] }}<span class="text-slate-500 mx-1">-</span>{{ e.score.split('-')[1] }}</span>
+      <span class="text-slate-400">×{{ e.count }} penca{{ 's' if e.count != 1 else '' }}</span>
+      {% if e.prov_points is defined and e.prov_points is not none %}
+      <span class="ml-auto font-semibold {% if e.prov_points >= 6 %}text-green-400{% elif e.prov_points > 0 %}text-blue-300{% else %}text-slate-500{% endif %}">{{ e.prov_points }} pts</span>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>
+{% endif %}
+
 {% set nm = data.next %}
 
 {% if nm %}

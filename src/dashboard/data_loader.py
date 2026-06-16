@@ -128,6 +128,78 @@ def load_next_match_data() -> dict | None:
     return out
 
 
+def load_live_match_data() -> dict | None:
+    """Partido EN CURSO (status 'live'): nuestras picks + marcador en vivo (si la API lo da)
+    + puntos provisionales (si terminara ahora). Cache corto: el marcador puede cambiar.
+    """
+    return _cached("live_match", 15.0, _load_live_match_data_uncached)
+
+
+def _load_live_match_data_uncached() -> dict | None:
+    import httpx
+    base = os.environ.get("PENCA_API_BASE_URL", "").rstrip("/")
+    key = os.environ.get("PENCA_API_KEY", "")
+    if not base or not key:
+        return None
+    try:
+        with httpx.Client(timeout=8.0, headers={"Authorization": f"Bearer {key}"}) as c:
+            r = c.get(f"{base}/matches")
+        if r.status_code != 200:
+            return None
+        matches = r.json().get("matches", [])
+    except Exception:
+        return None
+    live = next((m for m in matches if m.get("status") == "live"), None)
+    if not live:
+        return None
+    mid = live["id"]
+    hs, as_ = live.get("home_score"), live.get("away_score")
+    has_score = hs is not None and as_ is not None
+    out: dict[str, Any] = {
+        "match_id": mid,
+        "home": (live.get("home_team") or {}).get("name", "?"),
+        "away": (live.get("away_team") or {}).get("name", "?"),
+        "group": live.get("group"),
+        "stage": live.get("stage"),
+        "kickoff_uy": _to_uy(live["kickoff_utc"]) if live.get("kickoff_utc") else None,
+        "home_score": hs,
+        "away_score": as_,
+        "has_score": has_score,
+        "picks": [],
+        "n_scoring": 0,
+        "best_prov": 0,
+    }
+    pred = _load_latest_prediction(mid)
+    if pred:
+        from src.model.poisson import jmlm_points
+        from collections import Counter
+        actual = (int(hs), int(as_)) if has_score else None
+        for a in pred.get("assignment", []):
+            sc = a.get("score", [0, 0])
+            row = {"penca_id": a.get("penca_id"), "objective": a.get("objective"), "score": sc}
+            if actual is not None:
+                row["prov_points"] = jmlm_points((int(sc[0]), int(sc[1])), actual)
+            out["picks"].append(row)
+        if actual is not None and out["picks"]:
+            out["n_scoring"] = sum(1 for p in out["picks"] if p.get("prov_points", 0) > 0)
+            out["best_prov"] = max((p.get("prov_points", 0) for p in out["picks"]), default=0)
+        # exposición por marcador (qué jugamos) + puntos provisionales por marcador
+        exp = Counter(f'{a["score"][0]}-{a["score"][1]}' for a in pred.get("assignment", []))
+        exposure = []
+        for s, c in sorted(exp.items(), key=lambda kv: -kv[1]):
+            row = {"score": s, "count": c}
+            if actual is not None:
+                gl, gv = s.split("-")
+                row["prov_points"] = jmlm_points((int(gl), int(gv)), actual)
+            exposure.append(row)
+        # con marcador, ordenar por puntos provisionales (lo que más suma primero)
+        if actual is not None:
+            exposure.sort(key=lambda r: (-r.get("prov_points", 0), -r["count"]))
+        out["exposure"] = exposure
+        out["total_pencas"] = len(pred.get("assignment", []))
+    return out
+
+
 def _load_latest_prediction(match_id: Any) -> dict | None:
     pdir = _data_dir() / "predictions" / str(match_id)
     if not pdir.exists():
