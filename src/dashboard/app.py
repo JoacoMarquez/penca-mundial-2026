@@ -20,6 +20,7 @@ from fastapi.templating import Jinja2Templates
 
 from src.dashboard.data_loader import (
     build_penca_labels,
+    load_live_match_data,
     load_match_detail,
     load_matches_by_day,
     load_my_pencas_standings,
@@ -57,6 +58,7 @@ def page_home(request: Request, token: str):
     nxt = load_next_match_data()
     detail = load_match_detail(nxt["match_id"]) if nxt else None
     data = {
+        "live": load_live_match_data(),
         "next": nxt,
         "match": detail,
         "health": load_system_health(),
