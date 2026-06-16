@@ -906,31 +906,73 @@ def _strategy_signals(mine: list, ranked: list) -> dict:
     }
 
     # --- Señal 3: tail-bet (objetivo del optimizador) ---
-    import math
     nm = load_next_match_data() or {}
     meta = nm.get("assignment_meta") or {}
-    obj = meta.get("objective") or "—"
+    raw_obj = meta.get("objective")   # "p_top_k" | "e_max" | "e_max (P(top-K)=0)" | "none" | None
+    obj = raw_obj or "—"
+    threshold = meta.get("threshold")
     premium = meta.get("horizon_premium")
-    active = obj.startswith("p_top_k")
-    beta = 0.0
     try:
         beta = float(os.environ.get("PENCA_HORIZON_BETA", "2.0"))
     except ValueError:
         beta = 2.0
     remaining = round((premium / beta) ** 2) if (premium and beta) else None
-    if active:
-        tb_status = "ok"          # ya persigue el corte
-    elif remaining is not None and remaining <= 16:
-        tb_status = "warn"        # sigue en e_max cerca de/entrando a eliminatorias → revisar β
+    projected = (threshold + premium) if (threshold is not None and premium) else None
+
+    active = bool(raw_obj) and raw_obj.startswith("p_top_k")
+    fallback = bool(raw_obj) and raw_obj.startswith("e_max (P(top-K)=0)")
+    # "A ciegas": dice e_max pero NO por el fallback proyectado, sino porque ni siquiera
+    # tenemos el corte del pool (no se pudo leer de la API) → no puede perseguir el top-K.
+    blind = bool(raw_obj) and raw_obj.startswith("e_max") and not fallback and threshold is None
+    no_meta = (not meta) or raw_obj in (None, "none", "")
+
+    # Estado + explicación de POR QUÉ está como está (detecta que no cambió cuando debía).
+    if no_meta:
+        tb_status, reason = "alert", (
+            "No hay asignación para el próximo partido: el pipeline no generó picks "
+            "(o no hay próximo partido cargado). Revisá que las pasadas estén corriendo.")
+    elif blind:
+        tb_status, reason = "alert", (
+            "Está en «Sumando» pero NO porque sea temprano: no se pudo leer el corte del pool "
+            "desde la API, así que el optimizador no puede perseguir el top-K — vuela a ciegas. "
+            "Revisá la API del pool.")
+    elif active:
+        tb_status, reason = "ok", (
+            "Persiguiendo el corte: el corte proyectado ya es alcanzable en este partido, "
+            "así que arriesga para meter una penca arriba.")
+    elif fallback:
+        cut_txt = (f" El corte proyectado ({threshold}+{premium:.0f}={projected:.0f} pts)"
+                   if projected is not None else " El corte proyectado")
+        if remaining is not None and remaining <= 8:
+            tb_status, reason = "alert", (
+                f"Sigue en «Sumando» con solo ~{remaining} partidos restantes: a esta altura ya "
+                f"debería estar en «A ganar».{cut_txt} no baja lo suficiente — β={beta:g} está "
+                f"demasiado alto o el corte del pool no se actualiza. Revisalo.")
+        elif remaining is not None and remaining <= 16:
+            tb_status, reason = "warn", (
+                f"En «Sumando» con ~{remaining} partidos restantes (entrando a eliminatorias). "
+                f"Momento de evaluar bajar β (hoy {beta:g}) para que se ponga agresivo antes.")
+        else:
+            tb_status, reason = "info", (
+                f"En «Sumando» (esperado al principio).{cut_txt} es inalcanzable en un solo "
+                f"partido, así que junta puntos y diversifica. Pasa solo a «A ganar» cuando el "
+                f"premium del horizonte baje con las fechas.")
     else:
-        tb_status = "info"        # fallback e_max esperado al principio
+        tb_status, reason = "info", "Modo de objetivo del optimizador."
+
     tailbet = {
         "objective": obj,
         "active": active,
-        "threshold": meta.get("threshold"),
+        "fallback": fallback,
+        "blind": blind,
+        "no_meta": no_meta,
+        "threshold": threshold,
         "premium": round(premium, 1) if premium else premium,
+        "projected_cutoff": round(projected) if projected is not None else None,
+        "beta": beta,
         "matches_remaining": remaining,
         "next_match_id": nm.get("match_id"),
+        "reason": reason,
         "status": tb_status,
     }
 
@@ -1309,14 +1351,17 @@ def _load_strategy_metrics_uncached() -> dict[str, Any]:
             "value": ("A ganar" if tb.get("active") else "Sumando"),
             "meaning": ("persiguiendo el corte" if tb.get("active") else "juntando puntos — esperado al principio"),
             "action": action_by_key.get("tailbet"),
+            "reason": tb.get("reason"),
             "stats": [
                 _st("Modo", "A ganar (p_top_k)" if tb.get("active") else "Sumando (e_max)"),
-                _st("Corte del pool", f"{tb.get('threshold')} pts" if tb.get("threshold") is not None else "—"),
-                _st("Premium horizonte", f"{tb.get('premium')}" if tb.get("premium") is not None else "—"),
+                _st("Corte del pool (hoy)", f"{tb.get('threshold')} pts" if tb.get("threshold") is not None else "— sin dato"),
+                _st("Premium horizonte (β·√rest.)", f"+{tb.get('premium')}" if tb.get("premium") is not None else "—"),
+                _st("Corte proyectado", f"{tb.get('projected_cutoff')} pts" if tb.get("projected_cutoff") is not None else "—"),
+                _st("β (PENCA_HORIZON_BETA)", f"{tb.get('beta')}" if tb.get("beta") is not None else "—"),
                 _st("Partidos restantes (aprox)", f"~{tb.get('matches_remaining')}" if tb.get("matches_remaining") else "—"),
             ],
             "note": "Si el sistema todavía junta puntos sin arriesgar (Sumando) o ya juega a ganar el 1° puesto (A ganar). El cambio ocurre solo, cerca del final, cuando el corte proyectado se vuelve alcanzable en un partido.",
-            "rule": "Esperado: 'Sumando' al principio. A vigilar si sigue en 'Sumando' entrando a eliminatorias (~≤16 partidos) → ahí se baja β.",
+            "rule": "Esperado: 'Sumando' al principio. Vigilar si sigue en 'Sumando' con ~≤16 partidos (entrando a eliminatorias) → bajar β. Alerta si ~≤8 partidos y sigue 'Sumando', si no hay corte del pool, o si no hay asignación.",
         },
         {
             "key": "modal", "name": "Favoritos del mercado", "status": mo.get("status", "info"),
