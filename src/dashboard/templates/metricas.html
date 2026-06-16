@@ -88,6 +88,12 @@
         </div>
       </summary>
       <div class="px-4 pb-4 pt-3 border-t border-slate-700/40">
+        {% if r.reason %}
+        <div class="flex items-start gap-2 text-sm rounded-lg px-3 py-2 mb-3 {% if r.status == 'alert' %}bg-red-900/25 border border-red-700/40 text-red-100{% elif r.status == 'warn' %}bg-amber-900/20 border border-amber-700/40 text-amber-100{% else %}bg-slate-900/50 text-slate-300{% endif %}">
+          <span class="shrink-0">{{ '🛈' if r.status in ['info','ok'] else '⚠️' }}</span>
+          <span><span class="uppercase text-[10px] tracking-wider opacity-70 mr-1">por qué</span>{{ r.reason }}</span>
+        </div>
+        {% endif %}
         <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-1.5 text-sm">
           {% for st in r.stats %}
           <div class="flex justify-between gap-3">
