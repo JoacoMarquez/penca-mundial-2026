@@ -38,15 +38,15 @@
     {% if not lv.has_score %}
     <div class="text-xs text-amber-200/80 bg-amber-900/15 rounded-lg px-3 py-2 leading-relaxed mb-3">La API todavía no publica el marcador en vivo. Cuando aparezca, acá ves los puntos provisionales de cada pick.</div>
     {% endif %}
-    {% if lv.exposure %}
-    <div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">{% if lv.has_score %}Nuestros marcadores (puntos si termina así){% else %}Nuestros marcadores{% endif %}</div>
+    {% if lv.picks %}
+    <div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">Pronóstico de cada penca{% if lv.has_score %} · de más a menos pts{% endif %}</div>
     <div class="space-y-1.5">
-      {% for e in lv.exposure %}
+      {% for p in lv.picks %}
       <div class="flex items-center gap-3 bg-slate-900/40 rounded-lg px-3 py-2 text-sm">
-        <span class="font-bold text-lg w-16">{{ e.score.split('-')[0] }}<span class="text-slate-500 mx-1">-</span>{{ e.score.split('-')[1] }}</span>
-        <span class="text-slate-400">×{{ e.count }} penca{{ 's' if e.count != 1 else '' }}</span>
-        {% if e.prov_points is defined and e.prov_points is not none %}
-        <span class="ml-auto font-semibold {% if e.prov_points >= 6 %}text-green-400{% elif e.prov_points > 0 %}text-blue-300{% else %}text-slate-500{% endif %}">{{ e.prov_points }} pts</span>
+        <span class="text-slate-400 w-20">Penca {{ penca_labels.get(p.penca_id, p.penca_id) }}</span>
+        <span class="font-bold text-lg">{{ p.score[0] }}<span class="text-slate-500 mx-1">-</span>{{ p.score[1] }}</span>
+        {% if p.prov_points is defined and p.prov_points is not none %}
+        <span class="ml-auto font-semibold {% if p.prov_points >= 6 %}text-green-400{% elif p.prov_points > 0 %}text-blue-300{% else %}text-slate-500{% endif %}">{{ p.prov_points }} pts</span>
         {% endif %}
       </div>
       {% endfor %}

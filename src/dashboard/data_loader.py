@@ -183,6 +183,8 @@ def _load_live_match_data_uncached() -> dict | None:
         if actual is not None and out["picks"]:
             out["n_scoring"] = sum(1 for p in out["picks"] if p.get("prov_points", 0) > 0)
             out["best_prov"] = max((p.get("prov_points", 0) for p in out["picks"]), default=0)
+            # ordenar las picks de más a menos puntos provisionales (desempate por penca_id)
+            out["picks"].sort(key=lambda p: (-p.get("prov_points", 0), p.get("penca_id", 0)))
         # exposición por marcador (qué jugamos) + puntos provisionales por marcador
         exp = Counter(f'{a["score"][0]}-{a["score"][1]}' for a in pred.get("assignment", []))
         exposure = []
