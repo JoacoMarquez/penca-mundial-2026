@@ -2,11 +2,23 @@
    strategy_label, token, penca_labels. Incluido por match_detail.html y por index.html
    (Próximo) para mostrar exactamente la misma info. #}
 
+{# Estilo compartido de las cards colapsables (secciones) #}
+<style>
+  details.card > summary { list-style: none; }
+  details.card > summary::-webkit-details-marker { display: none; }
+  details.card .chev { transition: transform .15s ease; }
+  details.card[open] .chev { transform: rotate(90deg); }
+</style>
+
 {# ----------- Ficha del partido (dossier) ----------- #}
 {% set d = m.dossier %}
 {% if d %}
-<section class="bg-slate-800 rounded-xl p-5 shadow mb-5">
-  <h2 class="text-sm uppercase tracking-wider text-slate-400 mb-4">📋 Ficha del partido</h2>
+<details class="card bg-slate-800 rounded-xl shadow mb-5">
+  <summary class="cursor-pointer px-5 py-4 flex items-center justify-between gap-2">
+    <h2 class="text-sm uppercase tracking-wider text-slate-400">📋 Ficha del partido</h2>
+    <span class="chev text-slate-400 text-sm shrink-0">&#9656;</span>
+  </summary>
+  <div class="px-5 pb-5">
 
   {# Contexto: sede, altura, descanso, importancia #}
   <div class="flex flex-wrap gap-2 mb-4 text-xs">
@@ -75,7 +87,8 @@
   {% if d.sources_used %}
   <div class="mt-3 text-[11px] text-slate-600">Fuentes: {{ d.sources_used | join(' · ') }}</div>
   {% endif %}
-</section>
+  </div>
+</details>
 
 {# Señales a revisar (info edge) #}
 {% if d.info_edge_flags %}
@@ -97,9 +110,12 @@
 
 {# ----------- Exposición agregada ----------- #}
 {% if m.exposure %}
-<section class="bg-slate-800 rounded-xl p-5 shadow mb-5">
-  <h2 class="text-sm uppercase tracking-wider text-slate-400 mb-3">📋 Exposición — {{ m.total_pencas }} pencas</h2>
-  <div class="space-y-1.5">
+<details class="card bg-slate-800 rounded-xl shadow mb-5">
+  <summary class="cursor-pointer px-5 py-4 flex items-center justify-between gap-2">
+    <h2 class="text-sm uppercase tracking-wider text-slate-400">📋 Exposición — {{ m.total_pencas }} pencas</h2>
+    <span class="chev text-slate-400 text-sm shrink-0">&#9656;</span>
+  </summary>
+  <div class="px-5 pb-5 space-y-1.5">
     {% for e in m.exposure %}
     <div class="flex items-center gap-3 bg-slate-900/40 rounded-lg px-4 py-2.5">
       <span class="font-bold text-2xl w-20">{{ e.score.split('-')[0] }}<span class="text-slate-500 mx-1">-</span>{{ e.score.split('-')[1] }}</span>
@@ -111,25 +127,23 @@
     </div>
     {% endfor %}
   </div>
-</section>
+</details>
 {% endif %}
 
 {# ----------- Razón por penca ----------- #}
-<style>
-  details.pickcard > summary { list-style: none; }
-  details.pickcard > summary::-webkit-details-marker { display: none; }
-  details.pickcard .chev { transition: transform .15s ease; }
-  details.pickcard[open] .chev { transform: rotate(90deg); }
-</style>
-<section class="bg-slate-800 rounded-xl p-5 shadow mb-5">
-  <h2 class="text-sm uppercase tracking-wider text-slate-400 mb-1">🎯 Decisión por penca{% if m.total_pencas %} <span class="text-slate-500 normal-case font-normal">({{ m.total_pencas }})</span>{% endif %}</h2>
+<details class="card bg-slate-800 rounded-xl shadow mb-5">
+  <summary class="cursor-pointer px-5 py-4 flex items-center justify-between gap-2">
+    <h2 class="text-sm uppercase tracking-wider text-slate-400">🎯 Decisión por penca{% if m.total_pencas %} <span class="text-slate-500 normal-case font-normal">({{ m.total_pencas }})</span>{% endif %}</h2>
+    <span class="chev text-slate-400 text-sm shrink-0">&#9656;</span>
+  </summary>
+  <div class="px-5 pb-5">
   {% if m.latest_meta and m.latest_meta.objective == 'p_top_k' %}
   <p class="text-xs text-slate-500 mb-4">Objetivo: maximizar P(top-3) — actualmente {{ (m.latest_meta.p_top_k_value * 100) | round(1) }}% · cutoff {{ m.latest_meta.threshold }}pts</p>
   {% endif %}
   <div class="space-y-3">
     {% for p in m.current_pencas %}
-    <details class="pickcard bg-slate-900/40 rounded-lg p-4">
-      <summary class="cursor-pointer flex items-center justify-between flex-wrap gap-2">
+    <div class="bg-slate-900/40 rounded-lg p-4">
+      <div class="flex items-center justify-between flex-wrap gap-2">
         <div class="flex items-center gap-3">
           <span class="text-2xl">{{ strategy_emoji.get(p.objective, '•') }}</span>
           <div>
@@ -143,14 +157,11 @@
             </div>
           </div>
         </div>
-        <div class="flex items-center gap-3">
-          <div class="text-right">
-            <div class="text-3xl font-bold">{{ p.score[0] }}<span class="text-slate-500 mx-1">-</span>{{ p.score[1] }}</div>
-            {% if p.p_scoreline is not none %}<div class="text-xs text-slate-400 mt-0.5">P(marcador) {{ (p.p_scoreline * 100) | round(0, 'common') | int }}%</div>{% endif %}
-          </div>
-          <span class="chev text-slate-400 text-sm shrink-0">&#9656;</span>
+        <div class="text-right">
+          <div class="text-3xl font-bold">{{ p.score[0] }}<span class="text-slate-500 mx-1">-</span>{{ p.score[1] }}</div>
+          {% if p.p_scoreline is not none %}<div class="text-xs text-slate-400 mt-0.5">P(marcador) {{ (p.p_scoreline * 100) | round(0, 'common') | int }}%</div>{% endif %}
         </div>
-      </summary>
+      </div>
       <div class="mt-3 space-y-2 text-sm">
         <div class="text-slate-300">
           <span class="text-slate-500 text-xs uppercase tracking-wider mr-1">por qué esta estrategia:</span><br>
@@ -161,23 +172,28 @@
           {{ p.strategy_rationale }}
         </div>
       </div>
-    </details>
+    </div>
     {% endfor %}
   </div>
-</section>
+  </div>
+</details>
 
 {# ----------- Análisis LLM + impacto en el pick ----------- #}
 {% set li = m.llm_impact %}
 {% if li and li.ran %}
-<section class="bg-slate-800 rounded-xl p-5 shadow mb-5">
-  <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
+<details class="card bg-slate-800 rounded-xl shadow mb-5">
+  <summary class="cursor-pointer px-5 py-4 flex items-center justify-between flex-wrap gap-2">
     <h2 class="text-sm uppercase tracking-wider text-slate-400">🧠 Análisis LLM (Capa 4)</h2>
-    <div class="text-xs text-slate-400 font-mono">
-      ΔλL {{ "%+.2f"|format(li.delta_lambda_L or 0) }}
-      · ΔλV {{ "%+.2f"|format(li.delta_lambda_V or 0) }}
-      {% if li.confidence is not none %} · conf {{ "%.2f"|format(li.confidence) }}{% endif %}
+    <div class="flex items-center gap-3">
+      <div class="text-xs text-slate-400 font-mono">
+        ΔλL {{ "%+.2f"|format(li.delta_lambda_L or 0) }}
+        · ΔλV {{ "%+.2f"|format(li.delta_lambda_V or 0) }}
+        {% if li.confidence is not none %} · conf {{ "%.2f"|format(li.confidence) }}{% endif %}
+      </div>
+      <span class="chev text-slate-400 text-sm shrink-0">&#9656;</span>
     </div>
-  </div>
+  </summary>
+  <div class="px-5 pb-5">
   {% if li.reasoning %}<p class="text-sm text-slate-300 leading-relaxed mb-4">{{ li.reasoning }}</p>{% endif %}
 
   {# Veredicto: ¿cambió el pick? #}
@@ -226,7 +242,8 @@
     {% endfor %}
   </div>
   {% endif %}
-</section>
+  </div>
+</details>
 {% endif %}
 
 {# ----------- Timeline de pasadas + diffs ----------- #}
