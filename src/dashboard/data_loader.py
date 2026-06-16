@@ -649,6 +649,51 @@ def load_my_pencas_standings() -> dict[str, Any]:
     return _cached("standings", 30.0, _load_my_pencas_standings_uncached)
 
 
+def _last_match_points(my_ids: set) -> dict:
+    """Puntos que sacó cada penca nuestra en el ÚLTIMO partido jugado.
+
+    Toma el postmortem más reciente (por generated_at) y devuelve la info del partido
+    + un mapa penca_id → {points, predicted, is_exact, correct_winner}. {} si no hay.
+    """
+    pmdir = _data_dir() / "postmortems"
+    if not pmdir.exists():
+        return {}
+    latest = None
+    for f in pmdir.glob("*.json"):
+        if ".bak" in f.name:
+            continue
+        try:
+            pm = json.loads(f.read_text())
+        except Exception:
+            continue
+        if pm.get("actual_home") is None:
+            continue
+        ts = pm.get("generated_at", "")
+        if latest is None or ts > latest[0]:
+            latest = (ts, pm)
+    if latest is None:
+        return {}
+    pm = latest[1]
+    by_pid = {}
+    for r in pm.get("pencas_results", []):
+        pid = int(r.get("penca_id", 0))
+        if pid not in my_ids:
+            continue
+        ps = r.get("predicted_score") or [None, None]
+        by_pid[pid] = {
+            "points": r.get("points_earned", 0),
+            "predicted": f"{ps[0]}-{ps[1]}" if ps[0] is not None else None,
+            "is_exact": bool(r.get("is_exact")),
+            "correct_winner": bool(r.get("correct_winner")),
+        }
+    return {
+        "home": pm.get("home_team", "?"),
+        "away": pm.get("away_team", "?"),
+        "final_score": pm.get("final_score") or f'{pm.get("actual_home")}-{pm.get("actual_away")}',
+        "by_pid": by_pid,
+    }
+
+
 def _load_my_pencas_standings_uncached() -> dict[str, Any]:
     """Lee leaderboard real de la penca. Filtra mis pencas."""
     import httpx
@@ -697,8 +742,13 @@ def _load_my_pencas_standings_uncached() -> dict[str, Any]:
     if next_match:
         for a in next_match.get("assignment", []):
             strategy_by_pid[int(a["penca_id"])] = a["objective"]
+
+    # Puntos del último partido jugado, por penca
+    last = _last_match_points(my_ids)
+    last_by_pid = last.get("by_pid", {})
     for e in my_entries:
         e["next_strategy"] = strategy_by_pid.get(e["penca_id"])
+        e["last_match"] = last_by_pid.get(e["penca_id"])
 
     return {
         "pool_size": total_in_pool,
@@ -708,6 +758,8 @@ def _load_my_pencas_standings_uncached() -> dict[str, Any]:
             sorted_entries[len(sorted_entries) // 2].get("points_total", 0)
             if sorted_entries else 0
         ),
+        "last_match": ({"home": last["home"], "away": last["away"],
+                        "final_score": last["final_score"]} if last else None),
     }
 
 
