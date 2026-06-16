@@ -1349,28 +1349,33 @@ def _pool_fit_signal() -> dict:
 
 
 def _engine_cal_signal() -> dict:
-    """¿Nuestro pronóstico de los partidos es bueno — y le gana al mercado?
+    """¿El pronóstico 1X2 de NUESTRO motor es bueno — y le gana al mercado?
 
-    Por cada partido jugado compara la probabilidad que NUESTRO modelo le asignó al resultado
-    real (1X2) contra la que le daba el mercado (odds de-vigueadas). Número humano: prob
-    promedio asignada a lo que pasó (más alta = más afilado; 33% = azar). Suma el sesgo de
-    goles (E[goles] del motor vs goles reales), que deforma los marcadores exactos y de dif.
-    Es el escalón más upstream: el grid del motor alimenta TODO lo demás (incluido el pool).
+    Reconstruye el 1X2 REAL del motor desde los λ persistidos (post-Capa4) — NO usa
+    constraints.p_home/p_draw/p_away, que es el mercado de-vigueado, no el motor — y lo compara
+    contra el mercado con la misma vara, por LOG-LOSS (regla de scoring propia, no engañable por
+    exceso de confianza). Número humano: prob promedio asignada al resultado real (motor vs
+    mercado vs 33% azar). Suma el sesgo de goles del motor (E[goles] vs goles reales), robusto
+    (mediana, insensible a goleadas). Es el escalón más upstream: el grid alimenta todo.
     """
     try:
         from src.model.market_probs import devig
+        from src.model.poisson import score_grid, marginals
     except Exception as e:
-        return {"status": "info", "available": False, "reason": f"market_probs no disponible: {e}"}
+        return {"status": "info", "available": False, "reason": f"módulos del modelo no disponibles: {e}"}
 
     pmdir = _data_dir() / "postmortems"
     if not pmdir.exists():
         return {"status": "info", "available": False, "reason": "Sin partidos jugados todavía."}
 
+    import math as _math
+
     def _wc(h, a):
         return 0 if h > a else (1 if h == a else 2)
 
-    our_ps, mkt_ps, gbias = [], [], []
     n = 0
+    paired = []   # partidos con odds: (our_p_real, mkt_p_real, our_logloss, mkt_logloss)
+    gbias = []
     for f in pmdir.glob("*.json"):
         if ".bak" in f.name:
             continue
@@ -1385,50 +1390,69 @@ def _engine_cal_signal() -> dict:
         if not pred:
             continue
         c = pred.get("constraints") or {}
-        ph, pdr, pa = c.get("p_home"), c.get("p_draw"), c.get("p_away")
-        if ph is None or pdr is None or pa is None:
+        lL, lV = c.get("lambda_L"), c.get("lambda_V")
+        if lL is None or lV is None:
             continue
         n += 1
         k = _wc(ah, aa)
-        our_ps.append([ph, pdr, pa][k])
         egl, egv = c.get("e_goals_L"), c.get("e_goals_V")
         if egl is not None and egv is not None:
             gbias.append((egl + egv) - (ah + aa))
+        # 1X2 REAL del motor desde los λ (post-Capa4) — mismo patrón que _capa4_eval
+        try:
+            mg = marginals(score_grid(lL, lV, c.get("lambda_12", 0.1), max_goals=7))
+            our = [mg.p_home_win, mg.p_draw, mg.p_away_win]
+        except Exception:
+            continue
         ob = (pred.get("odds_snapshot") or {}).get("odds_by_book") or {}
         odds1x2 = ((ob.get("pinnacle") or ob.get("odds_api_consensus") or {}).get("1x2")) or {}
-        if all(x in odds1x2 for x in ("H", "D", "A")):
-            try:
-                mp = devig({"H": odds1x2["H"], "D": odds1x2["D"], "A": odds1x2["A"]}, "proportional")
-                mkt_ps.append([mp["H"], mp["D"], mp["A"]][k])
-            except Exception:
-                pass
+        if not all(x in odds1x2 for x in ("H", "D", "A")):
+            continue
+        try:
+            mp = devig({"H": odds1x2["H"], "D": odds1x2["D"], "A": odds1x2["A"]}, "proportional")
+            mkt = [mp["H"], mp["D"], mp["A"]]
+        except Exception:
+            continue
+        eps = 1e-12
+        paired.append((our[k], mkt[k], -_math.log(max(our[k], eps)), -_math.log(max(mkt[k], eps))))
 
     if n == 0:
         return {"status": "info", "available": False,
                 "reason": "Sin partidos con predicción para evaluar el motor."}
 
-    our_avg = sum(our_ps) / len(our_ps)
-    mkt_avg = (sum(mkt_ps) / len(mkt_ps)) if mkt_ps else None
-    bias = (sum(gbias) / len(gbias)) if gbias else None
-    mae = (sum(abs(x) for x in gbias) / len(gbias)) if gbias else None
-    gap = (our_avg - mkt_avg) if mkt_avg is not None else None
-    FLAGS_MIN = 8
+    # sesgo de goles ROBUSTO (mediana — el promedio se va con las goleadas)
+    bias = mae = None
+    if gbias:
+        srt = sorted(gbias)
+        m = len(srt)
+        bias = srt[m // 2] if m % 2 else (srt[m // 2 - 1] + srt[m // 2]) / 2
+        mae = sum(abs(x) for x in gbias) / m
 
-    if mkt_avg is None:
+    n_market = len(paired)
+    our_avg = mkt_avg = our_ll = mkt_ll = skill = None
+    if paired:
+        our_avg = sum(p[0] for p in paired) / n_market
+        mkt_avg = sum(p[1] for p in paired) / n_market
+        our_ll = sum(p[2] for p in paired) / n_market
+        mkt_ll = sum(p[3] for p in paired) / n_market
+        skill = mkt_ll - our_ll   # + = motor calibra mejor (menor log-loss) que el mercado
+
+    FLAGS_MIN = 8
+    # vs mercado por log-loss (regla propia). Igualar al mercado YA es muy bueno.
+    if skill is None:
         mkt_status = "info"
-    elif our_avg <= 1 / 3 + 0.01:
-        mkt_status = "alert"
-    elif gap <= -0.05:
-        mkt_status = "alert"
-    elif gap <= -0.02:
+    elif skill >= -0.01:
+        mkt_status = "ok"
+    elif skill >= -0.05:
         mkt_status = "warn"
     else:
-        mkt_status = "ok"
+        mkt_status = "alert"
+    # sesgo de goles robusto, banda ancha (muestra chica + cola de goleadas)
     if bias is None:
         bias_status = "info"
-    elif abs(bias) > 0.5:
+    elif abs(bias) > 1.0:
         bias_status = "alert"
-    elif abs(bias) > 0.25:
+    elif abs(bias) > 0.6:
         bias_status = "warn"
     else:
         bias_status = "ok"
@@ -1436,38 +1460,38 @@ def _engine_cal_signal() -> dict:
     order = {"info": 0, "ok": 0, "warn": 1, "alert": 2}
     status = "info" if n < FLAGS_MIN else max([mkt_status, bias_status], key=lambda s: order[s])
 
-    ourp = round(our_avg * 100)
+    ourp = round(our_avg * 100) if our_avg is not None else None
     mktp = round(mkt_avg * 100) if mkt_avg is not None else None
     bias_txt = ""
-    if bias is not None and abs(bias) >= 0.25:
-        bias_txt = (f" Además tiramos {bias:+.1f} goles {'de más' if bias > 0 else 'de menos'} en "
-                    f"promedio, lo que deforma los marcadores exactos y de diferencia.")
+    if bias is not None and abs(bias) > 0.6:
+        bias_txt = (f" Además el motor tira {abs(bias):.1f} goles {'de más' if bias > 0 else 'de menos'} "
+                    f"(mediana), lo que deforma los marcadores exactos y de diferencia.")
 
     if n < FLAGS_MIN:
-        reason = (f"Motor en rodaje: {n} partido(s) evaluado(s) (saco conclusiones con {FLAGS_MIN}+). "
-                  f"Por ahora le asignamos en promedio {ourp}% a lo que pasó"
-                  + (f", vs {mktp}% del mercado." if mktp is not None else "."))
+        reason = (f"Motor en rodaje: {n} partido(s) (saco conclusiones con {FLAGS_MIN}+)."
+                  + (f" Por ahora calibra como el mercado (log-loss {our_ll:.2f} vs {mkt_ll:.2f})." if our_ll is not None else ""))
     elif status == "alert" and mkt_status == "alert":
-        reason = (f"El motor le está perdiendo al mercado: le asignamos {ourp}% a lo que pasó vs {mktp}% "
-                  f"del mercado. Conviene arrimar los λ al mercado (más peso a Capa 1) y revisar Capa 2/4 "
-                  f"— siempre con backtest.{bias_txt}")
+        reason = (f"El motor calibra claramente peor que el mercado (log-loss {our_ll:.2f} vs {mkt_ll:.2f}). "
+                  f"Conviene arrimar los λ al mercado (más peso a Capa 1) y revisar Capa 2/4 — con backtest.{bias_txt}")
     elif status == "alert":
-        reason = (f"Sesgo de goles grande ({bias:+.1f} en promedio): deforma los marcadores exactos y de "
-                  f"diferencia. Revisá los λ del motor — con backtest. Prob a lo que pasó: {ourp}%"
-                  + (f" vs {mktp}% mercado." if mktp is not None else "."))
+        reason = (f"Sesgo de goles grande ({abs(bias):.1f} {'de más' if bias > 0 else 'de menos'}, mediana): "
+                  f"deforma exactos y diferencia. Revisá los λ del motor — con backtest.")
     elif status == "warn":
-        reason = (f"A vigilar: el motor anda algo por debajo del mercado o con sesgo de goles. Le asignamos "
-                  f"{ourp}% a lo que pasó" + (f" vs {mktp}% del mercado." if mktp is not None else ".") + bias_txt)
+        reason = (f"A vigilar: el motor calibra algo por debajo del mercado (log-loss {our_ll:.2f} vs {mkt_ll:.2f})"
+                  f" o con sesgo de goles.{bias_txt}")
     else:
-        reason = (f"Motor afilado: le asignamos en promedio {ourp}% a lo que pasó"
-                  + (f", {'mejor que' if (gap or 0) >= 0 else 'en línea con'} el mercado ({mktp}%)" if mktp is not None else "")
-                  + f" y muy por encima del azar (33%).{bias_txt}")
+        cmp = "mejor que" if (skill or 0) > 0.005 else "en línea con"
+        reason = (f"Motor sano: calibra {cmp} el mercado"
+                  + (f" (le asigna {ourp}% al resultado real vs {mktp}% el mercado; log-loss {our_ll:.2f} vs {mkt_ll:.2f})" if our_ll is not None else "")
+                  + f". 33% sería azar.{bias_txt}")
 
     return {
         "status": status, "available": True, "reason": reason,
-        "n": n, "n_market": len(mkt_ps),
+        "n": n, "n_market": n_market,
         "our_pct": ourp, "market_pct": mktp,
-        "gap_pp": (round(gap * 100) if gap is not None else None),
+        "skill": (round(skill, 3) if skill is not None else None),
+        "our_ll": (round(our_ll, 3) if our_ll is not None else None),
+        "mkt_ll": (round(mkt_ll, 3) if mkt_ll is not None else None),
         "bias": (round(bias, 2) if bias is not None else None),
         "mae": (round(mae, 2) if mae is not None else None),
     }
@@ -1767,13 +1791,17 @@ def _load_strategy_metrics_uncached() -> dict[str, Any]:
     elif pf.get("status") == "warn":
         pf_action = "Vigilar; si el residuo sigue subiendo, recalibrá el pool."
 
+    _ec_skill = ec.get("skill")
     if not ec.get("available"):
         ec_value = "Sin datos"
-    elif ec.get("market_pct") is None:
-        ec_value = f"{ec.get('our_pct')}% (sin mercado)"
+    elif _ec_skill is None:
+        ec_value = "Sin mercado"
+    elif _ec_skill > 0.005:
+        ec_value = "Mejor que el mercado"
+    elif _ec_skill < -0.01:
+        ec_value = "Peor que el mercado"
     else:
-        g = ec.get("gap_pp") or 0
-        ec_value = f"{'+' if g >= 0 else '−'}{abs(g)}pp vs mercado"
+        ec_value = "≈ mercado"
     ec_action = None
     if ec.get("status") == "alert":
         ec_action = ("Arrimá los λ al mercado (más peso a Capa 1) y revisá Capa 2/4 o el sesgo de "
@@ -1909,23 +1937,24 @@ def _load_strategy_metrics_uncached() -> dict[str, Any]:
         {
             "key": "enginecal", "name": "Calibración del motor", "status": ec.get("status", "info"),
             "value": (ec_value),
-            "meaning": "que nuestro pronóstico de los partidos sea bueno y le gane al mercado (es el insumo de todo)",
+            "meaning": "que el 1X2 de nuestro motor calibre tan bien o mejor que el mercado (es el insumo de todo)",
             "action": ec_action,
             "reason": ec.get("reason"),
             "stats": ([
-                _st("Prob. a lo que pasó (nosotros)", f"{ec.get('our_pct')}%"),
-                _st("Mercado (de-vig)", f"{ec.get('market_pct')}%" if ec.get("market_pct") is not None else "— sin odds"),
-                _st("Azar", "33%"),
-                _st("Sesgo de goles", f"{ec.get('bias'):+.2f} (MAE {ec.get('mae')})" if ec.get("bias") is not None else "—"),
+                _st("Prob. a lo que pasó — motor", f"{ec.get('our_pct')}%" if ec.get("our_pct") is not None else "—"),
+                _st("Prob. a lo que pasó — mercado", f"{ec.get('market_pct')}%" if ec.get("market_pct") is not None else "—"),
+                _st("Log-loss motor vs mercado", f"{ec.get('our_ll')} vs {ec.get('mkt_ll')} (menor = mejor)" if ec.get("our_ll") is not None else "—"),
+                _st("Skill vs mercado (Δlog-loss)", f"{ec.get('skill'):+.3f}" if ec.get("skill") is not None else "—"),
+                _st("Sesgo de goles (mediana)", f"{ec.get('bias'):+.2f} (MAE {ec.get('mae')})" if ec.get("bias") is not None else "—"),
                 _st("Partidos evaluados", f"{ec.get('n', 0)}" + (f" ({ec.get('n_market')} con mercado)" if ec.get('n_market') and ec.get('n_market') != ec.get('n') else "")),
             ] if ec.get("available") else []),
-            "note": "Por cada partido jugado miramos qué probabilidad le dio el motor al resultado que "
-                    "realmente pasó, y la comparamos con la del mercado (sus cuotas, sin el margen de la "
-                    "casa). Más alto que el mercado = vamos más afilados; 33% sería puro azar. El sesgo de "
-                    "goles avisa si el motor tira sistemáticamente de más o de menos.",
-            "rule": "Bien: ≥ mercado (o hasta 2pp por debajo) y |sesgo de goles| < 0.25. Vigilar: 2-5pp bajo "
-                    "el mercado, o sesgo 0.25-0.5. Alerta: >5pp bajo el mercado, no le gana al azar, o sesgo "
-                    ">0.5. Se activa con ≥8 partidos.",
+            "note": "Reconstruimos el 1X2 REAL del motor desde sus λ (no el mercado) y lo comparamos con el "
+                    "mercado por log-loss (regla de scoring propia: menor = mejor calibrado, no se engaña con "
+                    "exceso de confianza). El «% a lo que pasó» es el número comunicable; 33% sería azar. El "
+                    "sesgo de goles (mediana) avisa si el motor tira sistemáticamente de más o de menos.",
+            "rule": "Bien: el motor iguala o supera al mercado en log-loss (skill ≥ −0.01) y |sesgo de goles| "
+                    "≤ 0.6. Vigilar: skill entre −0.05 y −0.01, o sesgo 0.6-1.0. Alerta: skill < −0.05, o sesgo "
+                    ">1.0. Se activa con ≥8 partidos.",
         },
     ]
 
