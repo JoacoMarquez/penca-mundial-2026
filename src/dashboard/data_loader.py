@@ -174,17 +174,22 @@ def _load_live_match_data_uncached() -> dict | None:
         from src.model.poisson import jmlm_points
         from collections import Counter
         actual = (int(hs), int(as_)) if has_score else None
+        # puntos ACUMULADOS de cada penca en el pool (su standing actual)
+        standings = load_my_pencas_standings()
+        acc = {int(e["penca_id"]): e.get("points") for e in (standings.get("pencas") or [])}
         for a in pred.get("assignment", []):
             sc = a.get("score", [0, 0])
-            row = {"penca_id": a.get("penca_id"), "objective": a.get("objective"), "score": sc}
+            pid = a.get("penca_id")
+            row = {"penca_id": pid, "objective": a.get("objective"), "score": sc,
+                   "points": acc.get(int(pid)) if pid is not None else None}
             if actual is not None:
                 row["prov_points"] = jmlm_points((int(sc[0]), int(sc[1])), actual)
             out["picks"].append(row)
         if actual is not None and out["picks"]:
             out["n_scoring"] = sum(1 for p in out["picks"] if p.get("prov_points", 0) > 0)
             out["best_prov"] = max((p.get("prov_points", 0) for p in out["picks"]), default=0)
-            # ordenar las picks de más a menos puntos provisionales (desempate por penca_id)
-            out["picks"].sort(key=lambda p: (-p.get("prov_points", 0), p.get("penca_id", 0)))
+        # ordenar por puntos ACUMULADOS desc (la que más tiene, primera; desempate por penca_id)
+        out["picks"].sort(key=lambda p: (-(p.get("points") or 0), p.get("penca_id", 0)))
         # exposición por marcador (qué jugamos) + puntos provisionales por marcador
         exp = Counter(f'{a["score"][0]}-{a["score"][1]}' for a in pred.get("assignment", []))
         exposure = []
