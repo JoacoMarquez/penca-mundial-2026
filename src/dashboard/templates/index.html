@@ -95,6 +95,7 @@
 {# ---- Mismo detalle que se ve dentro de cada partido de /partidos ---- #}
 {% if data.match %}
 {% set m = data.match %}
+{% set is_next = true %}
 {% include "_match_detail_body.html" %}
 {% endif %}
 
