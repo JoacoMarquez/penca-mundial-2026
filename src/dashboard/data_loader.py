@@ -1182,6 +1182,79 @@ def load_strategy_metrics() -> dict[str, Any]:
     return _cached("strategy_metrics", 30.0, _load_strategy_metrics_uncached)
 
 
+def _trajectory_chart(traj: list[dict]) -> dict | None:
+    """Convierte la trayectoria en polylines SVG listas para el sparkline de métricas.
+
+    Tres series (líder / mediana / nuestra mejor) sobre un viewBox fijo, escaladas al
+    rango de puntos observado. Devuelve None si no hay al menos 2 snapshots.
+    """
+    if not traj or len(traj) < 2:
+        return None
+    W, H, PAD = 320.0, 90.0, 8.0
+    vals: list[float] = []
+    for t in traj:
+        vals.append(t["top"])
+        vals.append(t["median"])
+        if t.get("our_best_points") is not None:
+            vals.append(t["our_best_points"])
+    ymin, ymax = min(vals), max(vals)
+    if ymax == ymin:
+        ymax = ymin + 1
+
+    def _x(i: int) -> float:
+        return round(PAD + (W - 2 * PAD) * (i / (len(traj) - 1)), 1)
+
+    def _y(v: float) -> float:
+        return round(PAD + (H - 2 * PAD) * (1 - (v - ymin) / (ymax - ymin)), 1)
+
+    def _series(key: str) -> str:
+        pts = []
+        for i, t in enumerate(traj):
+            v = t.get(key)
+            if v is None:
+                continue
+            pts.append(f"{_x(i)},{_y(v)}")
+        return " ".join(pts)
+
+    def _last_pt(key: str) -> dict | None:
+        for i in range(len(traj) - 1, -1, -1):
+            v = traj[i].get(key)
+            if v is not None:
+                return {"x": _x(i), "y": _y(v), "v": v}
+        return None
+
+    return {
+        "w": W, "h": H,
+        "top": _series("top"),
+        "median": _series("median"),
+        "our": _series("our_best_points"),
+        "top_end": _last_pt("top"),
+        "median_end": _last_pt("median"),
+        "our_end": _last_pt("our_best_points"),
+        "ymin": int(ymin), "ymax": int(ymax),
+        "n": len(traj),
+    }
+
+
+def _gap_gauge(us: dict | None, median: float, prize_zone: list[dict]) -> dict | None:
+    """Gauge de distancia al líder: posición de nuestra mejor penca en la escala 0→líder."""
+    if not us or not prize_zone:
+        return None
+    leader = prize_zone[0].get("cutoff", 0)
+    if not leader or leader <= 0:
+        return None
+    ob = us.get("best_points", 0)
+    return {
+        "leader": leader,
+        "median": median,
+        "our_best": ob,
+        "our_pct": round(min(ob / leader, 1) * 100, 1),
+        "median_pct": round(min(median / leader, 1) * 100, 1),
+        "gap": leader - ob,
+        "rank": us.get("best_rank"),
+    }
+
+
 def _load_strategy_metrics_uncached() -> dict[str, Any]:
     from src.utils.env import get_int_list
 
@@ -1324,6 +1397,10 @@ def _load_strategy_metrics_uncached() -> dict[str, Any]:
         "us": pl.get("us"),
         "signals": sig,
         "trajectory": pl.get("trajectory"),
+        "distribution": pl.get("distribution"),
+        "prize_zone": pl.get("prize_zone"),
+        "traj_chart": _trajectory_chart(pl.get("trajectory") or []),
+        "gap_gauge": _gap_gauge(pl.get("us"), pl.get("median_points") or 0, pl.get("prize_zone") or []),
         "verdict": verdict,
         "levers": levers,
         "health_rows": health_rows,
