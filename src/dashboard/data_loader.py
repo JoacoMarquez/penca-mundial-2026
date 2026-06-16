@@ -1194,6 +1194,8 @@ def _publication_signal() -> dict:
             continue
         try:
             ko = datetime.fromisoformat(str(ko_raw).replace("Z", "+00:00"))
+            if ko.tzinfo is None:
+                ko = ko.replace(tzinfo=timezone.utc)
         except Exception:
             continue
         if not (now < ko <= horizon):
@@ -1226,22 +1228,26 @@ def _publication_signal() -> dict:
                 f"{'Uno arranca en menos de 30min. ' if imminent else ''}"
                 f"Para jugar de verdad: DRY_RUN=false y la API configurada.")
     else:
-        blocked = [u for u in upcoming if u["published"] is False]
-        missing_late = [u for u in upcoming if u["published"] is not True and u["hours_to"] <= 3]
-        imminent_bad = [u for u in upcoming if not u["real_pub"] and u["hours_to"] <= 0.5]
-        if imminent_bad or any(u["hours_to"] <= 1.5 for u in blocked):
-            status, reason = "alert", (
-                "Hay picks sin confirmar en el pool con el partido encima. Reintentá la pasada del "
-                "partido afectado ya.")
-        elif blocked or missing_late:
-            status, reason = "warn", (
-                "Falta confirmar la publicación de algún partido próximo (puede que la pasada tardía "
-                "no haya corrido). Revisá antes del kickoff.")
-        elif n == 0:
+        # not_real = pick NO confirmada (published != True). OK solo si TODAS están publicadas.
+        not_real = [u for u in upcoming if not u["real_pub"]]
+        n_false = sum(1 for u in not_real if u["published"] is False)   # pasada corrió y la API rechazó
+        n_none = sum(1 for u in not_real if u["published"] is None)     # pasada no corrió / sin pick aún
+        causa = "; ".join(
+            ([f"{n_false} rechazada(s) por la API (reintentar la pasada)"] if n_false else [])
+            + ([f"{n_none} sin pasada aún (T-24h/T-3h deberían cargarla; si no, revisá el scheduler)"] if n_none else [])
+        )
+        imminent = [u for u in not_real if u["hours_to"] <= 1.5]
+        if n == 0:
             status, reason = "ok", "Publicando de verdad. No hay partidos en las próximas 24h."
-        else:
+        elif not not_real:
             status, reason = "ok", (
-                f"Publicando de verdad: las {n} pick(s) de las próximas 24h están cargadas en el pool.")
+                f"Publicando de verdad: las {n} pick(s) de las próximas 24h se enviaron y la API aceptó el POST.")
+        elif imminent:
+            status, reason = "alert", (
+                f"{len(imminent)} pick(s) sin confirmar con el partido a <1.5h — {causa}. Reintentá la pasada YA.")
+        else:
+            status, reason = "warn", (
+                f"Faltan {len(not_real)} de {n} pick(s) por confirmar en el pool: {causa}.")
 
     if not real:
         value = "Modo prueba"
@@ -1270,7 +1276,8 @@ def _pool_fit_signal() -> dict:
     """
     try:
         from src.meta.calibration import (
-            build_observations, predicted_group_shares, get_pool_config, load_calibration,
+            build_observations, predicted_group_shares, predicted_exact_winner,
+            get_pool_config, load_calibration,
         )
     except Exception as e:
         return {"status": "info", "available": False,
@@ -1289,59 +1296,70 @@ def _pool_fit_signal() -> dict:
     cal = load_calibration() or {}
     no_show = float(cal.get("no_show_frac", 0.0) or 0.0)
 
-    # Acierto por jornada = 1 − distancia total de variación entre predicho y observado.
+    # Acierto por jornada = 1 − distancia total de variación entre predicho y observado
+    # (canal de clases de puntos). El canal de EXACTOS — el que más decide el pool — se
+    # muestra aparte porque pesa poco en este % pero es donde el modelo más se desvía.
     accuracies = []
     last_breakdown = []
+    exact_pred = exact_obs = None
     for ob in obs:
         pred = predicted_group_shares(ob.grids, ob.actuals, cfg, no_show)
         classes = set(pred) | set(ob.shares)
         tv = 0.5 * sum(abs(pred.get(c, 0.0) - ob.shares.get(c, 0.0)) for c in classes)
-        acc = round(100 * (1 - tv))
-        accuracies.append(acc)
-        # Desglose de la ÚLTIMA jornada (tramos con más peso), para mostrar concreto.
+        accuracies.append(round(100 * (1 - tv)))
         if ob is obs[-1]:
             rows = sorted(classes, key=lambda c: -max(pred.get(c, 0.0), ob.shares.get(c, 0.0)))[:6]
             last_breakdown = [
                 {"pts": c, "pred": round(100 * pred.get(c, 0.0)), "obs": round(100 * ob.shares.get(c, 0.0))}
                 for c in rows
             ]
+            # canal de exactos (predicho vs observado) — solo single-match para que sea legible
+            if ob.n_matches == 1 and ob.exact_frac is not None:
+                pe, _pw = predicted_exact_winner(ob.grids, ob.actuals, cfg, no_show)
+                exact_pred, exact_obs = round(100 * pe), round(100 * ob.exact_frac)
+
+    def _median(xs):
+        s = sorted(xs)
+        m = len(s)
+        return s[m // 2] if m % 2 else (s[m // 2 - 1] + s[m // 2]) / 2
 
     n = len(accuracies)
     last = accuracies[-1]
-    ref = accuracies[:-1] or accuracies
-    typical = sorted(ref)[len(ref) // 2]   # acierto habitual (mediana de jornadas previas)
-    gap = typical - last                   # cuántos pp PEOR que lo habitual (negativo = mejor)
-    trend = (last - accuracies[-2]) if n >= 2 else None  # pp vs la jornada anterior (↑ mejor)
+    typical = _median(accuracies[:-1]) if n >= 2 else None  # acierto habitual (jornadas previas)
+    gap = (typical - last) if typical is not None else None  # pp PEOR que lo habitual (<0 = mejor)
+    typ_disp = round(typical) if typical is not None else None
+    trend = (last - accuracies[-2]) if n >= 2 else None
     improvement = cal.get("improvement_pct")
-    FLAGS_MIN = 5  # con menos jornadas no gatillamos
+    FLAGS_MIN = 5
+    WARN_GAP, ALERT_GAP = 6, 14  # subidos al ruido observado (sd ~6-7pp) para no gatillar por un partido
 
-    if improvement is not None and improvement <= 0 and n >= 3:
+    if improvement is not None and improvement < 0 and n >= 3:
         status = "alert"
         reason = (f"Ojo: el modelo calibrado predice PEOR que el prior por defecto. Suele ser dato "
                   f"contaminado (snapshots de la regla vieja pre-12/06) o un partido raro. Revisalo "
                   f"antes de confiar en la adivinanza del pool.")
-    elif n < FLAGS_MIN:
+    elif n < FLAGS_MIN or gap is None:
         status = "info"
         reason = (f"Recién {n} jornada(s) evaluada(s) — todavía en rodaje, no saco conclusiones hasta "
-                  f"~{FLAGS_MIN}. Por ahora le acertamos al {last}% del reparto de puntos del pool en "
-                  f"la última.")
-    elif gap >= 10:
+                  f"~{FLAGS_MIN}. Por ahora le acertamos al {last}% del reparto de puntos del pool en la última.")
+    elif gap >= ALERT_GAP:
         status = "alert"
         reason = (f"Esta jornada le acertamos al {last}% del reparto del pool — bastante peor que el "
-                  f"~{typical}% habitual. La adivinanza del pool se está desviando: forzá un recalibrado; "
+                  f"~{typ_disp}% habitual. La adivinanza del pool se está desviando: forzá un recalibrado; "
                   f"si no mejora, el prior (chalk/bias) quedó mal.")
-    elif gap >= 4:
+    elif gap >= WARN_GAP:
         status = "warn"
-        reason = (f"Esta jornada le acertamos al {last}% del reparto del pool, algo peor que el ~{typical}% "
+        reason = (f"Esta jornada le acertamos al {last}% del reparto del pool, algo peor que el ~{typ_disp}% "
                   f"habitual. Para vigilar, sin urgencia.")
     else:
         status = "ok"
         reason = (f"Vamos bien: le acertamos al {last}% de cómo el pool repartió sus puntos esta jornada, "
-                  f"en línea con el ~{typical}% habitual.")
+                  f"en línea con el ~{typ_disp}% habitual.")
 
     return {
         "status": status, "available": True, "reason": reason,
-        "n_obs": n, "accuracy": last, "typical": typical, "gap": gap, "trend": trend,
+        "n_obs": n, "accuracy": last, "typical": typ_disp, "gap": gap, "trend": trend,
+        "exact_pred": exact_pred, "exact_obs": exact_obs,
         "breakdown": last_breakdown,
         "improvement_pct": round(improvement, 1) if improvement is not None else None,
         "chalk": cal.get("chalk_strength"), "bias": cal.get("bias_scale"), "no_show": no_show,
@@ -1821,14 +1839,16 @@ def _load_strategy_metrics_uncached() -> dict[str, Any]:
             "stats": [
                 _st("Modo", pub_mode),
                 _st("Partidos en 24h", f"{pub.get('n_upcoming', 0)}"),
-                _st("Picks cargadas en el pool", f"{pub.get('n_real', 0)} / {pub.get('n_upcoming', 0)}"),
+                _st("Picks publicadas (POST OK)", f"{pub.get('n_real', 0)} / {pub.get('n_upcoming', 0)}"),
                 _st("Próximo", f"{pub_next['label']} (en {pub_next['hours_to']:.0f}h)" if pub_next else "—"),
             ],
             "note": "Una pick que no llega al pool antes del kickoff = 0 fijo en esa penca. Ojo: bajo "
-                    "DRY_RUN el sistema marca «publicado» sin cargar nada — por eso acá cruzamos el "
-                    "flag con el modo real (DRY_RUN / API).",
-            "rule": "OK: publicando de verdad y las picks de 24h cargadas. Vigilar: modo prueba con "
-                    "partidos próximos, o falta confirmar alguna. Alerta: partido en <30min sin pick real.",
+                    "DRY_RUN el sistema marca «publicado» sin cargar nada — por eso cruzamos el flag con "
+                    "el modo real (DRY_RUN / API). «Publicado» = la API aceptó el POST (2xx); todavía no "
+                    "releemos el pool para confirmar el alta (la API spec está TBD).",
+            "rule": "OK solo si TODAS las picks de 24h se publicaron (POST OK). Vigilar: falta confirmar "
+                    "alguna (rechazada o sin pasada aún) a >1.5h, o modo prueba con partidos próximos. "
+                    "Alerta: pick sin confirmar con el partido a <1.5h.",
         },
         {
             "key": "tail", "name": "Cola ganadora", "status": tail.get("status", "info"),
@@ -1923,15 +1943,19 @@ def _load_strategy_metrics_uncached() -> dict[str, Any]:
             "breakdown": pf.get("breakdown"),
             "stats": ([
                 _st("Acierto última jornada", f"{pf.get('accuracy')}%"),
-                _st("Acierto habitual", f"~{pf.get('typical')}%"),
+                _st("Acierto habitual", f"~{pf.get('typical')}%" if pf.get("typical") is not None else "—"),
+                _st("Exactos: predijimos / salió",
+                    f"{pf.get('exact_pred')}% / {pf.get('exact_obs')}%" if pf.get("exact_pred") is not None else "—"),
                 _st("Jornadas evaluadas", f"{pf.get('n_obs', 0)}"),
-                _st("Mejora vs prior", f"{pf.get('improvement_pct')}%" if pf.get("improvement_pct") is not None else "—"),
+                _st("Mejora vs prior (in-sample)", f"{pf.get('improvement_pct')}%" if pf.get("improvement_pct") is not None else "—"),
                 _st("Calibración", f"chalk {pf.get('chalk')} · bias {pf.get('bias')} · no-show {pf.get('no_show')}"),
             ] if pf.get("available") else []),
             "note": "El sistema no ve los picks ajenos: los ADIVINA. «Acierto» = qué tanto se parece el "
-                    "reparto de puntos que predijo para el pool al que realmente salió (100% = idéntico). "
-                    "El desglose de arriba muestra, por tramo de puntos, cuánto predijimos vs cuánto salió.",
-            "rule": "Bien: acierto en línea con lo habitual. Vigilar: 4-10pp por debajo. Alerta: >10pp por "
+                    "reparto general de puntos que predijo al que salió (100% = idéntico). OJO: ese % pondera "
+                    "poco el tramo de 6 (marcador exacto), que es el que más decide el pool y donde el modelo "
+                    "más se desvía — miralo en «Exactos» y en el desglose. Además es in-sample: se mide con la "
+                    "calibración ajustada en parte sobre estas mismas jornadas, así que es algo optimista.",
+            "rule": "Bien: acierto en línea con lo habitual. Vigilar: 6-14pp por debajo. Alerta: >14pp por "
                     "debajo, o el modelo calibrado predice peor que el prior. Se activa con ≥5 jornadas.",
         },
         {
