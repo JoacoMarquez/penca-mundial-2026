@@ -1045,7 +1045,7 @@ def _secondary_signals(my_ids: set) -> dict:
     """
     pmdir = _data_dir() / "postmortems"
     modal_n = modal_win = modal_exact = 0
-    draw_matches = draw_covered = draw_slots = 0
+    draw_matches = draw_covered = draw_slots = draw_union = 0
     modal_log: list[dict] = []   # un registro por partido con modal, para listar los últimos
     draw_log: list[dict] = []    # un registro por partido que terminó empate
     if pmdir.exists():
@@ -1085,6 +1085,8 @@ def _secondary_signals(my_ids: set) -> dict:
                     draw_matches += 1
                     draw_slots += len(ours)
                     draw_covered += covered_here
+                    if covered_here > 0:
+                        draw_union += 1   # objetivo de la UNIÓN: alcanza con que ≥1 penca lo cubra
                     draw_log.append({
                         "home": home, "away": away, "ts": ts,
                         "actual": f"{ah}-{aa}", "covered": covered_here, "total": len(ours),
@@ -1103,13 +1105,23 @@ def _secondary_signals(my_ids: set) -> dict:
         "status": "info",  # contexto puro: bajo es bueno para nosotros, no es alarma
     }
 
+    # Métrica PRIMARIA: cobertura de UNIÓN — % de empates con ≥1 penca, alineada al objetivo
+    # del sistema (P(al menos una penca gana), no E[puntos]). El % de slots (promedio de
+    # planillas) queda como dato secundario de robustez/piso.
+    union_raw = (100 * draw_union / draw_matches) if draw_matches else None
+    union_pct = round(union_raw) if union_raw is not None else None
     cov_pct = round(100 * draw_covered / draw_slots) if draw_slots else None
+    avg_slots = round(draw_slots / draw_matches, 1) if draw_matches else None  # N real (hubo transición 5→15)
     draws = {
         "n_draws": draw_matches,
-        "coverage_pct": cov_pct,
+        "union_pct": union_pct,           # primaria
+        "coverage_pct": cov_pct,          # secundaria (slots)
         "avg_per_match": round(draw_covered / draw_matches, 1) if draw_matches else None,
+        "avg_slots": avg_slots,
         "recent": draw_log[:3],
-        "status": "warn" if (draw_matches >= 4 and cov_pct is not None and cov_pct < 20) else "info",
+        # warn solo si se nos escapan empates ENTEROS (sin ninguna penca). Comparación contra
+        # el valor sin redondear para que el número mostrado y la regla no se contradigan.
+        "status": "warn" if (draw_matches >= 4 and union_raw is not None and union_raw < 75) else "info",
     }
     return {"modal": modal, "draws": draws}
 
@@ -1506,9 +1518,13 @@ def _load_strategy_metrics_uncached() -> dict[str, Any]:
         {
             "key": "draws",
             "name": "Cobertura de empates",
-            "when": "racha de empates y cubrimos <20% de ellos",
+            "when": "racha de empates y >25% se escapan sin ninguna planilla (unión <75%)",
             "triggered": draws.get("status") == "warn",
-            "action": "subir la exposición a empates en la asignación — con backtest",
+            "action": "ojo: la exposición a empates NO se ajusta en la asignación (no existe esa "
+                      "perilla — el voraz solo reparte el menú). Se toca aguas arriba: en el menú de "
+                      "candidatos (generate_candidates / pick_upset, p.ej. un draw_floor) o en el prior "
+                      "del pool (popular_score_bias). Subir solo si el backtest muestra al modelo "
+                      "infra-prediciendo empates vs su frecuencia real — con backtest",
         },
         {
             "key": "tail",
@@ -1668,18 +1684,22 @@ def _load_strategy_metrics_uncached() -> dict[str, Any]:
         },
         {
             "key": "draws", "name": "Cobertura de empates", "status": draws.get("status", "info"),
-            "value": (f"{draws.get('coverage_pct')}%" if draws.get("coverage_pct") is not None else "—"),
-            "meaning": "de los empates que salieron, cuántos previmos",
+            "value": (f"{draws.get('union_pct')}%" if draws.get("union_pct") is not None else "—"),
+            "meaning": "de los empates que salieron, en cuántos cubrimos con al menos una planilla",
             "action": action_by_key.get("draws"),
-            "bar": _bar(draws.get("coverage_pct"), draws.get("status", "info")),
+            "bar": _bar(draws.get("union_pct"), draws.get("status", "info")),
             "recent": draws.get("recent"),
             "stats": [
-                _st("Empates cubiertos", f"{draws.get('coverage_pct')}%" if draws.get("coverage_pct") is not None else "—"),
+                _st("Empates con cobertura (≥1 planilla)", f"{draws.get('union_pct')}%" if draws.get("union_pct") is not None else "—"),
                 _st("Partidos que salieron empate", f"{draws.get('n_draws', 0)}"),
-                _st("Promedio cubierto", f"~{draws.get('avg_per_match', 0)} de 15 por partido"),
+                _st("Planillas al empate (promedio)",
+                    f"~{draws.get('avg_per_match', 0)} de ~{draws.get('avg_slots', 0)} por partido ({draws.get('coverage_pct')}%)"
+                    if draws.get("coverage_pct") is not None else "—"),
             ],
-            "note": "En los partidos que salieron empate, cuántas de las 15 lo habían previsto. Si vienen muchos empates y cubrimos pocos, dejamos puntos.",
-            "rule": "A vigilar si hay ≥4 empates y cubrimos <20% (sesgo pro-favorito).",
+            "note": "Para ganar la penca alcanza con que AL MENOS UNA de las 15 cubra cada empate (objetivo de "
+                    "la unión), no que lo jueguen todas. Que pocas planillas jueguen el empate es normal y buscado "
+                    "(diversificación). El % de planillas promedio queda como dato secundario de robustez.",
+            "rule": "A vigilar si hay ≥4 empates y en más del 25% no cubrimos ninguno (unión <75%).",
         },
         {
             "key": "poolfit", "name": "Calce del modelo del pool", "status": pf.get("status", "info"),
