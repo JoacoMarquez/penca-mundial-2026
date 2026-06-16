@@ -1866,6 +1866,19 @@ def _load_strategy_metrics_uncached() -> dict[str, Any]:
         },
     ]
 
+    # Checklist "qué hacer": todas las señales en alerta/vigilar, con su acción concreta,
+    # alerta primero. Es lo que se muestra dentro del veredicto para decidir de un vistazo.
+    _sev = {"alert": 0, "warn": 1}
+    action_items = sorted(
+        ({
+            "level": r["status"],
+            "name": r["name"],
+            "value": r.get("value"),
+            "what": (r.get("action") or (r.get("reason") or "").split(". ")[0]),
+        } for r in health_rows if r.get("status") in ("alert", "warn")),
+        key=lambda x: _sev[x["level"]],
+    )
+
     return {
         "pool_size": pl.get("pool_size"),
         "median": pl.get("median_points"),
@@ -1873,6 +1886,7 @@ def _load_strategy_metrics_uncached() -> dict[str, Any]:
         "signals": sig,
         "trajectory": pl.get("trajectory"),
         "verdict": verdict,
+        "action_items": action_items,
         "levers": levers,
         "health_rows": health_rows,
         "by_strategy": diag["by_strategy"],
