@@ -1260,6 +1260,7 @@ def _pool_fit_signal() -> dict:
     ref = accuracies[:-1] or accuracies
     typical = sorted(ref)[len(ref) // 2]   # acierto habitual (mediana de jornadas previas)
     gap = typical - last                   # cuántos pp PEOR que lo habitual (negativo = mejor)
+    trend = (last - accuracies[-2]) if n >= 2 else None  # pp vs la jornada anterior (↑ mejor)
     improvement = cal.get("improvement_pct")
     FLAGS_MIN = 5  # con menos jornadas no gatillamos
 
@@ -1289,7 +1290,7 @@ def _pool_fit_signal() -> dict:
 
     return {
         "status": status, "available": True, "reason": reason,
-        "n_obs": n, "accuracy": last, "typical": typical, "gap": gap,
+        "n_obs": n, "accuracy": last, "typical": typical, "gap": gap, "trend": trend,
         "breakdown": last_breakdown,
         "improvement_pct": round(improvement, 1) if improvement is not None else None,
         "chalk": cal.get("chalk_strength"), "bias": cal.get("bias_scale"), "no_show": no_show,
@@ -1685,6 +1686,7 @@ def _load_strategy_metrics_uncached() -> dict[str, Any]:
             "action": pf_action,
             "reason": pf.get("reason"),
             "bar": _bar(pf.get("accuracy"), pf.get("status", "info")) if pf.get("available") else None,
+            "trend": pf.get("trend"),
             "breakdown": pf.get("breakdown"),
             "stats": ([
                 _st("Acierto última jornada", f"{pf.get('accuracy')}%"),
