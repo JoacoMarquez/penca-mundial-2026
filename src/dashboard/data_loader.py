@@ -1012,6 +1012,7 @@ def _strategy_signals(mine: list, ranked: list) -> dict:
     else:
         tb_status, reason = "info", "Modo de objetivo del optimizador."
 
+    ct = _cutoff_tracking()  # movimiento REAL del corte top-3 (cutoff-error)
     tailbet = {
         "objective": obj,
         "active": active,
@@ -1024,6 +1025,9 @@ def _strategy_signals(mine: list, ranked: list) -> dict:
         "beta": beta,
         "matches_remaining": remaining,
         "next_match_id": nm.get("match_id"),
+        "cutoff_now": ct.get("cutoff_now"),
+        "cutoff_rise_last": ct.get("rise_last"),
+        "cutoff_rise_avg": ct.get("rise_avg"),
         "reason": reason,
         "status": tb_status,
     }
@@ -1032,6 +1036,41 @@ def _strategy_signals(mine: list, ranked: list) -> dict:
     return {
         "tail": tail, "spread": spread_sig, "tailbet": tailbet,
         "modal": secondary["modal"], "draws": secondary["draws"],
+    }
+
+
+def _cutoff_tracking() -> dict:
+    """Movimiento REAL del corte del top-3 del pool, jornada a jornada (desde snapshots).
+
+    Es el «cutoff-error» honesto: deja ver, al lado del corte PROYECTADO del tail-bet, dónde
+    está el corte de verdad y a qué ritmo sube — para juzgar si la proyección es realista.
+    No depende de 'partidos restantes' (que hoy es poco confiable por fixtures incompletos).
+    """
+    sdir = _data_dir() / "pool_snapshots"
+    if not sdir.exists():
+        return {}
+    snaps = []
+    for f in sdir.glob("*.json"):
+        try:
+            snaps.append(json.loads(f.read_text()))
+        except Exception:
+            continue
+    snaps.sort(key=lambda s: (len(s.get("finished_matches", [])), s.get("taken_at", "")))
+    cutoffs = []
+    for s in snaps:
+        entries = s.get("entries", [])
+        if len(entries) < 3:
+            continue
+        pts = sorted((e.get("points_total", 0) for e in entries), reverse=True)
+        cutoffs.append(pts[2])  # 3er puesto = corte del top-3
+    if not cutoffs:
+        return {}
+    rises = [cutoffs[i] - cutoffs[i - 1] for i in range(1, len(cutoffs))]
+    return {
+        "cutoff_now": cutoffs[-1],
+        "rise_last": (rises[-1] if rises else None),
+        "rise_avg": (round(sum(rises) / len(rises), 1) if rises else None),
+        "n_obs": len(cutoffs),
     }
 
 
@@ -1784,11 +1823,15 @@ def _load_strategy_metrics_uncached() -> dict[str, Any]:
                 _st("Modo", "A ganar (p_top_k)" if tb.get("active") else "Sumando (e_max)"),
                 _st("Corte del pool (hoy)", f"{tb.get('threshold')} pts" if tb.get("threshold") is not None else "— sin dato"),
                 _st("Premium horizonte (β·√rest.)", f"+{tb.get('premium')}" if tb.get("premium") is not None else "—"),
-                _st("Corte proyectado", f"{tb.get('projected_cutoff')} pts" if tb.get("projected_cutoff") is not None else "—"),
+                _st("Corte proyectado (al final)", f"{tb.get('projected_cutoff')} pts" if tb.get("projected_cutoff") is not None else "—"),
+                _st("Corte top-3 REAL (hoy)", f"{tb.get('cutoff_now')} pts" if tb.get("cutoff_now") is not None else "— sin snapshots"),
+                _st("El corte real sube (última / prom)",
+                    (f"+{tb.get('cutoff_rise_last')} / +{tb.get('cutoff_rise_avg')} pts/jornada"
+                     if tb.get("cutoff_rise_avg") is not None else "—")),
                 _st("β (PENCA_HORIZON_BETA)", f"{tb.get('beta')}" if tb.get("beta") is not None else "—"),
                 _st("Partidos restantes (aprox)", f"~{tb.get('matches_remaining')}" if tb.get("matches_remaining") else "—"),
             ],
-            "note": "Si el sistema todavía junta puntos sin arriesgar (Sumando) o ya juega a ganar el 1° puesto (A ganar). El cambio ocurre solo, cerca del final, cuando el corte proyectado se vuelve alcanzable en un partido.",
+            "note": "Si el sistema todavía junta puntos sin arriesgar (Sumando) o ya juega a ganar el 1° puesto (A ganar). El cambio ocurre solo, cerca del final, cuando el corte proyectado se vuelve alcanzable en un partido. CUTOFF-ERROR: compará el «corte proyectado al final» con el «corte real hoy» y su ritmo — si la proyección queda muy lejos del ritmo real, β está mal calibrado.",
             "rule": "Esperado: 'Sumando' al principio. Vigilar si sigue en 'Sumando' con ~≤16 partidos (entrando a eliminatorias) → bajar β. Alerta si ~≤8 partidos y sigue 'Sumando', si no hay corte del pool, o si no hay asignación.",
         },
         {
