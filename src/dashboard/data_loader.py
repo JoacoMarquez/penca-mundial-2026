@@ -1209,6 +1209,95 @@ def _publication_signal() -> dict:
     }
 
 
+def _pool_fit_signal() -> dict:
+    """¿La distribución de puntos que PREDICE el modelo del pool (ranking-inversion) le pega
+    a la OBSERVADA en el delta del leaderboard, jornada a jornada?
+
+    Reusa src/meta/calibration con la config calibrada vigente. Por cada observación calcula
+    el residuo L2 multicanal (clases de puntos + frac. exactos + frac. ganadores), SIN la
+    regularización del loss de calibración. Flag si el último calza bastante peor que lo típico
+    (ratio vs la mediana previa). Termómetro del único modelo que dispara la apuesta de varianza.
+    """
+    try:
+        from src.meta.calibration import (
+            build_observations, predicted_group_shares, predicted_exact_winner,
+            get_pool_config, load_calibration, W_POINTS, W_EXACT, W_WINNER,
+        )
+    except Exception as e:
+        return {"status": "info", "available": False,
+                "reason": f"Módulo de calibración no disponible: {e}"}
+
+    try:
+        obs = build_observations()
+    except Exception as e:
+        return {"status": "info", "available": False,
+                "reason": f"No se pudieron armar observaciones del pool: {e}"}
+    if not obs:
+        return {"status": "info", "available": False,
+                "reason": "Todavía no hay jornadas con snapshot + resultado para evaluar el modelo del pool."}
+
+    cfg = get_pool_config()
+    cal = load_calibration() or {}
+    no_show = float(cal.get("no_show_frac", 0.0) or 0.0)
+
+    residuals = []
+    for ob in obs:
+        pred = predicted_group_shares(ob.grids, ob.actuals, cfg, no_show)
+        classes = set(pred) | set(ob.shares)
+        r = W_POINTS * sum((pred.get(c, 0.0) - ob.shares.get(c, 0.0)) ** 2 for c in classes)
+        if ob.exact_frac is not None or ob.winner_frac is not None:
+            pe, pw = predicted_exact_winner(ob.grids, ob.actuals, cfg, no_show)
+            if ob.exact_frac is not None:
+                r += W_EXACT * (pe - ob.exact_frac) ** 2
+            if ob.winner_frac is not None:
+                r += W_WINNER * (pw - ob.winner_frac) ** 2
+        residuals.append(r)
+
+    n = len(residuals)
+    last = residuals[-1]
+    median = sorted(residuals)[n // 2]
+    # "Típico" = mediana de las jornadas PREVIAS (sin la última) → comparamos la última contra su pasado.
+    ref = residuals[:-1] or residuals
+    typical = sorted(ref)[len(ref) // 2]
+    ratio = (last / typical) if typical > 1e-9 else (2.0 if last > 1e-6 else 1.0)
+    rising3 = n >= 3 and residuals[-1] > residuals[-2] > residuals[-3]
+    improvement = cal.get("improvement_pct")
+    FLAGS_MIN = 5  # con menos jornadas el ratio es ruidoso
+
+    if improvement is not None and improvement <= 0 and n >= 3:
+        status = "alert"
+        reason = (f"El fit calibrado predice PEOR que el prior (mejora {improvement:.0f}%). Sospechá "
+                  f"datos contaminados (snapshots de la regla vieja pre-12/06) o un partido outlier — "
+                  f"revisá antes de confiar en la adivinanza del pool.")
+    elif n < FLAGS_MIN:
+        status = "info"
+        reason = (f"Modelo del pool en rodaje: {n} jornada(s) evaluada(s). Con tan pocas conviene no "
+                  f"gatillar; el termómetro se activa con {FLAGS_MIN}+. Por ahora: residuo última "
+                  f"{last:.3f}, típico {typical:.3f}.")
+    elif ratio >= 1.5:
+        status = "alert"
+        reason = (f"La última jornada calza bastante peor que lo típico (residuo {last:.3f}, ~{ratio:.1f}× "
+                  f"lo normal {typical:.3f}). La adivinanza del pool se está desviando → forzá un "
+                  f"recalibrado; si no baja, el prior (chalk/bias) está mal especificado.")
+    elif ratio >= 1.2 or rising3:
+        status = "warn"
+        reason = (f"La última jornada calza algo peor que lo típico (residuo {last:.3f}, ~{ratio:.1f}× "
+                  f"lo normal {typical:.3f}){' y sube 3 jornadas seguidas' if rising3 else ''}. "
+                  f"Para vigilar, no urgente.")
+    else:
+        status = "ok"
+        reason = (f"El modelo del pool le viene pegando: la última jornada calza como de costumbre "
+                  f"(residuo {last:.3f}, ~{ratio:.1f}× lo normal {typical:.3f}).")
+
+    return {
+        "status": status, "available": True, "reason": reason,
+        "n_obs": n, "last": round(last, 4), "median": round(median, 4),
+        "typical": round(typical, 4), "ratio": round(ratio, 2),
+        "improvement_pct": round(improvement, 1) if improvement is not None else None,
+        "chalk": cal.get("chalk_strength"), "bias": cal.get("bias_scale"), "no_show": no_show,
+    }
+
+
 def _strategy_diagnostics(my_ids: set) -> dict:
     """Rendimiento por estrategia y utilidad del ajuste LLM (Capa 4), desde postmortems."""
     from collections import Counter, defaultdict
@@ -1438,10 +1527,14 @@ def _load_strategy_metrics_uncached() -> dict[str, Any]:
     ]
 
     pub = _publication_signal()
-    urgent = "alert" in (pub.get("status"), tail.get("status"), spread.get("status"), tb.get("status"))
+    pf = _pool_fit_signal()
+    urgent = "alert" in (pub.get("status"), pf.get("status"),
+                         tail.get("status"), spread.get("status"), tb.get("status"))
     triggered = [lv["name"] for lv in levers if lv["triggered"]]
     if pub.get("status") == "warn":
         triggered = ["Publicación de picks"] + triggered
+    if pf.get("status") == "warn":
+        triggered = triggered + ["Calce del modelo del pool"]
     if urgent:
         verdict = {"level": "alert", "headline": "Hay que ajustar",
                    "sub": "una señal principal está en alerta"}
@@ -1480,6 +1573,18 @@ def _load_strategy_metrics_uncached() -> dict[str, Any]:
         pub_action = ("Poné DRY_RUN=false y verificá la API del pool en /etc/penca/env."
                       if not pub.get("real")
                       else "Reintentá la pasada del partido afectado antes del kickoff.")
+
+    if not pf.get("available"):
+        pf_value = "Sin datos"
+    else:
+        pf_value = {"ok": "Pega bien", "warn": "Algo flojo", "alert": "Se desvía",
+                    "info": "En rodaje"}.get(pf.get("status"), "—")
+    pf_action = None
+    if pf.get("status") == "alert":
+        pf_action = ("Forzá un recalibrado del pool; si el residuo no baja, revisá el prior "
+                     "(chalk/bias) o snapshots contaminados de la regla vieja.")
+    elif pf.get("status") == "warn":
+        pf_action = "Vigilar; si el residuo sigue subiendo, recalibrá el pool."
 
     health_rows = [
         {
@@ -1575,6 +1680,27 @@ def _load_strategy_metrics_uncached() -> dict[str, Any]:
             ],
             "note": "En los partidos que salieron empate, cuántas de las 15 lo habían previsto. Si vienen muchos empates y cubrimos pocos, dejamos puntos.",
             "rule": "A vigilar si hay ≥4 empates y cubrimos <20% (sesgo pro-favorito).",
+        },
+        {
+            "key": "poolfit", "name": "Calce del modelo del pool", "status": pf.get("status", "info"),
+            "value": (pf_value),
+            "meaning": "que le acertemos a cómo juega el resto del pool (motor de la apuesta de varianza)",
+            "action": pf_action,
+            "reason": pf.get("reason"),
+            "stats": ([
+                _st("Jornadas evaluadas", f"{pf.get('n_obs', 0)}"),
+                _st("Residuo última vs típico", f"{pf.get('last')} vs {pf.get('typical')} (~{pf.get('ratio')}×)"),
+                _st("Mediana histórica", f"{pf.get('median')}"),
+                _st("Mejora vs prior", f"{pf.get('improvement_pct')}%" if pf.get("improvement_pct") is not None else "—"),
+                _st("Calibración", f"chalk {pf.get('chalk')} · bias {pf.get('bias')} · no-show {pf.get('no_show')}"),
+            ] if pf.get("available") else []),
+            "note": "El sistema no ve los picks ajenos: los ADIVINA con el ranking-inversion. De esa "
+                    "adivinanza salen 'qué tan contrarian es un marcador' y el corte que persigue el "
+                    "optimizador. Esta señal compara, jornada a jornada, lo que el modelo predijo que "
+                    "iba a jugar la gente contra lo que realmente jugó (delta del leaderboard).",
+            "rule": "OK: la última jornada calza ≤ mediana histórica. Vigilar: > mediana o subiendo 3 "
+                    "seguidas. Alerta: supera el p80, o el fit predice peor que el prior (datos "
+                    "contaminados). Se activa con ≥5 jornadas.",
         },
     ]
 
