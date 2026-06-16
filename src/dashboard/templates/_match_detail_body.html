@@ -270,7 +270,35 @@
           {% if v.lambda_L %} · λ {{ "%.2f"|format(v.lambda_L) }}-{{ "%.2f"|format(v.lambda_V) }}{% endif %}
         </span>
       </summary>
-      <div class="mt-2 space-y-1">
+      <div class="mt-2 space-y-2">
+        {# ----- ¿Cambió λ en esta pasada, y por qué? ----- #}
+        {% set q = v.qualitative or {} %}
+        {% set dL = q.get('delta_lambda_L') or 0 %}
+        {% set dV = q.get('delta_lambda_V') or 0 %}
+        {% set conf = q.get('confidence') %}
+        {% set moved = (dL|abs + dV|abs) > 0.001 %}
+        <div class="text-xs bg-slate-900/60 rounded px-3 py-2">
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <span class="uppercase tracking-wider text-slate-500">λ esta pasada</span>
+            <span class="font-mono text-slate-300">{% if v.lambda_L is not none %}{{ "%.2f"|format(v.lambda_L) }}-{{ "%.2f"|format(v.lambda_V) }}{% else %}—{% endif %}
+              {% if not loop.first %}{% set pv = m.timeline[loop.index0 - 1] %}{% set bL = (v.lambda_L or 0) - (pv.lambda_L or 0) %}{% set bV = (v.lambda_V or 0) - (pv.lambda_V or 0) %}
+                {% if (bL|abs + bV|abs) > 0.005 %}<span class="text-amber-300 ml-1">(vs {{ pv.phase }}: {{ "%+.2f"|format(bL) }}/{{ "%+.2f"|format(bV) }})</span>{% else %}<span class="text-slate-600 ml-1">(= {{ pv.phase }})</span>{% endif %}
+              {% else %}<span class="text-slate-600 ml-1">(primera pasada)</span>{% endif %}
+            </span>
+          </div>
+          <div class="mt-1.5 flex items-start gap-2">
+            <span class="shrink-0 {{ 'text-indigo-300' if moved else 'text-slate-500' }}">🧠 Capa 4:</span>
+            <div class="min-w-0">
+              <span class="font-mono {{ 'text-indigo-300' if moved else 'text-slate-500' }}">
+                {% if moved %}movió λ {{ "%+.2f"|format(dL) }}/{{ "%+.2f"|format(dV) }}{% if conf is not none %} · conf {{ "%.2f"|format(conf) }}{% endif %}{% else %}no movió λ{% if conf is not none %} · conf {{ "%.2f"|format(conf) }}{% endif %}{% endif %}
+              </span>
+              {% if q.get('reasoning') %}<p class="text-slate-400 mt-0.5 leading-relaxed">{{ q.get('reasoning') }}</p>
+              {% else %}<p class="text-slate-600 mt-0.5">sin análisis cualitativo en esta pasada.</p>{% endif %}
+            </div>
+          </div>
+        </div>
+
+        {# ----- Picks asignadas ----- #}
         {% for a in v.assignment %}
         <div class="flex items-center justify-between text-xs bg-slate-900/60 rounded px-3 py-1.5">
           <span class="flex items-center gap-2">
@@ -281,12 +309,6 @@
           <span class="font-bold">{{ a.score[0] }}-{{ a.score[1] }}</span>
         </div>
         {% endfor %}
-        {% if v.qualitative and v.qualitative.reasoning %}
-        <details class="mt-2 text-xs">
-          <summary class="cursor-pointer text-slate-400">LLM reasoning ({{ "%.2f"|format(v.qualitative.confidence or 0) }})</summary>
-          <p class="mt-1 text-slate-400 leading-relaxed pl-2">{{ v.qualitative.reasoning }}</p>
-        </details>
-        {% endif %}
       </div>
     </details>
     {% endfor %}
