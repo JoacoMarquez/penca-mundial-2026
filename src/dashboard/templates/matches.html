@@ -8,13 +8,14 @@
 <h1 class="text-2xl lg:text-3xl font-bold mb-1">📅 Partidos por día</h1>
 <p class="text-sm text-slate-400 mb-5">Calendar view del Mundial con tus picks superpuestos</p>
 
-{# Filtros opcionales (anchor links) #}
-<div class="flex flex-wrap gap-2 mb-5 text-xs">
-  {% set badges = [('upcoming', 'Próximos', 'bg-indigo-700/40 text-indigo-200 border-indigo-700/60'),
+{# Filtros por estado (client-side) #}
+<div class="flex flex-wrap gap-2 mb-5 text-xs" id="match-filters">
+  {% set badges = [('all', 'Todos', 'bg-slate-700/60 text-slate-200 border-slate-600'),
+                   ('upcoming', 'Próximos', 'bg-indigo-700/40 text-indigo-200 border-indigo-700/60'),
                    ('live', 'En curso', 'bg-red-700/40 text-red-200 border-red-700/60'),
                    ('finished', 'Terminados', 'bg-slate-700/60 text-slate-300 border-slate-700/60')] %}
   {% for s, label, cls in badges %}
-  <span class="px-2 py-1 rounded-md border {{ cls }}">{{ label }}</span>
+  <button type="button" data-filter="{{ s }}" class="filter-btn px-3 py-1 rounded-md border cursor-pointer transition {{ cls }}">{{ label }}</button>
   {% endfor %}
 </div>
 
@@ -26,7 +27,7 @@
 
 <div class="space-y-6">
   {% for day in data.days %}
-  <section class="bg-slate-800 rounded-xl shadow overflow-hidden">
+  <section class="day-section bg-slate-800 rounded-xl shadow overflow-hidden">
 
     {# Header del día #}
     <div class="px-5 py-3 border-b border-slate-700 flex items-center justify-between
@@ -35,13 +36,13 @@
         <span class="text-lg font-bold capitalize">{{ day.date_uy }}</span>
         {% if day.is_today %}<span class="text-xs bg-indigo-600 text-white px-2 py-0.5 rounded-full font-medium">HOY</span>{% endif %}
       </div>
-      <span class="text-xs text-slate-400">{{ day.matches | length }} partido{% if day.matches | length != 1 %}s{% endif %}</span>
+      <span class="day-count text-xs text-slate-400">{{ day.matches | length }} partido{% if day.matches | length != 1 %}s{% endif %}</span>
     </div>
 
     {# Lista de partidos de ese día #}
     <div class="divide-y divide-slate-700/50">
       {% for m in day.matches %}
-      <a href="/dash/{{ token }}/match/{{ m.match_id }}/" class="block px-5 py-4 hover:bg-slate-900/30 transition cursor-pointer">
+      <a href="/dash/{{ token }}/match/{{ m.match_id }}/" data-status="{{ m.status }}" class="match-row block px-5 py-4 hover:bg-slate-900/30 transition cursor-pointer">
 
         <div class="flex items-start gap-4">
           {# Hora UY #}
@@ -105,6 +106,46 @@
   </section>
   {% endfor %}
 </div>
+
+<div id="no-match-msg" class="hidden bg-slate-800 rounded-xl p-8 text-center text-slate-400 mt-2">
+  No hay partidos con ese filtro.
+</div>
+
+<script>
+(function () {
+  const wrap = document.getElementById('match-filters');
+  if (!wrap) return;
+  const btns = wrap.querySelectorAll('.filter-btn');
+  const rows = Array.from(document.querySelectorAll('.match-row'));
+  const days = Array.from(document.querySelectorAll('.day-section'));
+  const emptyMsg = document.getElementById('no-match-msg');
+
+  function apply(f) {
+    let totalVisible = 0;
+    rows.forEach(r => {
+      const show = (f === 'all') || (r.dataset.status === f);
+      r.style.display = show ? '' : 'none';
+    });
+    days.forEach(d => {
+      const vis = Array.from(d.querySelectorAll('.match-row')).filter(r => r.style.display !== 'none').length;
+      d.style.display = vis ? '' : 'none';
+      totalVisible += vis;
+      const c = d.querySelector('.day-count');
+      if (c) c.textContent = vis + ' partido' + (vis !== 1 ? 's' : '');
+    });
+    if (emptyMsg) emptyMsg.classList.toggle('hidden', totalVisible !== 0);
+    btns.forEach(b => {
+      const on = b.dataset.filter === f;
+      b.classList.toggle('ring-2', on);
+      b.classList.toggle('ring-white/60', on);
+      b.classList.toggle('opacity-50', !on);
+    });
+  }
+
+  btns.forEach(b => b.addEventListener('click', () => apply(b.dataset.filter)));
+  apply('all');
+})();
+</script>
 
 {% endif %}
 {% endblock %}
