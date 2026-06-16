@@ -209,6 +209,37 @@ def _snapshot_and_recalibrate(match_id) -> None:
         log.exception("snapshot/recalibración falló | match=%s", match_id)
 
 
+def _strategy_signal_flags() -> list:
+    """Banderas post-jornada a partir de las señales del dashboard que estén en alerta/vigilar.
+
+    Reusa load_strategy_metrics() (misma fuente que /metricas) para que el aviso de Telegram y
+    el dashboard nunca se contradigan. Best-effort: un fallo no frena el digest.
+    """
+    try:
+        from src.dashboard.data_loader import load_strategy_metrics
+        from src.agent.alerts import Flag
+        m = load_strategy_metrics()
+        if not m or m.get("error"):
+            return []
+        flags = []
+        for r in m.get("health_rows", []):
+            st = r.get("status")
+            if st not in ("alert", "warn"):
+                continue
+            sev = "ALERTA" if st == "alert" else "Vigilar"
+            detail = r.get("action") or r.get("reason") or r.get("meaning") or ""
+            flags.append(Flag(
+                level=("warn" if st == "alert" else "info"),
+                code=f"signal_{r.get('key')}",
+                title=f"{sev} — {r.get('name')}: {r.get('value')}",
+                detail=detail,
+            ))
+        return flags
+    except Exception:
+        log.exception("no se pudieron evaluar las señales para el digest")
+        return []
+
+
 def _notify_error(context: str, detail: str) -> None:
     """Best-effort Telegram alert on internal errors."""
     try:
@@ -281,6 +312,7 @@ def _maybe_send_jornada_digest(fixtures: dict) -> None:
         slip = check_pool_slippage(prev_e, curr_e, my_ids)
         if slip:
             flags.append(slip)
+        flags.extend(_strategy_signal_flags())  # señales del dashboard en alerta/vigilar
         pool_line = _digest_pool_line(curr_e, my_ids)
 
         text = build_digest_text(uy_date, summaries, flags, pool_line)
