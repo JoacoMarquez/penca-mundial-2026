@@ -605,8 +605,8 @@ def load_match_detail(match_id) -> dict | None:
                 if a["score"] != pa["score"] or a["objective"] != pa["objective"]:
                     change_lines.append({
                         "penca_id": pid,
-                        "old": f"{pa['objective']} {pa['score'][0]}-{pa['score'][1]}",
-                        "new": f"{a['objective']} {a['score'][0]}-{a['score'][1]}",
+                        "old": f"{STRATEGY_DISPLAY_LABEL.get(pa['objective'], pa['objective'])} {pa['score'][0]}-{pa['score'][1]}",
+                        "new": f"{STRATEGY_DISPLAY_LABEL.get(a['objective'], a['objective'])} {a['score'][0]}-{a['score'][1]}",
                     })
         # Cambios en probabilidades
         def _delta(a, b, label, threshold=0.02):
