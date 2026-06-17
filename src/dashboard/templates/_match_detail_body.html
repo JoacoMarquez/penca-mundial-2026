@@ -304,7 +304,7 @@
           <span class="flex items-center gap-2">
             <span class="text-slate-500 w-12">P{{ penca_labels.get(a.penca_id, a.penca_id) }}</span>
             <span>{{ strategy_emoji.get(a.objective, '•') }}</span>
-            <span class="text-slate-400">{{ a.objective }}</span>
+            <span class="text-slate-400">{{ strategy_label.get(a.objective, a.objective) }}</span>
           </span>
           <span class="font-bold">{{ a.score[0] }}-{{ a.score[1] }}</span>
         </div>
