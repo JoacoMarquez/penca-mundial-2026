@@ -1,0 +1,21 @@
+match_id,home,away,actual_home_score,actual_away_score,market_p_home,market_p_draw,market_p_away
+WC26_105,México,Sudáfrica,2,0,0.6735,0.2177,0.1088
+WC26_106,Corea del Sur,República Checa,2,1,0.3681,0.3098,0.3221
+WC26_107,Canadá,Bosnia y Herzegovina,1,1,0.5255,0.2716,0.2029
+WC26_108,Estados Unidos,Paraguay,4,1,0.4625,0.2974,0.2401
+WC26_109,Catar,Suiza,1,1,0.0625,0.1292,0.8083
+WC26_110,Brasil,Marruecos,1,1,0.5740,0.2572,0.1688
+WC26_111,Haití,Escocia,0,1,0.1583,0.2131,0.6285
+WC26_112,Australia,Turquía,2,0,0.1799,0.2599,0.5602
+WC26_113,Alemania,Curaçao,7,1,0.9330,0.0433,0.0237
+WC26_114,Países Bajos,Japón,2,2,0.4617,0.2785,0.2599
+WC26_115,Costa de Marfil,Ecuador,1,0,0.2803,0.3303,0.3894
+WC26_116,Suecia,Túnez,5,1,0.5131,0.2794,0.2076
+WC26_117,España,Cabo Verde,0,0,0.8906,0.0733,0.0361
+WC26_118,Bélgica,Egipto,1,1,0.6349,0.2226,0.1425
+WC26_119,Arabia Saudita,Uruguay,1,1,0.1191,0.2250,0.6559
+WC26_120,Irán,Nueva Zelanda,2,2,0.5254,0.2761,0.1985
+WC26_121,Francia,Senegal,3,1,0.6561,0.2109,0.1330
+WC26_122,Irak,Noruega,1,4,0.0746,0.1405,0.7849
+WC26_123,Argentina,Argelia,3,0,0.6283,0.2354,0.1363
+WC26_124,Austria,Jordania,3,1,0.6936,0.1962,0.1102

@@ -335,13 +335,39 @@ def load_matches_by_day(days_back: int = 2, days_ahead: int = 21) -> list[dict]:
 
 # ---------- match detail con timeline de pasadas ----------
 
+# Etiquetas y emojis de display de cada estrategia — ÚNICA fuente de verdad.
+# app.py los registra como globals de Jinja; data_loader los usa para labels pre-armados.
+# Display-only: NO tocan el modelo ni las picks. Los nombres reflejan lo que la pick HACE,
+# no solo el objetivo matemático (chequeo de concordancia 2026-06-17 sobre 24 partidos):
+#   - "upset" → "Anti-favorito": en la práctica es SIEMPRE el empate, no un batacazo del underdog.
+#   - "variance" → "Diversificación": queda en varianza media (rank ~3 de 5), no es el pick más volátil.
+#   - "tail" → "Goles": solo es goleador con marcador ≥3 goles (si no, _display_objective lo re-rotula).
+STRATEGY_DISPLAY_LABEL: dict[str, str] = {
+    "ev": "Favorito",
+    "differentiated": "Diferencial",
+    "tail": "Goles",
+    "upset": "Anti-favorito",
+    "variance": "Diversificación",
+    "alt": "Cobertura",
+}
+
+STRATEGY_DISPLAY_EMOJI: dict[str, str] = {
+    "ev": "🎯",
+    "differentiated": "📊",
+    "tail": "⚡",
+    "upset": "🤝",
+    "variance": "🎲",
+    "alt": "🧩",
+}
+
+
 STRATEGY_RATIONALE: dict[str, str] = {
-    "ev": "EV puro: marcador con MAYOR esperanza de puntos sobre toda la grilla Poisson.",
-    "differentiated": "Diferencial: alto EV PERO castigando popularidad (el marcador modal del pool resta valor).",
-    "tail": "Goles: optimiza el pick para escenarios de muchos goles (top 10% de outcomes por goles totales). El marcador resultante puede ser corto.",
-    "upset": "Sorpresa: argmax E[points] forzando ganador opuesto al favorito de mercado.",
-    "variance": "Varianza: entre top-K por EV no usadas, la de mayor desvío estándar (alta varianza).",
-    "alt": "Alternativa: siguiente mejor marcador por EV no cubierto por las otras planillas — amplía la cobertura del abanico.",
+    "ev": "Favorito (EV puro): el marcador con MAYOR esperanza de puntos sobre toda la grilla Poisson — el ancla. Para un favorito casi siempre cae en 1-0.",
+    "differentiated": "Diferencial: casi el mismo EV que el favorito pero castigando popularidad (el marcador modal del pool resta valor) — si pega, te despega del montón.",
+    "tail": "Goles: optimiza para escenarios de muchos goles (top 10% por goles totales), PERO restringido a marcadores realistas, así que en la práctica suele caer en un marcador apenas más goleador que el favorito (rara vez ≥3 goles).",
+    "upset": "Anti-favorito: el mejor marcador forzando que el favorito NO gane. En la práctica casi siempre es el EMPATE (rinde más que la victoria del underdog), no un batacazo.",
+    "variance": "Diversificación: entre los top por EV no usados, el de mayor varianza — en los hechos una cobertura de varianza media (no el pick más volátil del menú), para ampliar el abanico.",
+    "alt": "Cobertura: siguiente mejor marcador por EV no cubierto por las otras planillas — amplía el abanico.",
 }
 
 # Goles totales mínimos para que una pick merezca el rótulo "Goles" (objetivo tail).
@@ -369,9 +395,9 @@ def _display_objective(objective: str, score) -> str:
 ROLE_WHY = {
     "ev": "le toca el marcador más probable del partido: juega a lo seguro.",
     "differentiated": "recibe un marcador casi tan bueno como el favorito pero que juega menos gente del pool — si pega, te despega del montón.",
-    "tail": "cubre el escenario de un partido con muchos goles.",
-    "upset": "es tu seguro contra el batacazo: la única que apuesta a que el favorito NO gane.",
-    "variance": "recibe una apuesta de techo alto (mucha varianza): rinde poco en promedio, pero mucho si pega justo.",
+    "tail": "cubre un escenario apenas más goleador que el favorito (en la práctica un marcador corto, no una goleada).",
+    "upset": "apuesta a que el favorito NO gana — en los hechos, casi siempre el empate.",
+    "variance": "recibe una pick de cobertura algo más volátil para diversificar el abanico (no la más volátil del menú).",
     "alt": "cubre otro resultado plausible que las planillas mejor ubicadas no agarraron, para ampliar el abanico.",
 }
 
@@ -2056,8 +2082,7 @@ def llm_counterfactual(pred: dict) -> dict:
         port_pre = generate_portfolio(grid_pre, p_home, p_away, pool_cfg)
         port_post = generate_portfolio(grid_post, p_home, p_away, pool_cfg)
 
-        label = {"ev": "Favorito", "differentiated": "Diferencial", "tail": "Goles",
-                 "upset": "Sorpresa", "variance": "Varianza"}
+        label = STRATEGY_DISPLAY_LABEL
         rows, n_changed = [], 0
         for a, b in zip(port_pre.picks, port_post.picks):
             pre = (a.score_local, a.score_visit)

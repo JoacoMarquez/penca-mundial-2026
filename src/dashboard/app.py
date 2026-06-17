@@ -19,6 +19,8 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
 from src.dashboard.data_loader import (
+    STRATEGY_DISPLAY_EMOJI,
+    STRATEGY_DISPLAY_LABEL,
     build_penca_labels,
     load_live_match_data,
     load_match_detail,
@@ -35,6 +37,11 @@ from src.dashboard.data_loader import (
 
 HERE = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(HERE / "templates"))
+
+# Etiquetas/emojis de estrategia disponibles en TODOS los templates (una sola fuente de
+# verdad en data_loader, antes duplicadas con `{% set %}` en cada template).
+templates.env.globals["strategy_label"] = STRATEGY_DISPLAY_LABEL
+templates.env.globals["strategy_emoji"] = STRATEGY_DISPLAY_EMOJI
 
 app = FastAPI(title="Penca Mundial Dashboard")
 

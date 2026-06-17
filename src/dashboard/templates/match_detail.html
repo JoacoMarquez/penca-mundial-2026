@@ -3,8 +3,6 @@
 {% block title %}{{ data.match.home }} vs {{ data.match.away }} — Detalle{% endblock %}
 
 {% block content %}
-{% set strategy_emoji = {'ev':'🎯', 'differentiated':'📊', 'tail':'⚡', 'upset':'😲', 'variance':'📈'} %}
-{% set strategy_label = {'ev':'Favorito', 'differentiated':'Diferencial', 'tail':'Goles', 'upset':'Sorpresa', 'variance':'Varianza'} %}
 {% set m = data.match %}
 
 <a href="/dash/{{ token }}/matches/" class="text-sm text-indigo-400 hover:underline">&larr; Volver a Partidos</a>
