@@ -12,6 +12,9 @@
   details.livecard > summary::-webkit-details-marker { display: none; }
   details.livecard .chev2 { transition: transform .15s ease; }
   details.livecard[open] .chev2 { transform: rotate(90deg); }
+  .ahbtn { width:30px; height:30px; border-radius:8px; border:1px solid rgb(71 85 105 / .5); background:rgb(15 23 42 / .5); color:#cbd5e1; font-size:18px; line-height:1; cursor:pointer; }
+  .ahbtn:hover { background:rgb(30 41 59 / .8); }
+  .ahbtn:active { transform:scale(.95); }
 </style>
 <details class="livecard bg-gradient-to-br from-red-900/40 to-slate-800 border border-red-700/40 rounded-xl mb-5">
   <summary class="cursor-pointer px-5 py-4 flex items-center gap-3">
@@ -51,6 +54,75 @@
       </div>
       {% endfor %}
     </div>
+
+    {# ---- ¿A qué hinchar? calculadora manual (la API no da el marcador en vivo) ---- #}
+    <div class="mt-4 border-t border-slate-700/50 pt-3">
+      <div class="text-[10px] uppercase tracking-wider text-slate-500 mb-2">¿A qué hinchar? · poné el marcador actual</div>
+      <div class="flex items-center justify-center gap-4 mb-3">
+        <div class="text-center">
+          <div class="text-[11px] text-slate-400 mb-1 max-w-[90px] truncate">{{ lv.home }}</div>
+          <div class="flex items-center gap-2">
+            <button type="button" class="ahbtn" data-k="h" data-d="-1" aria-label="menos local">&minus;</button>
+            <span id="ah-h" class="text-2xl font-bold w-7 text-center">0</span>
+            <button type="button" class="ahbtn" data-k="h" data-d="1" aria-label="más local">+</button>
+          </div>
+        </div>
+        <span class="text-slate-500 text-lg pt-5">-</span>
+        <div class="text-center">
+          <div class="text-[11px] text-slate-400 mb-1 max-w-[90px] truncate">{{ lv.away }}</div>
+          <div class="flex items-center gap-2">
+            <button type="button" class="ahbtn" data-k="a" data-d="-1" aria-label="menos visitante">&minus;</button>
+            <span id="ah-a" class="text-2xl font-bold w-7 text-center">0</span>
+            <button type="button" class="ahbtn" data-k="a" data-d="1" aria-label="más visitante">+</button>
+          </div>
+        </div>
+      </div>
+      <div id="ah-out" class="text-sm"></div>
+    </div>
+    <script>
+    (function(){
+      const PICKS = [{% for p in lv.picks %}[{{ p.score[0] }},{{ p.score[1] }}]{% if not loop.last %},{% endif %}{% endfor %}];
+      const HOME = {{ lv.home|tojson }}, AWAY = {{ lv.away|tojson }};
+      const TIER = {6:'marcador exacto', 4:'ganador + diferencia de gol', 3:'solo ganador / empate'};
+      const st = {h:0, a:0};
+      function pts(p, x){
+        if(p[0]===x[0] && p[1]===x[1]) return 6;
+        const w=(m,n)=> m>n?1:(m<n?2:0);
+        const wp=w(p[0],p[1]), wx=w(x[0],x[1]);
+        if(wp!==wx) return 0;
+        if(wp===0) return 3;
+        if((p[0]-p[1])===(x[0]-x[1])) return 4;
+        return 3;
+      }
+      function bestAt(F){ let mx=0,n=0,via=[]; PICKS.forEach(p=>{const v=pts(p,F); if(v>0)n++; if(v>mx){mx=v;via=[p.join('-')];} else if(v===mx&&mx>0&&!via.includes(p.join('-')))via.push(p.join('-'));}); return {pts:mx,n,via}; }
+      function need(F){ const dh=F[0]-st.h, da=F[1]-st.a; if(dh===0&&da===0) return 'ya estás ahí'; return 'falta '+[dh>0?'+'+dh+' '+HOME:'', da>0?'+'+da+' '+AWAY:''].filter(Boolean).join(' y '); }
+      function render(){
+        document.getElementById('ah-h').textContent=st.h;
+        document.getElementById('ah-a').textContent=st.a;
+        const cur=[st.h,st.a], now=bestAt(cur);
+        const wkey=s=> s[0]>s[1]?'home':(s[0]<s[1]?'away':'draw');
+        const covered=new Set(PICKS.map(wkey));
+        const lab={home:'gane '+HOME, away:'gane '+AWAY, draw:'sea empate'};
+        const uncov=['home','away','draw'].filter(w=>!covered.has(w)).map(w=>lab[w]);
+        const finals=[]; const HM=Math.min(st.h+5,9), AM=Math.min(st.a+5,9);
+        for(let H=st.h;H<=HM;H++)for(let A=st.a;A<=AM;A++){const b=bestAt([H,A]); if(b.pts>0)finals.push({F:[H,A],pts:b.pts,via:b.via,need:(H-st.h)+(A-st.a)});}
+        const byT={}; finals.forEach(f=>{const e=byT[f.pts]; if(!e||f.need<e.need)byT[f.pts]=f;});
+        const tiers=Object.values(byT).sort((a,b)=>b.pts-a.pts);
+        let html = '<div class="text-xs text-slate-400 text-center mb-2">Si termina <b class="text-slate-200">'+st.h+'-'+st.a+'</b> ahora: tu mejor penca <b class="text-slate-200">'+now.pts+'</b> pts · '+now.n+'/'+PICKS.length+' puntúan</div>';
+        if(tiers.length){
+          const top=tiers[0];
+          html += '<div class="bg-green-900/25 border border-green-700/50 rounded-lg px-3 py-2 mb-2"><div class="text-[10px] uppercase tracking-wider text-green-300">Lo mejor desde acá</div><div class="text-green-300 font-bold">'+top.pts+' pts — '+(top.pts===6?('que termine '+top.F[0]+'-'+top.F[1]):('gane '+HOME+' (ej. '+top.F[0]+'-'+top.F[1]+')'))+'</div><div class="text-[11px] text-green-300/80">'+need(top.F)+'</div></div>';
+          html += '<div class="bg-slate-900/40 rounded-lg px-3 divide-y divide-slate-700/40">';
+          tiers.forEach(t=>{ const via=t.pts===6?('que termine '+t.F[0]+'-'+t.F[1]):('ej. '+t.F[0]+'-'+t.F[1]+' · vía tu '+t.via[0]); html += '<div class="flex justify-between items-baseline gap-2 py-1.5 text-sm"><span><b class="text-slate-200">'+t.pts+' pts</b> <span class="text-slate-500 text-xs">'+TIER[t.pts]+'</span></span><span class="text-xs text-slate-400 text-right">'+via+' · '+need(t.F)+'</span></div>'; });
+          html += '</div>';
+        }
+        if(uncov.length){ html += '<div class="text-[11px] text-amber-200/80 mt-2">⚠️ Si '+uncov.join(' o ')+' sacás 0: no tenés ningún pick ahí.</div>'; }
+        document.getElementById('ah-out').innerHTML=html;
+      }
+      document.querySelectorAll('.ahbtn').forEach(b=> b.addEventListener('click', ()=>{ const k=b.dataset.k, d=parseInt(b.dataset.d,10); st[k]=Math.max(0,Math.min(9,st[k]+d)); render(); }));
+      render();
+    })();
+    </script>
     {% endif %}
     <a href="/dash/{{ token }}/match/{{ lv.match_id }}/" class="inline-block mt-3 text-xs text-indigo-300 hover:underline">ver detalle completo &rarr;</a>
   </div>
