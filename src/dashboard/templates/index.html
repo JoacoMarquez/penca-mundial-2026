@@ -40,15 +40,15 @@
     <div class="text-xs text-amber-200/80 bg-amber-900/15 rounded-lg px-3 py-2 leading-relaxed mb-3">La API todavía no publica el marcador en vivo. Cuando aparezca, acá ves los puntos provisionales de cada pick.</div>
     {% endif %}
     {% if lv.picks %}
-    <div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">Pronóstico de cada penca · ordenado por pts</div>
+    <div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">Pronóstico de cada penca · poné el marcador abajo → +gana y total</div>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5">
       {% for col in [lv.picks[:8], lv.picks[8:]] %}
       <div class="space-y-1.5">
         {% for p in col %}
-        <div class="flex items-center gap-3 bg-slate-900/40 rounded-lg px-3 py-2 text-sm">
-          <span class="text-slate-400 w-16 shrink-0">Penca {{ penca_labels.get(p.penca_id, p.penca_id) }}</span>
+        <div class="ah-row flex items-center gap-3 bg-slate-900/40 rounded-lg px-3 py-2 text-sm" data-h="{{ p.score[0] }}" data-a="{{ p.score[1] }}" data-cur="{{ p.points if p.points is not none else '' }}">
+          <span class="text-slate-400 w-14 shrink-0">Penca {{ penca_labels.get(p.penca_id, p.penca_id) }}</span>
           <span class="font-bold text-lg">{{ p.score[0] }}<span class="text-slate-500 mx-1">-</span>{{ p.score[1] }}</span>
-          {% if p.points is not none %}<span class="ml-auto font-semibold text-slate-200">{{ p.points }} pts</span>{% endif %}
+          <span class="ml-auto text-right whitespace-nowrap">{% if p.points is not none %}<span class="text-slate-500 text-xs">{{ p.points }}</span>{% endif %}<span class="ah-delta font-semibold"></span></span>
         </div>
         {% endfor %}
       </div>
@@ -118,6 +118,12 @@
         }
         if(uncov.length){ html += '<div class="text-[11px] text-amber-200/80 mt-2">⚠️ Si '+uncov.join(' o ')+' sacás 0: no tenés ningún pick ahí.</div>'; }
         document.getElementById('ah-out').innerHTML=html;
+        document.querySelectorAll('.ah-row').forEach(function(row){
+          const g=pts([+row.dataset.h,+row.dataset.a],[st.h,st.a]);
+          const gcol = g>0 ? 'text-green-400' : 'text-slate-500';
+          const el=row.querySelector('.ah-delta');
+          el.innerHTML = row.dataset.cur!=='' ? (' <span class="'+gcol+'">+'+g+'</span> <span class="text-slate-300">&rarr; '+(parseInt(row.dataset.cur,10)+g)+'</span>') : (' <span class="'+gcol+'">+'+g+'</span>');
+        });
       }
       document.querySelectorAll('.ahbtn').forEach(b=> b.addEventListener('click', ()=>{ const k=b.dataset.k, d=parseInt(b.dataset.d,10); st[k]=Math.max(0,Math.min(9,st[k]+d)); render(); }));
       render();
