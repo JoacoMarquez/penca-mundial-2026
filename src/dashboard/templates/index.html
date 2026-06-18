@@ -36,27 +36,9 @@
   </summary>
 
   <div class="px-5 pb-5">
-    {% if not lv.has_score %}
-    <div class="text-xs text-amber-200/80 bg-amber-900/15 rounded-lg px-3 py-2 leading-relaxed mb-3">La API todavía no publica el marcador en vivo. Cuando aparezca, acá ves los puntos provisionales de cada pick.</div>
-    {% endif %}
     {% if lv.picks %}
-    <div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">Pronóstico de cada penca · poné el marcador abajo → +gana y total</div>
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5">
-      {% for col in [lv.picks[:8], lv.picks[8:]] %}
-      <div class="space-y-1.5">
-        {% for p in col %}
-        <div class="ah-row flex items-center gap-3 bg-slate-900/40 rounded-lg px-3 py-2 text-sm" data-h="{{ p.score[0] }}" data-a="{{ p.score[1] }}" data-cur="{{ p.points if p.points is not none else '' }}">
-          <span class="text-slate-400 w-14 shrink-0">Penca {{ penca_labels.get(p.penca_id, p.penca_id) }}</span>
-          <span class="font-bold text-lg">{{ p.score[0] }}<span class="text-slate-500 mx-1">-</span>{{ p.score[1] }}</span>
-          <span class="ml-auto text-right whitespace-nowrap">{% if p.points is not none %}<span class="text-slate-500 text-xs">{{ p.points }}</span>{% endif %}<span class="ah-delta font-semibold"></span></span>
-        </div>
-        {% endfor %}
-      </div>
-      {% endfor %}
-    </div>
-
-    {# ---- Marcador manual: movés los goles y cada penca muestra +gana → total (la API no da el score en vivo) ---- #}
-    <div class="mt-4 border-t border-slate-700/50 pt-3">
+    {# ---- Marcador manual (arriba): movés los goles y cada penca muestra +gana → total ---- #}
+    <div class="border-b border-slate-700/50 pb-3 mb-3">
       <div class="text-[10px] uppercase tracking-wider text-slate-500 mb-2">Poné el marcador para ver cuánto gana cada penca</div>
       <div class="flex items-center justify-center gap-4">
         <div class="text-center">
@@ -77,6 +59,20 @@
           </div>
         </div>
       </div>
+    </div>
+    <div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">Pronóstico de cada penca · +gana → total</div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5">
+      {% for col in [lv.picks[:8], lv.picks[8:]] %}
+      <div class="space-y-1.5">
+        {% for p in col %}
+        <div class="ah-row flex items-center gap-3 bg-slate-900/40 rounded-lg px-3 py-2 text-sm" data-h="{{ p.score[0] }}" data-a="{{ p.score[1] }}" data-cur="{{ p.points if p.points is not none else '' }}">
+          <span class="text-slate-400 shrink-0 whitespace-nowrap">Penca {{ penca_labels.get(p.penca_id, p.penca_id) }}</span>
+          <span class="font-bold text-lg">{{ p.score[0] }}<span class="text-slate-500 mx-1">-</span>{{ p.score[1] }}</span>
+          <span class="ml-auto text-right whitespace-nowrap">{% if p.points is not none %}<span class="text-slate-500 text-xs">{{ p.points }}</span>{% endif %}<span class="ah-delta font-semibold"></span></span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endfor %}
     </div>
     <script>
     (function(){
