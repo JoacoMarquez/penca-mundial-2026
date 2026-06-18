@@ -135,6 +135,43 @@ def load_live_match_data() -> dict | None:
     return _cached("live_match", 15.0, _load_live_match_data_uncached)
 
 
+def _live_valor_map(pred: dict, acc: dict, cutoff: int) -> dict:
+    """Por cada resultado final posible, el VALOR para la estrategia (DISPLAY-ONLY):
+
+        VALOR(F) = (mejor total entre NUESTRAS pencas con ese resultado)
+                   − (corte top-3 actual + cuánto sube el pool con ese resultado)
+
+    El 2º término usa el pool_q calibrado: E[puntos del jugador típico | F]. Premia
+    los resultados donde nosotros subimos y el pool no. NO toca picks ni el modelo —
+    es puro cálculo de visualización sobre datos ya generados.
+    """
+    try:
+        from src.model.poisson import score_grid, jmlm_points
+        from src.meta.calibration import get_pool_config
+        from src.meta.pool import pool_pick_distribution
+        c = pred.get("constraints") or {}
+        lam_L, lam_V = c.get("lambda_L"), c.get("lambda_V")
+        assignment = pred.get("assignment") or []
+        if lam_L is None or lam_V is None or not assignment:
+            return {}
+        grid = score_grid(float(lam_L), float(lam_V), float(c.get("lambda_12", 0.1)), max_goals=6)
+        poolq = pool_pick_distribution(grid, get_pool_config())
+        n = grid.shape[0]
+        ours = [(int(acc.get(int(a["penca_id"])) or 0),
+                 (int(a["score"][0]), int(a["score"][1]))) for a in assignment]
+        out: dict[str, float] = {}
+        for fh in range(n):
+            for fa in range(n):
+                F = (fh, fa)
+                best_new = max(cur + jmlm_points(pk, F) for cur, pk in ours)
+                pool_gain = float(sum(poolq[a, b] * jmlm_points((a, b), F)
+                                      for a in range(n) for b in range(n)))
+                out[f"{fh}-{fa}"] = round(best_new - (cutoff + pool_gain), 1)
+        return out
+    except Exception:
+        return {}
+
+
 def _load_live_match_data_uncached() -> dict | None:
     import httpx
     base = os.environ.get("PENCA_API_BASE_URL", "").rstrip("/")
@@ -204,6 +241,7 @@ def _load_live_match_data_uncached() -> dict | None:
             exposure.sort(key=lambda r: (-r.get("prov_points", 0), -r["count"]))
         out["exposure"] = exposure
         out["total_pencas"] = len(pred.get("assignment", []))
+        out["valor"] = _live_valor_map(pred, acc, int(standings.get("cutoff_top3", 0) or 0))
     return out
 
 
@@ -780,6 +818,10 @@ def _load_my_pencas_standings_uncached() -> dict[str, Any]:
         "pool_size": total_in_pool,
         "pencas": my_entries,
         "pool_top": sorted_entries[0] if sorted_entries else None,
+        "cutoff_top3": (
+            sorted_entries[2].get("points_total", 0) if len(sorted_entries) >= 3
+            else (sorted_entries[-1].get("points_total", 0) if sorted_entries else 0)
+        ),
         "pool_median_points": (
             sorted_entries[len(sorted_entries) // 2].get("points_total", 0)
             if sorted_entries else 0
