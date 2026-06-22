@@ -595,8 +595,10 @@ def load_match_detail(match_id) -> dict | None:
         p["pool_rank"] = st.get("rank") if st else None
         p["pool_points"] = st.get("points") if st else None
 
-    # Ordenar por posición en el pool (mejor primero); las sin standing, al final.
-    current_pencas.sort(key=lambda p: (p["pool_rank"] is None, p["pool_rank"] or 0))
+    # Ordenar por posición en el pool (mejor primero). Si el leaderboard no cargó
+    # (API lenta/caída → pool_rank None), caer al rank interno por calidad en vez de
+    # quedar en el orden crudo de asignación.
+    current_pencas.sort(key=lambda p: (p["pool_rank"] is None, p["pool_rank"] or 0, p.get("rank") or 0))
 
     # Exposición agregada por marcador (cuántas pencas en cada scoreline), orden por frecuencia.
     from collections import Counter
@@ -758,23 +760,44 @@ def _last_match_points(my_ids: set) -> dict:
     }
 
 
+# El /leaderboard real tarda ~10-13s con el pool de 400+ (54KB). Una sola lectura,
+# cacheada y compartida entre standings y la inteligencia del pool, para no pagar dos
+# veces la latencia ni arriesgar doble timeout en una carga fría.
+_LEADERBOARD_TIMEOUT = 25.0
+
+
+def _fetch_leaderboard_entries() -> tuple[list, str | None]:
+    """Lee /leaderboard una vez. Devuelve (entries, error_str). Cacheado 25s."""
+    def _do() -> tuple[list, str | None]:
+        import httpx
+        base = os.environ.get("PENCA_API_BASE_URL", "").rstrip("/")
+        key = os.environ.get("PENCA_API_KEY", "")
+        if not base or not key:
+            return [], "API no configurada"
+        try:
+            with httpx.Client(
+                timeout=_LEADERBOARD_TIMEOUT,
+                headers={"Authorization": f"Bearer {key}"},
+            ) as c:
+                r = c.get(f"{base}/leaderboard")
+            if r.status_code != 200:
+                return [], f"leaderboard {r.status_code}"
+            return r.json().get("entries", []), None
+        except Exception as e:
+            return [], str(e)
+
+    return _cached("leaderboard_raw", 25.0, _do)
+
+
 def _load_my_pencas_standings_uncached() -> dict[str, Any]:
     """Lee leaderboard real de la penca. Filtra mis pencas."""
-    import httpx
-    base = os.environ.get("PENCA_API_BASE_URL", "").rstrip("/")
-    key = os.environ.get("PENCA_API_KEY", "")
     from src.utils.env import get_int_list
     my_ids = set(get_int_list("PENCA_IDS"))
-    if not base or not key or not my_ids:
-        return {"error": "API o PENCA_IDS no configurados", "pencas": []}
-    try:
-        with httpx.Client(timeout=8.0, headers={"Authorization": f"Bearer {key}"}) as c:
-            r = c.get(f"{base}/leaderboard")
-        if r.status_code != 200:
-            return {"error": f"leaderboard {r.status_code}", "pencas": []}
-        entries = r.json().get("entries", [])
-    except Exception as e:
-        return {"error": str(e), "pencas": []}
+    if not my_ids:
+        return {"error": "PENCA_IDS no configurados", "pencas": []}
+    entries, err = _fetch_leaderboard_entries()
+    if err:
+        return {"error": err, "pencas": []}
 
     sorted_entries = sorted(entries, key=lambda e: -e.get("points_total", 0))
     total_in_pool = len(sorted_entries)
@@ -848,22 +871,12 @@ def load_pool_intelligence() -> dict[str, Any]:
 
 
 def _load_pool_intelligence_uncached() -> dict[str, Any]:
-    import httpx
     from src.utils.env import get_int_list
 
-    base = os.environ.get("PENCA_API_BASE_URL", "").rstrip("/")
-    key = os.environ.get("PENCA_API_KEY", "")
     my_ids = set(get_int_list("PENCA_IDS"))
-    if not base or not key:
-        return {"error": "API no configurada"}
-    try:
-        with httpx.Client(timeout=8.0, headers={"Authorization": f"Bearer {key}"}) as c:
-            r = c.get(f"{base}/leaderboard")
-        if r.status_code != 200:
-            return {"error": f"leaderboard {r.status_code}"}
-        entries = r.json().get("entries", [])
-    except Exception as e:
-        return {"error": str(e)}
+    entries, err = _fetch_leaderboard_entries()
+    if err:
+        return {"error": err}
     if not entries:
         return {"error": "leaderboard vacío"}
 
