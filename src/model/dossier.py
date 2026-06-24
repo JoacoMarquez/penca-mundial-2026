@@ -79,6 +79,11 @@ class MatchDossier:
     rest_days_away: int | None = None
     importance_score: float | None = None    # 0..1 (eliminatoria > grupos > amistoso)
 
+    # Tabla del grupo (texto formateado: equipo, W-D-L, pts, GF-GA). Clave para el último
+    # partido de fase de grupos: deja inferir qué necesita cada equipo (rotar si ya clasificó,
+    # ganar sí o sí, alcanza con empate). Alimenta MOTIVACIÓN de Capa 4.
+    standings_table: str | None = None
+
     # H2H
     h2h_summary: str | None = None
     h2h_count: int | None = None
@@ -349,6 +354,7 @@ def build_dossier(
         rest_days_home=rest_home,
         rest_days_away=rest_away,
         importance_score=_importance_score(match.get("stage", "")),
+        standings_table=espn_ctx.get("standings_context"),
         h2h_summary=fapi_ctx.get("h2h_recent") or espn_ctx.get("h2h_recent_espn"),
         market_p_home=constraints.get("p_home"),
         market_p_draw=constraints.get("p_draw"),
@@ -419,6 +425,12 @@ def dossier_to_llm_context_text(dossier: MatchDossier) -> str:
         lines.append(f"H2H: {dossier.h2h_summary[:200]}")
     if dossier.weather_summary:
         lines.append(f"Clima: {dossier.weather_summary}")
+
+    # Tabla del grupo: en el último partido de fase de grupos define qué necesita cada equipo.
+    if dossier.standings_table:
+        lines.append("")
+        lines.append("--- TABLA DEL GRUPO (clasificación actual, antes de este partido) ---")
+        lines.append(dossier.standings_table)
 
     # Mercado (de referencia)
     if dossier.market_p_home is not None:
