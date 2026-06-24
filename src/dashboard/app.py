@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -60,9 +61,10 @@ def root():
 
 
 @app.get("/dash/{token}/", response_class=HTMLResponse)
-def page_home(request: Request, token: str):
+def page_home(request: Request, token: str, match: Optional[str] = None):
     _check_token(token)
-    nxt = load_next_match_data()
+    # `match` (query param) elige cuál de los simultáneos mostrar; default = el primero.
+    nxt = load_next_match_data(match_id=match)
     detail = load_match_detail(nxt["match_id"]) if nxt else None
     data = {
         "live": load_live_match_data(),

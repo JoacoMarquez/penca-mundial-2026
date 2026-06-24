@@ -56,8 +56,14 @@ def _to_uy(iso: str) -> str:
 
 # ---------- próximo partido ----------
 
-def load_next_match_data() -> dict | None:
-    """Devuelve la data del próximo partido a jugarse, con su última predicción y dossier."""
+def load_next_match_data(match_id=None) -> dict | None:
+    """Devuelve la data del próximo partido a jugarse, con su última predicción y dossier.
+
+    Si hay partidos SIMULTÁNEOS (mismo kickoff — típico en la última fecha de grupos), el
+    "próximo partido" es un slot de varios. Por defecto se devuelve el primero; pasando
+    `match_id` (uno de los del slot) se devuelve ese. La lista del slot va en out["slot"]
+    para que el dashboard arme el toggle entre los simultáneos.
+    """
     import yaml
     try:
         fixtures_path = Path(__file__).resolve().parents[2] / "config" / "fixtures.yaml"
@@ -78,7 +84,16 @@ def load_next_match_data() -> dict | None:
     if not upcoming:
         return None
     upcoming.sort(key=lambda x: x[0])
-    ko, match = upcoming[0]
+    # Slot del próximo turno: TODOS los partidos que arrancan al mismo tiempo (los simultáneos
+    # de la última fecha). Por defecto elegimos el primero; si llega un match_id válido del
+    # slot, ese.
+    ko0 = upcoming[0][0]
+    slot = [(ko, m) for ko, m in upcoming if ko == ko0]
+    chosen = (
+        next(((ko, m) for ko, m in slot if str(m["id"]) == str(match_id)), None)
+        if match_id is not None else None
+    )
+    ko, match = chosen or slot[0]
 
     delta = ko - now
     days, rem = delta.days, delta.seconds
@@ -124,6 +139,18 @@ def load_next_match_data() -> dict | None:
     dossier = _load_latest_dossier(match["id"])
     if dossier:
         out["dossier"] = dossier
+
+    # Partidos simultáneos del mismo turno (para el toggle del "Próximo partido").
+    out["slot"] = [
+        {
+            "match_id": m["id"],
+            "home": m.get("home_name") or m.get("home", "?"),
+            "away": m.get("away_name") or m.get("away", "?"),
+            "group": m.get("group"),
+            "selected": str(m["id"]) == str(match["id"]),
+        }
+        for _, m in slot
+    ]
 
     return out
 
