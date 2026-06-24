@@ -114,6 +114,18 @@ PRIORIDAD DE LA ALINEACIÓN CONFIRMADA:
   juegan sí o sí, por encima de cualquier noticia o rumor. NO recortes λ por su supuesta ausencia y no
   menciones esa ausencia en el reasoning.
 
+MOTIVACIÓN Y CLASIFICACIÓN (clave en el ÚLTIMO partido de fase de grupos):
+- Si en "MOTIVACIÓN" viene la TABLA DEL GRUPO, usala para inferir qué se juega cada equipo. Es el
+  último partido de grupo cuando ambos ya jugaron 2 (W+D+L=2 en la tabla).
+- Casos típicos:
+  · Equipo ya clasificado o ya eliminado, sin nada en juego → probable rotación y menos intensidad:
+    bajá un poco su λ.
+  · Equipo que NECESITA ganar (o ganar por cierta diferencia) para clasificar → sale a buscarlo:
+    puede subir su λ, sobre todo si el rival no se juega nada y especula.
+  · Si a AMBOS les alcanza con el empate → partido trabado, de bajo riesgo y pocos goles: bajá ambos λ.
+- Es señal de contexto, no certeza. No la apliques en partidos que no sean el cierre del grupo, y
+  respetá siempre el bound (±0.30, o ±0.10 si no hay XI confirmado).
+
 RESTRICCIONES IMPORTANTES:
 - El mercado es generalmente muy eficiente. Solo ajustá si tenés información concreta y verificable.
 - Tus ajustes (delta) están acotados a ±0.30 goles esperados por equipo. Más allá de eso, asumimos
