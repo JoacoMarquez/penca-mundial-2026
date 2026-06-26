@@ -465,22 +465,33 @@ def _greedy_alloc_fast(
     cand_pts_grid: np.ndarray,   # (K, G) puntos de cada candidato vs cada outcome de la grilla
     grid_probs: np.ndarray,      # (G,) probabilidad de cada outcome
     current_pts: np.ndarray,     # (N,) puntos acumulados de cada penca
-    threshold: float | None,     # cutoff top-K del pool (total acumulado) o None → e_max
+    threshold: float | None,     # cutoff top-K del pool (total + premium) o None → e_max
     modal_gain: np.ndarray,      # (G,) ganancia del pick modal del pool por outcome
     exact_probs: np.ndarray | None = None,  # (K,) P(exacto) de cada candidato
     w_exact: float = 0.0,        # peso del desempate por exactos en el objetivo secundario
+    base_cutoff: float | None = None,  # cutoff SIN premium (para la protección de la líder)
+    premium: float = 0.0,        # horizon premium ya incluido en `threshold`
+    protect_theta: float | None = None,  # espeja greedy_assignment: exime a las pencas a salvo
 ) -> np.ndarray:
     """Voraz vectorizado: asigna cada penca al candidato que más sube P(top-K) (o E[max]).
 
     Con w_exact > 0, el objetivo secundario es E[max] + w·P(exacto): entre candidatos
     casi equivalentes en puntos, prefiere el que acumula más probabilidad de marcador
     exacto — la moneda del desempate del torneo.
+
+    Con protect_theta, una penca con base ≥ base_cutoff + θ·premium queda eximida del premium
+    (umbral = base_cutoff + modal_gain) → mirror-chalk/ancla EV. Espeja assignment.py.
     """
     K, G = cand_pts_grid.shape
     N = current_pts.shape[0]
     order = np.argsort(-current_pts, kind="stable")   # líder primero
     use_topk = threshold is not None
-    thr = (threshold + modal_gain) if use_topk else None
+    thr = (threshold + modal_gain) if use_topk else None                 # status quo (premium completo)
+    thr_protected = (base_cutoff + modal_gain) if (use_topk and base_cutoff is not None) else None
+    protect_cut = (
+        base_cutoff + protect_theta * premium
+        if (protect_theta is not None and base_cutoff is not None) else None
+    )
     tie_bonus = (w_exact * exact_probs) if (w_exact and exact_probs is not None) else 0.0
     best_final = np.full(G, -1e9)
     assigned = np.empty(N, dtype=int)
@@ -489,7 +500,8 @@ def _greedy_alloc_fast(
         bf = np.maximum(best_final[None, :], current_pts[pid] + cand_pts_grid)  # (K, G)
         emax = bf @ grid_probs + tie_bonus   # (K,)
         if use_topk:
-            key = ((bf >= thr[None, :]) @ grid_probs) * 1e6 + emax   # P(top-K) domina
+            thr_pid = thr_protected if (protect_cut is not None and current_pts[pid] >= protect_cut) else thr
+            key = ((bf >= thr_pid[None, :]) @ grid_probs) * 1e6 + emax   # P(top-K) domina
         else:
             key = emax
         # Entre candidatos empatados en el objetivo de la unión (pencas dominadas), repartir
@@ -515,6 +527,7 @@ def run_sequential_mc(
     w_exact: float = 0.0,
     horizon_alpha: float = 0.0,
     horizon_beta: float = 0.0,
+    protect_theta: float | None = None,
 ) -> dict:
     """Monte Carlo SECUENCIAL: standings evolucionan jornada a jornada, asignación P(top-K).
 
@@ -568,20 +581,23 @@ def run_sequential_mc(
         for t, m in enumerate(M):
             # Cutoff top-K del pool con los standings ACTUALES (antes de este partido)
             if Pn >= top_k:
-                threshold = float(np.partition(pool_pts, -top_k)[-top_k])
+                base_cutoff = float(np.partition(pool_pts, -top_k)[-top_k])
             else:
-                threshold = float(pool_pts.max()) if Pn else 0.0
+                base_cutoff = float(pool_pts.max()) if Pn else 0.0
             # HORIZONTE: premium = α·√(varianza restante del pool). Temprano (mucho por
             # jugar) sube el listón → fuerza picks más agresivos; →0 al final del torneo.
+            premium = 0.0
             if horizon_alpha > 0:
-                threshold += horizon_alpha * float(np.sqrt(suffix_var[t]))
+                premium += horizon_alpha * float(np.sqrt(suffix_var[t]))
             # Forma de PRODUCCIÓN: β·√(partidos restantes) — no requiere odds futuras
             # (absorbe σ̄ en β). Validar acá que rinde como la forma α.
             if horizon_beta > 0:
-                threshold += horizon_beta * float(np.sqrt(len(M) - t))
+                premium += horizon_beta * float(np.sqrt(len(M) - t))
+            threshold = base_cutoff + premium
             assigned = _greedy_alloc_fast(
                 m["cand_pts_grid"], m["grid_probs"], our_pts, threshold, m["modal_gain"],
                 exact_probs=m["exact_probs"], w_exact=w_exact,
+                base_cutoff=base_cutoff, premium=premium, protect_theta=protect_theta,
             )
             o = int(rng.choice(m["G"], p=m["flat_grid"]))         # resultado real sampleado
             our_pts = our_pts + m["cand_pts_grid"][assigned, o]   # nuestras pencas suman

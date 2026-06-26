@@ -78,6 +78,61 @@ def test_moderate_premium_shifts_exposure_away_from_pure_anchor():
     assert len(exposure) > 1  # cobertura, no monocultivo
 
 
+# ---------- protección de la líder (protect_theta) ----------
+
+def _winner(score):
+    gL, gV = score
+    return "1" if gL > gV else ("2" if gL < gV else "X")
+
+
+def test_protect_theta_none_is_backward_compatible():
+    """protect_theta=None (default) → idéntico a no pasarlo: no cambia nada existente."""
+    grid, cands, q = _setup()
+    ids = list(range(1, 16))
+    st = {pid: {"points_total": 10} for pid in ids}
+    res_a, meta_a = greedy_assignment(cands, ids, grid, st, pool_top_k_threshold=12,
+                                      pool_q=q, points_rule=jmlm_points, horizon_premium=3.0)
+    res_b, meta_b = greedy_assignment(cands, ids, grid, st, pool_top_k_threshold=12,
+                                      pool_q=q, points_rule=jmlm_points, horizon_premium=3.0,
+                                      protect_theta=None)
+    assert [tuple(p["score"]) for _, p, _ in res_a] == [tuple(p["score"]) for _, p, _ in res_b]
+    assert meta_b["protected_pencas"] == []
+
+
+def test_protect_leader_above_cutoff_gets_favorite_not_antifavorite():
+    """Con premium alto, sin protección la líder es empujada a un anti-favorito; con
+    protect_theta vuelve al favorito (ancla EV) y queda registrada como protegida."""
+    grid, cands, q = _setup()  # favorito local (p_home=0.6)
+    ids = list(range(1, 16))
+    # Líder ENTRE el corte de hoy (10) y el proyectado (10+8=18) — el rango donde el premium
+    # la trata como rezagada y la empuja al anti-favorito (caso real 1891: 161 entre 152 y 165.6).
+    st = {pid: {"points_total": 8} for pid in ids}
+    st[1] = {"points_total": 15}
+    common = dict(pool_top_k_threshold=10, pool_q=q, points_rule=jmlm_points, horizon_premium=8.0)
+
+    res_sq, _ = greedy_assignment(cands, ids, grid, st, **common)               # status quo
+    res_pr, meta_pr = greedy_assignment(cands, ids, grid, st, protect_theta=0.4, **common)
+
+    lead_sq = next(tuple(p["score"]) for pid, p, _ in res_sq if pid == 1)
+    lead_pr = next(tuple(p["score"]) for pid, p, _ in res_pr if pid == 1)
+
+    assert _winner(lead_sq) != "1"      # bug: la líder NO juega al favorito
+    assert _winner(lead_pr) == "1"      # fix: la líder vuelve al favorito
+    assert 1 in meta_pr["protected_pencas"]
+    assert meta_pr["protect_theta"] == 0.4
+
+
+def test_protect_theta_only_exempts_pencas_above_cutoff():
+    """Una penca debajo del corte NO se protege (mantiene el premium completo → β intacto)."""
+    grid, cands, q = _setup()
+    ids = list(range(1, 16))
+    st = {pid: {"points_total": 8} for pid in ids}   # todas debajo del corte (10)
+    st[1] = {"points_total": 15}                       # sólo la líder arriba del corte
+    _, meta = greedy_assignment(cands, ids, grid, st, pool_top_k_threshold=10, pool_q=q,
+                                points_rule=jmlm_points, horizon_premium=8.0, protect_theta=0.4)
+    assert meta["protected_pencas"] == [1]   # sólo la líder
+
+
 # ---------- _matches_remaining ----------
 
 def _fx(*kickoffs):

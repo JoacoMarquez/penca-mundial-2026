@@ -1776,8 +1776,9 @@ def _capa4_eval() -> dict:
             st = _prior_standings(mid, ids)
             cp = picks_to_dicts(generate_candidates(g_post, market_p_home=c.get("p_home"), market_p_away=c.get("p_away"), pool_config=pool_cfg, max_candidates=10))
             cr = picks_to_dicts(generate_candidates(g_pre, market_p_home=c.get("p_home"), market_p_away=c.get("p_away"), pool_config=pool_cfg, max_candidates=10))
-            rp, _ = greedy_assignment(cp, ids, g_post, st, pool_top_k_threshold=meta.get("threshold"), pool_q=pool_pick_distribution(g_post, pool_cfg), horizon_premium=meta.get("horizon_premium"))
-            rr, _ = greedy_assignment(cr, ids, g_pre, st, pool_top_k_threshold=meta.get("threshold"), pool_q=pool_pick_distribution(g_pre, pool_cfg), horizon_premium=meta.get("horizon_premium"))
+            _pt = meta.get("protect_theta")
+            rp, _ = greedy_assignment(cp, ids, g_post, st, pool_top_k_threshold=meta.get("threshold"), pool_q=pool_pick_distribution(g_post, pool_cfg), horizon_premium=meta.get("horizon_premium"), protect_theta=_pt)
+            rr, _ = greedy_assignment(cr, ids, g_pre, st, pool_top_k_threshold=meta.get("threshold"), pool_q=pool_pick_distribution(g_pre, pool_cfg), horizon_premium=meta.get("horizon_premium"), protect_theta=_pt)
             post = {pid: tuple(p["score"]) for pid, p, _ in rp}
             pre = {pid: tuple(p["score"]) for pid, p, _ in rr}
             for pid in ids:
