@@ -1,8 +1,11 @@
 """Asignación adaptativa de N pencas a un menú de candidatos según el ranking actual.
 
 `greedy_assignment` reparte las N pencas sobre las picks candidatas (con repetición),
-maximizando P(al menos una penca supere el cutoff top-K del pool). La penca líder recibe
-el ancla conservadora; las rezagadas reciben desvíos que cubren outcomes aún no ganados.
+maximizando P(al menos una penca supere el cutoff top-K del pool). Las rezagadas reciben
+desvíos que cubren outcomes aún no ganados. Con `protect_theta`, las pencas que YA están
+sobre el corte (la líder) se eximen del horizon_premium → vuelven al ancla EV / mirror-chalk
+para blindar la ventaja en vez de perseguir un corte proyectado que su propio avance ya
+alcanza (sin él, el premium empujaba hasta a la líder del pool a anti-favoritos).
 
 También expone helpers para leer el leaderboard real de la penca (standings + cutoff).
 """
@@ -87,6 +90,7 @@ def greedy_assignment(
     pool_q: Any = None,
     points_rule=None,
     horizon_premium: float = 0.0,
+    protect_theta: float | None = None,
 ) -> tuple[list[tuple[int, dict, int | None]], dict[str, Any]]:
     """Asignación VORAZ de N pencas sobre un menú de candidatos, CON repetición.
 
@@ -153,12 +157,30 @@ def greedy_assignment(
         for gL in range(n):
             for gV in range(n):
                 modal_gain[gL, gV] = points_rule(modal_pick, (gL, gV))
-        threshold_per_outcome = pool_top_k_threshold + horizon_premium + modal_gain
 
-    def objective(best_final: np.ndarray) -> tuple[float, float]:
+    def _is_protected(base: float) -> bool:
+        # Una penca está "a salvo" si su puntaje ya supera el corte de HOY por un colchón
+        # θ·premium. protect_theta es la perilla: θ=0 protege apenas pasás el corte (sobre-
+        # protege → resigna el #1), θ=1 sólo contra el corte proyectado (≈ no protege).
+        # Backtest sembrado (pool 436, E[premio] con pago 20k/10k/5k): θ≈0.4 maximiza la
+        # plata en las 3 calibraciones de campo (+22%). Ver scripts/backtest_protect_leader.py.
+        return (
+            protect_theta is not None
+            and base >= pool_top_k_threshold + protect_theta * horizon_premium
+        )
+
+    def _threshold_for(base: float):
+        # Premium EFECTIVO por penca. Protegida → 0 (mirror-chalk/ancla EV, minimiza varianza
+        # vs el campo, blinda la ventaja). Perseguidora → premium completo: IDÉNTICA al status
+        # quo, así el β=2.0 validado no se reabre. Sin protect_theta → todas usan el premium
+        # completo (comportamiento previo bit-a-bit).
+        premium_eff = 0.0 if _is_protected(base) else horizon_premium
+        return pool_top_k_threshold + premium_eff + modal_gain
+
+    def objective(best_final: np.ndarray, thr_outcome) -> tuple[float, float]:
         e_max = float((grid * best_final).sum())
         if use_top_k:
-            p = float((grid * (best_final >= threshold_per_outcome)).sum())
+            p = float((grid * (best_final >= thr_outcome)).sum())
             return (p, e_max)
         return (e_max, 0.0)
 
@@ -173,13 +195,14 @@ def greedy_assignment(
 
     for pid in order:
         base = current_pts[pid]
+        thr_outcome = _threshold_for(base) if use_top_k else None
         best_c = None
         best_key = None
         best_bf = None
         for c in range(K):
             cand_final = base + pts_tables[c]
             bf = np.maximum(best_final, cand_final)
-            obj = objective(bf)
+            obj = objective(bf, thr_outcome)
             # Desempate: cuando dos candidatos rinden igual en el objetivo de la UNIÓN
             # (típico de pencas rezagadas ya dominadas — antes amontonaba todo en el
             # candidato 0 = chalk), preferir el candidato MENOS usado para repartir
@@ -192,7 +215,11 @@ def greedy_assignment(
         best_final = best_bf
         usage[best_c] += 1
 
-    p_val = objective(best_final)[0] if use_top_k else None
+    # p_val de referencia: umbral de la líder (mayor base) para un número consistente.
+    p_val = (
+        objective(best_final, _threshold_for(max(current_pts.values())))[0]
+        if use_top_k else None
+    )
 
     # Fallback: si P(top-K)=0 con cualquier asignación, reasignar por E[max].
     # Con horizon_premium alto (principio del torneo, listón proyectado inalcanzable en
@@ -211,11 +238,17 @@ def greedy_assignment(
     result = [(pid, candidate_picks[assigned[pid]], rank_by_penca[pid]) for pid in penca_ids]
 
     exposure = Counter(f'{pick["score"][0]}-{pick["score"][1]}' for _, pick, _ in result)
+    protected = (
+        [pid for pid in penca_ids if use_top_k and _is_protected(current_pts[pid])]
+        if protect_theta is not None else []
+    )
     meta = {
         "objective": "p_top_k" if use_top_k else "e_max",
         "p_top_k_value": p_val,
         "threshold": pool_top_k_threshold,
         "horizon_premium": horizon_premium,
+        "protect_theta": protect_theta,
+        "protected_pencas": protected,
         "exposure": dict(exposure),
     }
     return result, meta

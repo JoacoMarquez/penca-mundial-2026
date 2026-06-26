@@ -604,15 +604,23 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
             if horizon_beta > 0 and top_k_threshold is not None:
                 import math
                 horizon_premium = horizon_beta * math.sqrt(_matches_remaining(fixtures))
+            # Protección de la líder: exime del premium a las pencas YA sobre el corte (que
+            # el premium, de otro modo, empuja a anti-favoritos por tratarlas como rezagadas).
+            # θ = colchón sobre el corte (en unidades de premium) para considerar "a salvo".
+            # Backtest sembrado con el pago real (20k/10k/5k): θ≈0.4 maximiza E[premio] (+22%)
+            # robusto a la calibración del campo. PENCA_PROTECT_THETA="" o "off" lo apaga.
+            _pt_raw = os.environ.get("PENCA_PROTECT_THETA", "0.4").strip().lower()
+            protect_theta = None if _pt_raw in ("", "off", "none") else float(_pt_raw)
             log.info(
-                "Asignación: %d pencas, %d candidatos, pool top-3 threshold=%s, horizonte=+%.1f",
-                len(penca_ids), len(candidate_dicts), top_k_threshold, horizon_premium,
+                "Asignación: %d pencas, %d candidatos, pool top-3 threshold=%s, horizonte=+%.1f, protect_theta=%s",
+                len(penca_ids), len(candidate_dicts), top_k_threshold, horizon_premium, protect_theta,
             )
             assignment_list, assignment_meta = greedy_assignment(
                 candidate_dicts, penca_ids, grid, standings,
                 pool_top_k_threshold=top_k_threshold,
                 pool_q=pool_q_for_assignment,
                 horizon_premium=horizon_premium,
+                protect_theta=protect_theta,
             )
         except Exception as e:
             log.exception("greedy_assignment falló, usando mapeo cíclico: %s", e)
