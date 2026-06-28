@@ -81,6 +81,14 @@ systemctl enable --now penca-heartbeat.timer
 systemctl enable --now penca-fixtures-sync.timer
 # failure-notify NO se enablea: es oneshot que dispara el OnFailure del scheduler.
 
+# El timer penca-fixtures-sync reescribe config/fixtures.yaml en el VPS (equipos de
+# eliminatorias, scores) aunque el archivo esté trackeado en git. Sin esto, un `git pull`
+# (vía deploy/safe_pull.sh) lo pisaría o abortaría el deploy por tener cambios locales.
+# skip-worktree hace que git ignore esas modificaciones locales. El flag vive en el
+# .git/index del VPS (no se commitea), así que un re-provisioning desde cero lo perdería:
+# por eso se re-aplica acá en cada setup.
+git -C "$INSTALL_DIR" update-index --skip-worktree config/fixtures.yaml
+
 echo ""
 echo "✅ Setup completo."
 echo "   Scheduler: journalctl -u penca-scheduler -f"
