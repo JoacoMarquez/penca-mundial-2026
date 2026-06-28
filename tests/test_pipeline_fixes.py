@@ -5,6 +5,7 @@ import os
 import src.agent.pipeline as pipeline
 from src.agent.pipeline import (
     OddsSnapshot, MOCK_CONSTRAINTS, Phase, build_constraints_with_fallback, _publish_assignment,
+    _should_publish,
 )
 
 
@@ -60,3 +61,17 @@ def test_publish_dry_run_ok(monkeypatch):
     for ph in (Phase.T_24H, Phase.T_3H, Phase.T_30MIN):
         ok, detail = _publish_assignment("105", ph, assignment)
         assert ok is True and detail is None
+
+
+# -------------------- guarda: nunca publicar MOCK al pool --------------------
+
+def test_no_publica_constraints_mock():
+    """Las constraints MOCK (inventadas) NO van al pool: meterían una pick sesgada al
+    'home' cuando no hubo odds reales (raíz del caso 177)."""
+    assert _should_publish("mock") is False
+
+
+def test_publica_odds_reales_y_previas():
+    """live (odds en vivo) y previous (odds reales de hace horas) sí se publican."""
+    assert _should_publish("live") is True
+    assert _should_publish("previous") is True

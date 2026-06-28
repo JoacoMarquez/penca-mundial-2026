@@ -283,6 +283,18 @@ def build_constraints_with_fallback(
     return MOCK_CONSTRAINTS, "mock"
 
 
+def _should_publish(odds_source: str) -> bool:
+    """¿Esta pick puede ir al pool?
+
+    NO publicamos cuando las constraints cayeron a MOCK (40/30/30 inventadas): meterían
+    al pool una pick sesgada al "home" cuando no hubo señal real (típicamente un knockout
+    cuyo bracket no estaba resuelto al correr la pasada, o todas las casas caídas sin
+    versión previa). Mejor no publicar nada y alertar que cargar una pick basura.
+    `live` y `previous` (odds reales, aunque sean de hace horas) sí se publican.
+    """
+    return odds_source != "mock"
+
+
 # -------------------- pipeline --------------------
 
 @dataclass
@@ -634,7 +646,21 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
     #    El T-30min con published=False no cuenta como corrido → el scheduler lo reintenta.
     published: bool | None = None
     publish_detail: str | None = None
-    if assignment_list:
+    if assignment_list and not _should_publish(odds_source):
+        # Backstop final: las constraints fueron MOCK → no tocamos el pool. Persistimos la
+        # versión local (para auditoría) y alertamos fuerte, pero NO publicamos una pick
+        # sobre probabilidades inventadas. published queda None (no es un fallo a reintentar).
+        log.error(
+            "odds_source=%s para %s — NO se publica (picks sobre prob. inventadas)",
+            odds_source, match_id,
+        )
+        _best_effort_alert(
+            f"⚠️ MOCK no publicado {_format_match_label(match)}",
+            "Las constraints cayeron a MOCK (sin odds reales ni versión previa). NO se "
+            "publicó al pool para no cargar una pick sesgada al local. Revisar: ¿el "
+            "partido tiene equipos resueltos? ¿odds caídas?",
+        )
+    elif assignment_list:
         published, publish_detail = _publish_assignment(match_id, phase, assignment_list)
         if published is False:
             tail = (" — el scheduler reintentará." if phase == Phase.T_30MIN

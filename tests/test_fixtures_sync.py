@@ -50,3 +50,38 @@ def test_primer_sync_pero_api_vacia_sigue_sospechosa():
     reason = _suspicious_reason([], [], {})
     assert reason is not None
     assert "0 partidos" in reason
+
+
+# -------------------- guarda: cruces de eliminatorias no regresan a "sin equipos" --------------------
+
+def test_eliminatoria_pierde_equipos_es_sospechosa():
+    """Un cruce ya resuelto (con home/away) que la nueva data dejaría sin equipos →
+    hipo de la API, no pisar (raíz del riesgo del caso 177)."""
+    existing = {
+        "fase_grupos": _grupos(72),
+        "eliminatorias": [{"id": 177, "stage": "round_of_32", "home": "RSA", "away": "CAN"}],
+    }
+    new_elim = [{"id": 177, "stage": "round_of_32"}]  # sin equipos
+    reason = _suspicious_reason(_grupos(72), new_elim, existing)
+    assert reason is not None
+    assert "eliminatorias" in reason
+
+
+def test_eliminatoria_aun_sin_resolver_es_ok():
+    """Un cruce que nunca tuvo equipos y sigue sin tenerlos (bracket pendiente) → OK."""
+    existing = {
+        "fase_grupos": _grupos(72),
+        "eliminatorias": [{"id": 177, "stage": "round_of_32"}],
+    }
+    new_elim = [{"id": 177, "stage": "round_of_32"}]
+    assert _suspicious_reason(_grupos(72), new_elim, existing) is None
+
+
+def test_eliminatoria_conserva_equipos_es_ok():
+    """Cruce resuelto que sigue resuelto → OK escribir."""
+    existing = {
+        "fase_grupos": _grupos(72),
+        "eliminatorias": [{"id": 177, "stage": "round_of_32", "home": "RSA", "away": "CAN"}],
+    }
+    new_elim = [{"id": 177, "stage": "round_of_32", "home": "RSA", "away": "CAN"}]
+    assert _suspicious_reason(_grupos(72), new_elim, existing) is None

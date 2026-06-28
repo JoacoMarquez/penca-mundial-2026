@@ -91,6 +91,16 @@ def matches_in_window(fixtures: dict, now: datetime | None = None) -> list[tuple
         if now >= kickoff:
             continue  # partido ya arrancó (la web bloquea predicciones) → demasiado tarde
 
+        # Sin equipos resueltos (p.ej. un cruce de eliminatorias cuyo bracket todavía no
+        # se definió en la API): no se puede modelar ni publicar. Saltar hasta que el sync
+        # traiga los equipos. Sin esto, la pasada corría con un dossier "?" y las odds no
+        # mapeaban → constraints MOCK (40/30/30) → pick sesgada al "home" del bracket.
+        if not (m.get("home") and m.get("away")):
+            log.info(
+                "match %s sin equipos resueltos todavía → skip (bracket pendiente)", m.get("id")
+            )
+            continue
+
         # Fases cuyo target (kickoff − offset) ya pasó
         due = [
             (phase, offset_min)
