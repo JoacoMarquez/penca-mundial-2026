@@ -62,7 +62,8 @@ def test_inaugural_match_not_blocked_by_stale_prediction(tmp_path, monkeypatch):
     publicación del partido real del 11/6."""
     monkeypatch.setattr(sched, "PREDICTIONS_DIR", tmp_path)
     _write_pred(tmp_path, "105", 1, "T_30min", STALE)
-    fx = {"fase_grupos": [{"id": "105", "kickoff_utc": "2026-06-11T19:00:00Z"}], "eliminatorias": []}
+    fx = {"fase_grupos": [{"id": "105", "kickoff_utc": "2026-06-11T19:00:00Z",
+                           "home": "MEX", "away": "RSA"}], "eliminatorias": []}
     now = datetime(2026, 6, 11, 18, 40, 0, tzinfo=timezone.utc)  # T-20min, target T-30 ya pasó
     out = sched.matches_in_window(fx, now=now)
     assert ("105", Phase.T_30MIN) in out  # la pasada REAL sí dispara, pese al archivo viejo
@@ -70,9 +71,20 @@ def test_inaugural_match_not_blocked_by_stale_prediction(tmp_path, monkeypatch):
 
 def _fixtures(kickoff: datetime) -> dict:
     return {
-        "fase_grupos": [{"id": "M1", "kickoff_utc": kickoff.strftime("%Y-%m-%dT%H:%M:%SZ")}],
+        "fase_grupos": [{
+            "id": "M1", "kickoff_utc": kickoff.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "home": "MEX", "away": "RSA",
+        }],
         "eliminatorias": [],
     }
+
+
+def _knockout_fixtures(kickoff: datetime, *, with_teams: bool) -> dict:
+    m = {"id": 177, "stage": "round_of_32",
+         "kickoff_utc": kickoff.strftime("%Y-%m-%dT%H:%M:%SZ")}
+    if with_teams:
+        m["home"], m["away"] = "RSA", "CAN"
+    return {"fase_grupos": [], "eliminatorias": [m]}
 
 
 @pytest.fixture
@@ -120,10 +132,28 @@ def test_handles_int_match_id(tmp_path, monkeypatch):
     ko = datetime(2026, 6, 11, 19, 0, 0, tzinfo=timezone.utc)
     assert sched.phase_already_ran(105, Phase.T_30MIN, ko) is False
     # matches_in_window con fixture de id entero
-    fx = {"fase_grupos": [{"id": 105, "kickoff_utc": "2026-06-11T19:00:00Z"}], "eliminatorias": []}
+    fx = {"fase_grupos": [{"id": 105, "kickoff_utc": "2026-06-11T19:00:00Z",
+                           "home": "MEX", "away": "RSA"}], "eliminatorias": []}
     now = datetime(2026, 6, 11, 18, 40, 0, tzinfo=timezone.utc)
     out = sched.matches_in_window(fx, now=now)
     assert (105, Phase.T_30MIN) in out
+
+
+def test_skips_knockout_without_teams(no_runs):
+    """Un cruce de eliminatorias sin equipos resueltos (bracket pendiente) NO dispara
+    ninguna pasada → evita publicar sobre constraints MOCK (caso 177 del 28/6)."""
+    out = sched.matches_in_window(
+        _knockout_fixtures(NOW + timedelta(hours=3), with_teams=False), now=NOW
+    )
+    assert out == []
+
+
+def test_emits_knockout_once_teams_resolved(no_runs):
+    """Mismo cruce, ahora con equipos resueltos → sí dispara la pasada relevante (T-3h)."""
+    out = sched.matches_in_window(
+        _knockout_fixtures(NOW + timedelta(hours=3), with_teams=True), now=NOW
+    )
+    assert out == [(177, Phase.T_3H)]
 
 
 def test_nothing_after_kickoff(no_runs):

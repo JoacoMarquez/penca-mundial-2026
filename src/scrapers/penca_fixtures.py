@@ -160,6 +160,24 @@ def _suspicious_reason(
             f"fase_grupos se achicaría de {len(existing_grupos)} a "
             f"{len(new_fase_grupos)} partidos (los grupos nunca decrecen)"
         )
+
+    # Un cruce de eliminatorias que YA tenía equipos resueltos no vuelve a "sin equipos":
+    # si la nueva data los dejaría sin home/away, es un hipo de la API → no pisar (si no,
+    # el scheduler/pipeline trataría el cruce como bracket pendiente y no publicaría).
+    existing_elim = {m.get("id"): m for m in (existing.get("eliminatorias") or [])}
+    new_elim_by_id = {m.get("id"): m for m in new_eliminatorias}
+    regressed = [
+        mid
+        for mid, em in existing_elim.items()
+        if em.get("home") and em.get("away")
+        and not (new_elim_by_id.get(mid, {}).get("home") and new_elim_by_id.get(mid, {}).get("away"))
+    ]
+    if regressed:
+        return (
+            f"{len(regressed)} cruce(s) de eliminatorias perderían equipos ya resueltos "
+            f"(IDs {sorted(str(x) for x in regressed)}); probable hipo de la API"
+        )
+
     return None
 
 
