@@ -66,7 +66,7 @@ class HttpPublisher(Publisher):
     ajustar `endpoint`, schema del body, y método de auth.
     """
 
-    def __init__(self, base_url: str, api_key: str, timeout: float = 10.0):
+    def __init__(self, base_url: str, api_key: str, timeout: float = 20.0):
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self._client = httpx.Client(
@@ -103,4 +103,13 @@ def get_publisher_from_env() -> Publisher:
     if dry_run or not base_url or not api_key:
         log.info("Publisher: NullPublisher (dry_run=%s, has_api=%s)", dry_run, bool(base_url and api_key))
         return NullPublisher()
-    return HttpPublisher(base_url=base_url, api_key=api_key)
+    # Timeout por POST. Default 20s: cuando la API de la penca está "viva pero lenta"
+    # (DB sobrecargada) responde en ~14s; con el viejo default de 10s cada publicación
+    # timeouteaba aunque la API estuviera técnicamente arriba. 20s da margen sin que el
+    # batch de 15 picks (≈15×14s≈210s) pase el tick del scheduler (5min=300s).
+    # Tuneable con PENCA_PUBLISH_TIMEOUT.
+    try:
+        timeout = float(os.environ.get("PENCA_PUBLISH_TIMEOUT", "20"))
+    except ValueError:
+        timeout = 20.0
+    return HttpPublisher(base_url=base_url, api_key=api_key, timeout=timeout)
