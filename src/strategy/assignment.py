@@ -15,9 +15,25 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-import httpx
-
 log = logging.getLogger(__name__)
+
+
+def _max_stale_seconds() -> float | None:
+    """Techo de antigüedad para servir un leaderboard cacheado a la asignación en vivo.
+
+    Un corte de hace un partido sigue siendo mucho mejor que None (que apaga el objetivo
+    tail-max y cae a E[max] miope). Pero un leaderboard de días atrás sí desvirtúa el corte,
+    así que lo acotamos. Default 24h: cubre el hueco normal entre partidos de eliminatorias
+    (de una noche para otra los standings no cambian) pero descarta datos de varios días si
+    la caída se prolonga. PENCA_LEADERBOARD_MAX_STALE_H (≤0 o inválido = sin techo).
+    """
+    import os
+    raw = os.environ.get("PENCA_LEADERBOARD_MAX_STALE_H", "24").strip()
+    try:
+        h = float(raw)
+    except ValueError:
+        return None
+    return h * 3600 if h > 0 else None
 
 
 def fetch_pool_top_k_threshold(
@@ -27,26 +43,26 @@ def fetch_pool_top_k_threshold(
 ) -> int | None:
     """Devuelve el score de la K-ésima mejor penca del pool (cutoff de top-K).
 
-    Si hay menos de K pencas o falla la API, devuelve None.
+    Si hay menos de K pencas o no hay leaderboard (ni fresco ni cacheado), devuelve None.
+    Ante caída de la API usa el último leaderboard bueno de disco (stale) acotado por
+    PENCA_LEADERBOARD_MAX_STALE_H, para no perder el objetivo tail-max por un blip.
     """
     if not api_base_url or not api_key:
         return None
-    try:
-        with httpx.Client(
-            timeout=10.0,
-            headers={"Authorization": f"Bearer {api_key}"},
-        ) as c:
-            r = c.get(f"{api_base_url.rstrip('/')}/leaderboard")
-        if r.status_code != 200:
-            return None
-        entries = r.json().get("entries", [])
-        if len(entries) < k:
-            return None
-        # entries vienen ordenadas por rank (1° primero)
-        return int(entries[k - 1].get("points_total", 0))
-    except Exception as e:
-        log.warning("fetch_pool_top_k_threshold falló: %s", e)
+    from src.utils.leaderboard import fetch_leaderboard
+    res = fetch_leaderboard(api_base_url, api_key, timeout=8.0, max_stale_seconds=_max_stale_seconds())
+    entries = res["entries"]
+    if len(entries) < k:
         return None
+    # El cutoff es un umbral de puntos: la K-ésima penca por puntaje. Ordenamos por si el
+    # fallback (cache/snapshot) no viene rankeado como sí lo trae la API.
+    entries = sorted(entries, key=lambda e: -int(e.get("points_total", 0)))
+    if res["stale"]:
+        log.warning(
+            "pool cutoff desde leaderboard STALE (%.0f min, %s)",
+            (res.get("age_seconds") or 0) / 60, res.get("error"),
+        )
+    return int(entries[k - 1].get("points_total", 0))
 
 
 def fetch_my_pencas_standings(
@@ -57,28 +73,22 @@ def fetch_my_pencas_standings(
     """GET /leaderboard y devuelve solo las entries de mis pencas.
 
     Retorna: {penca_id: {"rank": N, "points_total": X, ...}, ...}.
-    Si la API falla, devuelve {} (caller decide qué hacer).
+    Ante caída de la API usa el último leaderboard bueno de disco (stale) acotado por
+    PENCA_LEADERBOARD_MAX_STALE_H; si no hay nada usable devuelve {} (caller decide).
     """
     if not api_base_url or not api_key or not my_penca_ids:
         return {}
-    try:
-        with httpx.Client(
-            timeout=10.0,
-            headers={"Authorization": f"Bearer {api_key}"},
-        ) as c:
-            r = c.get(f"{api_base_url.rstrip('/')}/leaderboard")
-        if r.status_code != 200:
-            log.warning("Leaderboard returned %d", r.status_code)
-            return {}
-        data = r.json()
-        return {
-            int(e["penca_id"]): e
-            for e in data.get("entries", [])
-            if int(e["penca_id"]) in my_penca_ids
-        }
-    except Exception as e:
-        log.warning("fetch standings falló: %s", e)
-        return {}
+    from src.utils.leaderboard import fetch_leaderboard
+    res = fetch_leaderboard(api_base_url, api_key, timeout=8.0, max_stale_seconds=_max_stale_seconds())
+    entries = res["entries"]
+    if entries and res["stale"]:
+        log.warning("standings desde leaderboard STALE (%.0f min)", (res.get("age_seconds") or 0) / 60)
+    want = set(my_penca_ids)
+    return {
+        int(e["penca_id"]): e
+        for e in entries
+        if int(e.get("penca_id", 0)) in want
+    }
 
 
 def greedy_assignment(

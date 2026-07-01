@@ -843,33 +843,53 @@ def _rank_deltas(my_ids: set, live_entries: list) -> dict[int, dict]:
     return out
 
 
-# El /leaderboard real tarda ~10-13s con el pool de 400+ (54KB). Una sola lectura,
-# cacheada y compartida entre standings y la inteligencia del pool, para no pagar dos
-# veces la latencia ni arriesgar doble timeout en una carga fría.
-_LEADERBOARD_TIMEOUT = 25.0
+# El /leaderboard real tarda ~10-13s con el pool de 400+ (54KB) cuando responde, pero a
+# veces cuelga sin devolver nada (timeout server-side). Timeout corto para fallar rápido
+# en vez de bloquear la página 25s; el fallback stale a disco (src.utils.leaderboard)
+# mantiene el dashboard con datos aunque la API esté caída.
+_LEADERBOARD_TIMEOUT = 8.0
 
 
-def _fetch_leaderboard_entries() -> tuple[list, str | None]:
-    """Lee /leaderboard una vez. Devuelve (entries, error_str). Cacheado 25s."""
-    def _do() -> tuple[list, str | None]:
-        import httpx
-        base = os.environ.get("PENCA_API_BASE_URL", "").rstrip("/")
-        key = os.environ.get("PENCA_API_KEY", "")
-        if not base or not key:
-            return [], "API no configurada"
-        try:
-            with httpx.Client(
-                timeout=_LEADERBOARD_TIMEOUT,
-                headers={"Authorization": f"Bearer {key}"},
-            ) as c:
-                r = c.get(f"{base}/leaderboard")
-            if r.status_code != 200:
-                return [], f"leaderboard {r.status_code}"
-            return r.json().get("entries", []), None
-        except Exception as e:
-            return [], str(e)
+def _fetch_leaderboard_entries() -> tuple[list, str | None, dict | None]:
+    """Lee /leaderboard con fallback stale a disco. Devuelve (entries, error, stale_info).
+
+    Cacheado 25s en memoria. `stale_info` es None si los datos son frescos; si la API
+    falló y servimos el último leaderboard bueno de disco, trae {"age_seconds", "fetched_at"}
+    para que el dashboard muestre un banner de "datos desactualizados" en vez de un error.
+    """
+    def _do() -> tuple[list, str | None, dict | None]:
+        from src.utils.leaderboard import fetch_leaderboard
+        res = fetch_leaderboard(
+            os.environ.get("PENCA_API_BASE_URL", ""),
+            os.environ.get("PENCA_API_KEY", ""),
+            timeout=_LEADERBOARD_TIMEOUT,
+        )
+        entries = res["entries"]
+        if entries and res["stale"]:
+            age = res.get("age_seconds")
+            return entries, None, {
+                "age_seconds": age,
+                "fetched_at": res.get("fetched_at"),
+                "age_label": _fmt_age(age),
+            }
+        if not entries:
+            return [], (res.get("error") or "leaderboard vacío"), None
+        return entries, None, None
 
     return _cached("leaderboard_raw", 25.0, _do)
+
+
+def _fmt_age(seconds: float | None) -> str:
+    """Antigüedad legible para el banner de datos stale ('hace 8 min', 'hace 3h')."""
+    if not seconds or seconds < 0:
+        return "hace un rato"
+    minutes = int(seconds // 60)
+    if minutes < 60:
+        return f"hace {minutes} min"
+    hours = minutes // 60
+    if hours < 24:
+        return f"hace {hours}h"
+    return f"hace {hours // 24}d"
 
 
 def _load_my_pencas_standings_uncached() -> dict[str, Any]:
@@ -878,7 +898,7 @@ def _load_my_pencas_standings_uncached() -> dict[str, Any]:
     my_ids = set(get_int_list("PENCA_IDS"))
     if not my_ids:
         return {"error": "PENCA_IDS no configurados", "pencas": []}
-    entries, err = _fetch_leaderboard_entries()
+    entries, err, stale = _fetch_leaderboard_entries()
     if err:
         return {"error": err, "pencas": []}
 
@@ -929,6 +949,7 @@ def _load_my_pencas_standings_uncached() -> dict[str, Any]:
 
     return {
         "pool_size": total_in_pool,
+        "stale": stale,
         "pencas": my_entries,
         "pool_top": sorted_entries[0] if sorted_entries else None,
         "cutoff_top3": (
@@ -964,7 +985,7 @@ def _load_pool_intelligence_uncached() -> dict[str, Any]:
     from src.utils.env import get_int_list
 
     my_ids = set(get_int_list("PENCA_IDS"))
-    entries, err = _fetch_leaderboard_entries()
+    entries, err, stale = _fetch_leaderboard_entries()
     if err:
         return {"error": err}
     if not entries:
@@ -1036,6 +1057,7 @@ def _load_pool_intelligence_uncached() -> dict[str, Any]:
 
     return {
         "pool_size": n,
+        "stale": stale,
         "prize_zone": prize_zone,
         "us": us,
         "distribution": distribution,

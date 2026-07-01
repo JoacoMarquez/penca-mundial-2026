@@ -6,6 +6,11 @@
 {% set s = data.standings %}
 
 <h1 class="text-2xl lg:text-3xl font-bold mb-1">📊 Tus pencas</h1>
+{% if s.stale %}
+<section class="bg-amber-900/20 border border-amber-700/40 rounded-xl p-3 my-3">
+  <p class="text-amber-300 text-sm">⚠️ El leaderboard de la API no responde — mostrando el último dato bueno ({{ s.stale.age_label }}).</p>
+</section>
+{% endif %}
 {% if s.pool_size %}
 <p class="text-sm text-slate-400 mb-1">
   Pool de {{ s.pool_size }} pencas

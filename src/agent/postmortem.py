@@ -127,18 +127,18 @@ def _fetch_match_status(match_id: str | int) -> dict | None:
 
 
 def _fetch_full_leaderboard() -> list[dict] | None:
-    base = os.environ.get("PENCA_API_BASE_URL", "").rstrip("/")
-    key = os.environ.get("PENCA_API_KEY", "")
-    if not base or not key:
+    # El postmortem compara contra el pool del momento: exigimos leaderboard fresco (no
+    # stale) para no persistir top/mediana desactualizados en la historia. El fetch exitoso
+    # refresca el cache compartido de src.utils.leaderboard.
+    from src.utils.leaderboard import fetch_leaderboard
+    res = fetch_leaderboard(
+        os.environ.get("PENCA_API_BASE_URL", ""),
+        os.environ.get("PENCA_API_KEY", ""),
+        timeout=10.0,
+    )
+    if res["stale"] or not res["entries"]:
         return None
-    try:
-        with httpx.Client(timeout=10.0, headers={"Authorization": f"Bearer {key}"}) as c:
-            r = c.get(f"{base}/leaderboard")
-        if r.status_code != 200:
-            return None
-        return r.json().get("entries", [])
-    except Exception:
-        return None
+    return res["entries"]
 
 
 # ============ core computation ============
