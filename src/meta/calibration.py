@@ -109,20 +109,20 @@ def snapshot_leaderboard(
 
 
 def _fetch_leaderboard_entries() -> list[dict] | None:
-    import httpx
-    base = os.environ.get("PENCA_API_BASE_URL", "").rstrip("/")
-    key = os.environ.get("PENCA_API_KEY", "")
-    if not base or not key:
+    # Un snapshot debe ser el leaderboard REAL post-partido: exigimos datos frescos y
+    # nunca persistimos stale (rechazamos res["stale"]). El fetch exitoso sí refresca el
+    # cache compartido de src.utils.leaderboard para los demás consumidores.
+    from src.utils.leaderboard import fetch_leaderboard
+    res = fetch_leaderboard(
+        os.environ.get("PENCA_API_BASE_URL", ""),
+        os.environ.get("PENCA_API_KEY", ""),
+        timeout=10.0,
+    )
+    if res["stale"] or not res["entries"]:
+        if res.get("error"):
+            log.warning("fetch leaderboard falló: %s", res["error"])
         return None
-    try:
-        with httpx.Client(timeout=10.0, headers={"Authorization": f"Bearer {key}"}) as c:
-            r = c.get(f"{base}/leaderboard")
-        if r.status_code != 200:
-            return None
-        return r.json().get("entries", [])
-    except Exception as e:
-        log.warning("fetch leaderboard falló: %s", e)
-        return None
+    return res["entries"]
 
 
 # ============ observaciones ============

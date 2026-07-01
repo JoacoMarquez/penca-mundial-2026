@@ -12,6 +12,11 @@
   <p class="text-red-300">No pude leer el pool: {{ pl.error }}</p>
 </section>
 {% else %}
+{% if pl.stale %}
+<section class="bg-amber-900/20 border border-amber-700/40 rounded-xl p-3 mb-4">
+  <p class="text-amber-300 text-sm">⚠️ El leaderboard de la API no responde — mostrando el último dato bueno ({{ pl.stale.age_label }}).</p>
+</section>
+{% endif %}
 <p class="text-sm text-slate-400 mb-5">{{ pl.pool_size }} pencas · mediana {{ pl.median_points }}pts</p>
 
 {# ===== Dónde estamos ===== #}
