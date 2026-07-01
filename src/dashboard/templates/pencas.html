@@ -35,7 +35,18 @@
         </div>
         <div class="min-w-0">
           <div class="font-bold text-lg truncate">{{ p.penca_name }}</div>
-          <div class="text-xs text-slate-400">ID {{ p.penca_id }}</div>
+          <div class="text-xs text-slate-400 flex items-center gap-2">
+            <span>ID {{ p.penca_id }}</span>
+            {% if p.rank_delta is not none %}
+              {% if p.rank_delta > 0 %}
+              <span class="text-green-400 font-semibold" title="Subió {{ p.rank_delta }} puesto{{ 's' if p.rank_delta != 1 else '' }} desde el partido anterior (venía {{ p.prev_rank }}°)">▲ {{ p.rank_delta }}</span>
+              {% elif p.rank_delta < 0 %}
+              <span class="text-red-400 font-semibold" title="Bajó {{ -p.rank_delta }} puesto{{ 's' if -p.rank_delta != 1 else '' }} desde el partido anterior (venía {{ p.prev_rank }}°)">▼ {{ -p.rank_delta }}</span>
+              {% else %}
+              <span class="text-slate-500" title="Sin cambios desde el partido anterior">＝</span>
+              {% endif %}
+            {% endif %}
+          </div>
         </div>
       </div>
       <div class="text-right">
