@@ -119,12 +119,61 @@ def matches_in_window(fixtures: dict, now: datetime | None = None) -> list[tuple
     return out
 
 
+def _latest_prediction_dict(match_id) -> dict | None:
+    """Última versión de predicción (por número de versión) como dict, o None."""
+    import json
+    from src.utils.versions import latest_version
+    match_dir = PREDICTIONS_DIR / str(match_id)
+    if not match_dir.exists():
+        return None
+    p = latest_version(match_dir.glob("v*_*.json"))
+    if p is None:
+        return None
+    try:
+        return json.loads(p.read_text())
+    except Exception:
+        return None
+
+
+def _retry_pending_publications(fixtures: dict) -> None:
+    """Reintenta publicar la última asignación de cualquier partido FUTURO que quedó con
+    published=False, barato (solo POSTs, sin re-correr research). Cierra el gap donde una
+    pasada T-24h/T-3h fallida no se reintentaba hasta la ventana T-30min (~2.5h después)."""
+    from src.agent.pipeline import republish_pending
+    now = datetime.now(timezone.utc)
+    all_matches = (fixtures.get("fase_grupos") or []) + (fixtures.get("eliminatorias") or [])
+    for m in all_matches:
+        try:
+            if now >= parse_kickoff(m["kickoff_utc"]):
+                continue  # ya arrancó → la web bloquea, nada que republicar
+        except Exception:
+            continue
+        latest = _latest_prediction_dict(m["id"])
+        # Solo un fallo de publicación (False) se reintenta; True=ok, None=MOCK/degradado/n-a.
+        if not latest or latest.get("published") is not False:
+            continue
+        try:
+            republish_pending(m, latest)
+        except Exception:
+            log.exception("republish_pending falló | match=%s", m.get("id"))
+
+
 def main() -> int:
     logging.basicConfig(
         level=os.environ.get("LOG_LEVEL", "INFO"),
         format="%(asctime)sZ | %(levelname)s | %(name)s | %(message)s",
     )
     fixtures = load_fixtures()
+
+    # Reintento BARATO de publicaciones pendientes (solo POSTs, sin re-investigar). Cierra el
+    # gap entre una pasada temprana que falló al publicar y la ventana T-30min. Corre ANTES de
+    # matches_in_window: si logra publicar, la nueva versión (published=True) evita que el
+    # scheduler re-corra la pipeline cara por published=False.
+    try:
+        _retry_pending_publications(fixtures)
+    except Exception:
+        log.exception("reintento de publicaciones pendientes falló (no bloqueante)")
+
     pending = matches_in_window(fixtures)
 
     # Pipeline para partidos en ventana
