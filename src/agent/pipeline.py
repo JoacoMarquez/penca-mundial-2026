@@ -646,7 +646,22 @@ def run_match_pipeline(match_id: str, phase: Phase) -> PipelineRun:
     #    El T-30min con published=False no cuenta como corrido → el scheduler lo reintenta.
     published: bool | None = None
     publish_detail: str | None = None
-    if assignment_list and not _should_publish(odds_source):
+    if assignment_list and _is_degraded_emax(assignment_meta):
+        # El objetivo cayó a e_max miope por FALTA de cutoff del pool (leaderboard caído Y
+        # snapshot vencido >24h). Esas picks gastan pencas en colas de goles (4-3/4-2) — el
+        # síntoma de Bélgica. Preferimos NO publicar y avisar antes que pisar el pool con picks
+        # degradadas; las picks previas (si las hubo) quedan. published=None → no se reintenta.
+        log.error(
+            "objetivo e_max DEGRADADO (sin cutoff del pool) para %s — NO se publica", match_id,
+        )
+        _best_effort_alert(
+            f"⚠️ Modo degradado no publicado {_format_match_label(match)}",
+            "El leaderboard del pool no está disponible (ni fresco ni snapshot ≤24h) → la "
+            "asignación cayó a e_max miope (marcadores de cola tipo 4-3). NO se publicó para no "
+            "cargar picks degradadas al pool. Cargá a mano si el partido es inminente, o esperá "
+            "a que vuelva la API del pool.",
+        )
+    elif assignment_list and not _should_publish(odds_source):
         # Backstop final: las constraints fueron MOCK → no tocamos el pool. Persistimos la
         # versión local (para auditoría) y alertamos fuerte, pero NO publicamos una pick
         # sobre probabilidades inventadas. published queda None (no es un fallo a reintentar).
@@ -760,6 +775,71 @@ def _publish_assignment(match_id: str, phase: Phase, assignment_list) -> tuple[b
     detail = f"{len(failed)}/{len(results)} fallaron: {failed[0].detail}"
     log.error("publish %s FALLÓ | %s", phase.value, detail)
     return False, detail
+
+
+def _pool_snapshots_exist() -> bool:
+    """¿Alguna vez hubo datos del pool? (snapshots en disco). Distingue 'leaderboard caído y
+    snapshot vencido' (degradado, ya hubo pool) de la 1ª fecha genuina sin pool (e_max legítimo)."""
+    try:
+        d = DATA_DIR / "pool_snapshots"
+        return d.exists() and any(d.glob("*.json"))
+    except Exception:
+        return False
+
+
+def _is_degraded_emax(assignment_meta: dict | None) -> bool:
+    """True si la asignación cayó a e_max miope por FALTA de cutoff del pool (leaderboard caído
+    Y snapshot vencido). Distinto del e_max intencional de eliminatorias
+    (objective='e_max (P(top-K)=0)', que SÍ tuvo cutoff). Solo bloquea si ya hubo pool (existen
+    snapshots): en la 1ª fecha sin pool, e_max es legítimo y se publica. Desactivable con
+    PENCA_BLOCK_DEGRADED_EMAX=false."""
+    if os.environ.get("PENCA_BLOCK_DEGRADED_EMAX", "true").strip().lower() in ("false", "0", "off", "no"):
+        return False
+    meta = assignment_meta or {}
+    # Solo el e_max "pelado" (sin cutoff); el intencional es "e_max (P(top-K)=0)" con threshold.
+    if meta.get("objective") != "e_max" or meta.get("threshold") is not None:
+        return False
+    return _pool_snapshots_exist()
+
+
+def republish_pending(match: dict, latest: dict) -> bool | None:
+    """Reintenta SOLO la publicación de una asignación YA calculada (sin re-investigar).
+
+    Cierra el gap del scheduler: una pasada T-24h/T-3h que quedó con published=False no se
+    reintenta hasta la ventana T-30min (~2.5h). Acá reenviamos los POSTs de la última asignación
+    (upsert idempotente). En éxito, versiona un archivo nuevo idéntico salvo published=True +
+    publish_retry=True (respeta 'nunca sobreescribir'). Devuelve True/False/None.
+    """
+    match_id = str(match["id"])
+    assignment = latest.get("assignment") or []
+    if not assignment:
+        return None
+    try:
+        phase = Phase(latest.get("phase"))
+    except ValueError:
+        phase = Phase.T_30MIN
+    assignment_list = [
+        (a["penca_id"], {"score": a["score"], "objective": a.get("objective")}, a.get("rank"))
+        for a in assignment
+    ]
+    published, detail = _publish_assignment(match_id, phase, assignment_list)
+    if published:
+        new = dict(latest)
+        new["published"] = True
+        new["publish_retry"] = True
+        new["run_at"] = datetime.now(timezone.utc).isoformat()
+        out_path, version = next_version_path(match_id)
+        new["version"] = version
+        out_path.write_text(json.dumps(new, indent=2, default=str))
+        log.info("republish OK (reintento) | match=%s v=%d picks=%d", match_id, version, len(assignment_list))
+        _best_effort_alert(
+            f"✅ Publicado (reintento) {_format_match_label(match)}",
+            f"La API del pool respondió — se publicaron {len(assignment_list)} picks que habían "
+            "fallado en una pasada anterior.",
+        )
+    else:
+        log.info("republish sigue fallando | match=%s | %s", match_id, detail)
+    return published
 
 
 def _notify_and_publish(
