@@ -787,6 +787,62 @@ def _last_match_points(my_ids: set) -> dict:
     }
 
 
+def _rank_deltas(my_ids: set, live_entries: list) -> dict[int, dict]:
+    """Cuántos puestos se movió cada penca nuestra en el último partido puntuado.
+
+    Compara el ranking vivo con el snapshot del pool inmediatamente anterior al último
+    partido con resultado: el más reciente cuyo total de puntos difiere del vivo. Como
+    los puntos sólo crecen, ese snapshot es exactamente el estado "de antes del último
+    partido" (si ya se guardó el snapshot del último partido, coincide con el vivo y se
+    saltea; si aún no se guardó, el vivo va adelante y el último snapshot ES el de antes).
+
+    Devuelve penca_id → {"delta", "prev_rank"}. delta > 0 = subió (mejoró, puesto menor).
+    {} si no hay snapshot de referencia. Ambos rankings usan `_rank_key` (orden del
+    torneo), igual que el rank mostrado, para que la flecha no contradiga el número.
+    """
+    sdir = _data_dir() / "pool_snapshots"
+    if not sdir.exists():
+        return {}
+    snaps = []
+    for f in sdir.glob("*.json"):
+        if ".bak" in f.name:
+            continue
+        try:
+            snaps.append(json.loads(f.read_text()))
+        except Exception:
+            continue
+    if not snaps:
+        return {}
+    snaps.sort(key=lambda s: (len(s.get("finished_matches", [])), s.get("taken_at", "")))
+
+    def _fp(entries: list) -> int:
+        return sum(int(e.get("points_total", 0)) for e in entries)
+
+    def _ranks(entries: list) -> dict[int, int]:
+        ranked = sorted(entries, key=_rank_key)
+        return {int(e.get("penca_id", 0)): i + 1 for i, e in enumerate(ranked)}
+
+    live_fp = _fp(live_entries)
+    baseline = None
+    for s in reversed(snaps):
+        if _fp(s.get("entries", [])) != live_fp:
+            baseline = s
+            break
+    if baseline is None:
+        return {}
+
+    prev_ranks = _ranks(baseline.get("entries", []))
+    cur_ranks = _ranks(live_entries)
+    out: dict[int, dict] = {}
+    for pid in my_ids:
+        if pid in prev_ranks and pid in cur_ranks:
+            out[pid] = {
+                "delta": prev_ranks[pid] - cur_ranks[pid],
+                "prev_rank": prev_ranks[pid],
+            }
+    return out
+
+
 # El /leaderboard real tarda ~10-13s con el pool de 400+ (54KB). Una sola lectura,
 # cacheada y compartida entre standings y la inteligencia del pool, para no pagar dos
 # veces la latencia ni arriesgar doble timeout en una carga fría.
@@ -826,7 +882,9 @@ def _load_my_pencas_standings_uncached() -> dict[str, Any]:
     if err:
         return {"error": err, "pencas": []}
 
-    sorted_entries = sorted(entries, key=lambda e: -e.get("points_total", 0))
+    # Orden del torneo (puntos, exactos, ganadores) — igual que la pestaña Pool, para que
+    # el rank mostrado coincida con el usado en los deltas y no haya contradicciones.
+    sorted_entries = sorted(entries, key=_rank_key)
     total_in_pool = len(sorted_entries)
 
     my_entries = []
@@ -860,9 +918,14 @@ def _load_my_pencas_standings_uncached() -> dict[str, Any]:
     # Puntos del último partido jugado, por penca
     last = _last_match_points(my_ids)
     last_by_pid = last.get("by_pid", {})
+    # Puestos que subió/bajó cada penca desde el partido anterior (vs snapshots del pool)
+    deltas = _rank_deltas(my_ids, entries)
     for e in my_entries:
         e["next_strategy"] = strategy_by_pid.get(e["penca_id"])
         e["last_match"] = last_by_pid.get(e["penca_id"])
+        d = deltas.get(e["penca_id"])
+        e["rank_delta"] = d["delta"] if d else None
+        e["prev_rank"] = d["prev_rank"] if d else None
 
     return {
         "pool_size": total_in_pool,
