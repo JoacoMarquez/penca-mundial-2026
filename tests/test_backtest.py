@@ -28,10 +28,18 @@ def test_montecarlo_win_or_tie_geq_win():
     assert r.p_at_least_one_wins_or_tie >= r.p_at_least_one_wins
 
 
-def test_montecarlo_distinct_entries_capped_by_menu():
-    """Con 15 pencas y menú de 8, las entradas distintas no superan el menú (resto = clones)."""
-    r = run_montecarlo(_synthetic_matches(), n_sims=300, n_pencas=15, max_candidates=8)
-    assert r.distinct_entries <= 8
+def test_montecarlo_distinct_entries_bounded():
+    """Las entradas torneo-largas distintas están acotadas por min(n_pencas, ∏ menús).
+
+    NO por el tamaño de un menú: dos pencas pueden compartir candidato en un partido y
+    diferir en otro, así que el nº de secuencias completas distintas puede superar el menú
+    (es justo la decorrelación entre partidos que busca el voraz). Acá con 4 partidos y
+    menús ≤8 el producto es enorme, así que la cota efectiva es n_pencas.
+    """
+    matches = _synthetic_matches()
+    r = run_montecarlo(matches, n_sims=300, n_pencas=15, max_candidates=8)
+    menu_product = 8 ** len(matches)  # cota superior del nº de secuencias posibles
+    assert r.distinct_entries <= min(15, menu_product)
     assert r.distinct_entries >= 1
 
 
