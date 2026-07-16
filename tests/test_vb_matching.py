@@ -58,6 +58,18 @@ def test_equipos_distintos_no_matchean():
     assert _sim("Boca Juniors", "River Plate") < 0.80
 
 
+def test_no_confunde_equipos_de_misma_ciudad():
+    # caso real: distinto equipo, misma ciudad → los tokens de ciudad NO deben alcanzar
+    assert _sim("Gigantes San Francisco De Macoris",
+                "Indios de San Francisco de Macoris") < 0.80
+
+
+def test_tolera_variante_ortografica_de_token():
+    # caso real: mismo equipo, una letra de diferencia
+    assert _sim("Ljungskille SK", "Ljungskile") == 1.0
+    assert _sim("Busan I Park FC", "Busan IPark") == 1.0
+
+
 # -------------------- match_events --------------------
 
 def test_match_directo_con_tildes():

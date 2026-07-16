@@ -34,6 +34,7 @@ log = logging.getLogger(__name__)
 
 MATCH_WINDOW_S = 2 * 3600
 TEAM_SIM_THRESHOLD = 0.80
+TOKEN_EQ = 0.85          # dos tokens cuentan como el mismo si se parecen ≥ esto
 
 # Sufijos/ruido de nombres de club a descartar antes de comparar tokens.
 CLUB_SUFFIXES = {
@@ -72,15 +73,30 @@ def _tokens(name: str, alias_map: dict[str, str]) -> set[str]:
     return set(core) if core else set(raw)
 
 
+def _token_eq(t: str, u: str) -> bool:
+    """Dos tokens son 'el mismo' si son iguales o muy parecidos (variantes de ortografía)."""
+    return t == u or SequenceMatcher(None, t, u).ratio() >= TOKEN_EQ
+
+
 def team_similarity(a: str, b: str, alias_map: dict[str, str]) -> float:
-    """Similitud [0,1] entre dos nombres de equipo/jugador."""
+    """Similitud [0,1] por conjunto de tokens con igualdad DIFUSA.
+
+    Usa Jaccard difuso (no SequenceMatcher sobre el string entero): así los tokens
+    distintivos tienen que coincidir. Evita el falso positivo de dos equipos de la
+    misma ciudad ('Gigantes San Francisco' vs 'Indios de San Francisco'), pero tolera
+    variantes de ortografía a nivel token ('Ljungskille' ↔ 'Ljungskile').
+    """
     ta, tb = _tokens(a, alias_map), _tokens(b, alias_map)
     if not ta or not tb:
         return 0.0
-    if ta <= tb or tb <= ta:          # uno es subconjunto del otro
+    small, big = (ta, tb) if len(ta) <= len(tb) else (tb, ta)
+    # subconjunto difuso: cada token del más chico tiene contraparte en el más grande
+    if all(any(_token_eq(t, u) for u in big) for t in small):
         return 1.0
-    jaccard = len(ta & tb) / len(ta | tb)
-    return max(jaccard, SequenceMatcher(None, norm_name(a), norm_name(b)).ratio())
+    # Jaccard difuso: intersección = tokens con contraparte
+    inter = sum(1 for t in small if any(_token_eq(t, u) for u in big))
+    union = len(ta) + len(tb) - inter
+    return inter / union if union else 0.0
 
 
 def _split_teams(event_name: str) -> tuple[str, str] | None:
