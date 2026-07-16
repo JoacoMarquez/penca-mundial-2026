@@ -68,6 +68,17 @@ def list_leagues(sport_id: int) -> list[dict]:
     return _get(f"/sports/{sport_id}/leagues")
 
 
+def get_sport_matchups(sport_id: int) -> list[dict]:
+    """TODOS los matchups del deporte (todas las ligas) en una llamada."""
+    return _get(f"/sports/{sport_id}/matchups")
+
+
+def get_sport_markets(sport_id: int) -> list[dict]:
+    """TODOS los markets straight del deporte en una llamada."""
+    return _get(f"/sports/{sport_id}/markets/straight", params={"primaryOnly": "false"})
+
+
+# compat: acceso por liga (usado por el smoke test --list-leagues)
 def get_matchups(league_id: int) -> list[dict]:
     return _get(f"/leagues/{league_id}/matchups")
 
@@ -78,13 +89,16 @@ def get_markets(league_id: int) -> list[dict]:
 
 # -------------------- normalización a OddsQuote --------------------
 
-def normalize_league(
+def normalize_sport(
     sport: str,
-    league_id: int,
     matchups_raw: list[dict],
     markets_raw: list[dict],
+    league_ids: set[int] | None = None,
 ) -> list[OddsQuote]:
-    """Matchups + markets crudos de una liga → lista plana de OddsQuote."""
+    """Matchups + markets crudos → lista plana de OddsQuote.
+
+    Si league_ids se pasa (no vacío), filtra a esas ligas; si None/vacío, toma todas.
+    """
     now = datetime.now(timezone.utc).isoformat()
     quotes: list[OddsQuote] = []
 
@@ -92,15 +106,18 @@ def normalize_league(
     for m in matchups_raw:
         if m.get("type") != "matchup":
             continue
+        league = m.get("league", {}) or {}
+        if league_ids and league.get("id") not in league_ids:
+            continue
         parts = m.get("participants", [])
         home = next((p["name"] for p in parts if p.get("alignment") == "home"), None)
         away = next((p["name"] for p in parts if p.get("alignment") == "away"), None)
-        if not (home and away):
+        if not (home and away) or not m.get("startTime"):
             continue
         matchup_info[m["id"]] = {
             "event_name": f"{home} vs {away}",
             "start_utc": m["startTime"],
-            "league": m.get("league", {}).get("name", str(league_id)),
+            "league": league.get("name", ""),
         }
 
     for market in markets_raw:
@@ -150,16 +167,22 @@ def normalize_league(
 
 
 def fetch_quotes(cfg: VBConfig) -> list[OddsQuote]:
-    """Todas las cuotas sharp de las ligas configuradas, todos los deportes."""
+    """Cuotas sharp de TODAS las ligas del deporte (cobertura completa) en 2 llamadas
+    por deporte. Si cfg.leagues[sport] trae ids, filtra a esas ligas (whitelist opcional);
+    si está vacío, toma todo lo que Pinnacle ofrezca.
+    """
     out: list[OddsQuote] = []
     for sport in cfg.sports:
-        for league_id in cfg.leagues.get(sport, []):
-            try:
-                matchups = get_matchups(league_id)
-                markets = get_markets(league_id)
-                out.extend(normalize_league(sport, league_id, matchups, markets))
-            except Exception as e:
-                log.warning("pinnacle %s liga %s falló: %s", sport, league_id, e)
+        sport_id = cfg.sport_ids.get(sport)
+        if sport_id is None:
+            continue
+        whitelist = set(cfg.leagues.get(sport, []) or [])
+        try:
+            matchups = get_sport_matchups(sport_id)
+            markets = get_sport_markets(sport_id)
+            out.extend(normalize_sport(sport, matchups, markets, whitelist or None))
+        except Exception as e:
+            log.warning("pinnacle %s (sport_id=%s) falló: %s", sport, sport_id, e)
     return out
 
 
