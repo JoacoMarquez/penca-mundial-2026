@@ -17,7 +17,7 @@ DEFAULT_CONFIG_PATH = Path(os.environ.get("VALUEBET_CONFIG", "config/valuebet.ya
 
 _REQUIRED_KEYS = [
     "mode", "bankroll_file", "kelly_fraction", "min_edge", "odds_range",
-    "min_hours_ahead", "markets", "parlay", "caps", "stake_round_to",
+    "min_hours_ahead", "max_edge", "markets", "parlay", "caps", "stake_round_to",
     "stake_min", "scan_times_utc", "sharp", "sport_ids", "leagues", "aliases",
     "exact_score_extra_edge",
 ]
@@ -31,6 +31,7 @@ class VBConfig:
     min_edge: dict[str, float]
     odds_range: tuple[float, float]
     min_hours_ahead: float
+    max_edge: float
     markets: dict[str, list[str]]
     exact_score_extra_edge: float
     parlay: dict[str, Any]
@@ -78,6 +79,7 @@ def load(path: Path | None = None) -> VBConfig:
         min_edge={k: float(v) for k, v in raw["min_edge"].items()},
         odds_range=(float(lo), float(hi)),
         min_hours_ahead=float(raw["min_hours_ahead"]),
+        max_edge=float(raw["max_edge"]),
         markets=raw["markets"],
         exact_score_extra_edge=float(raw["exact_score_extra_edge"]),
         parlay=raw["parlay"],

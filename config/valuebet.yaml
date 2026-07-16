@@ -11,6 +11,8 @@ min_edge:
 
 odds_range: [1.4, 6.0]         # fuera de esto no se sugiere (colas mal calibradas)
 min_hours_ahead: 1.0           # no sugerir con el partido a menos de N horas
+max_edge: 0.25                 # edge arriba de esto = casi seguro error de datos/matcheo
+                               # (ningún value bet real es tan grande) → se descarta y loguea
 
 markets:
   soccer: [1x2, total, exact_score]
@@ -48,15 +50,37 @@ sport_ids:
   basketball: 4
   tennis: 33
 
-# Ligas Pinnacle a escanear (ids). Se pueblan en Fase 0/deploy con --list-leagues.
+# Ligas Pinnacle (whitelist OPCIONAL de ids). VACÍO = cobertura TOTAL: el scan trae
+# todas las ligas del deporte vía /sports/{id}/matchups (2 llamadas por deporte, sin
+# mantener listas ni sufrir la rotación de torneos de tenis). Poner ids solo si querés
+# restringir a ligas puntuales (ej. alta liquidez). Listar con:
+#   python -m src.valuebet.books.pinnacle_vb --list-leagues <deporte>   (desde el VPS)
 leagues:
   soccer: []
   basketball: []
   tennis: []
 
-# Aliases de nombres de equipos soft↔sharp; se puebla a mano cuando el log
-# reporta "unmatched". clave = nombre normalizado Pinnacle, valores = variantes Supermatch.
+# Aliases soft↔sharp. clave = nombre canónico (como lo nombra Pinnacle, en inglés),
+# valores = variantes que usa Supermatch (español/localizado). El matcher normaliza y
+# quita sufijos de club solo, así que acá van SOLO los casos que el fuzzy no puede
+# bridgear (traducciones reales). Ampliar desde los logs de "unmatched" del scan.
 aliases:
-  soccer: {}
-  basketball: {}
+  soccer:
+    Marseille: [Olympique Marsella, Olympique de Marsella]
+    Bayern Munich: [Bayern Múnich, Bayern de Múnich]
+    Inter Milan: [Inter de Milán, Internazionale]
+    AC Milan: [Milán, AC Milán]
+    Juventus: [Juventus de Turín]
+    Sevilla: [Sevilla FC]
+    Cologne: [Colonia]
+    Munich 1860: [1860 Múnich]
+    Spartak Moscow: [FK Spartak Moscú, Spartak Moscú]
+    Zenit: [Zenit San Petersburgo]
+    Sporting CP: [Sporting de Lisboa, Sporting Lisbon]
+    Red Star Belgrade: [Estrella Roja]
+    Genoa: [Génova]
+    Athletic Bilbao: [Athletic Club, Athletic de Bilbao]
+  basketball:
+    LA Lakers: [Los Angeles Lakers, Lakers]
+    LA Clippers: [Los Angeles Clippers, Clippers]
   tennis: {}

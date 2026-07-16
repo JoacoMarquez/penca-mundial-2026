@@ -12,12 +12,15 @@ edge combinado = ∏(1+e_i) - 1 >= parlay.min_edge.
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from itertools import combinations
 
 from src.valuebet.config import VBConfig
 from src.valuebet.learning import LearningState
 from src.valuebet.types import OddsQuote, Opportunity
+
+log = logging.getLogger(__name__)
 
 
 def find_singles(
@@ -49,6 +52,14 @@ def find_singles(
             quote=quote, fair_prob=p, sharp_odds=sharp_odds,
             edge=p * quote.decimal_odds - 1.0,
         )
+        # Guardrail: un edge enorme es casi seguro un error de datos o un match a un
+        # mercado equivocado (ej. cuota de tarjetas vs cuota de resultado), no una
+        # oportunidad real. Se descarta y se loguea para revisar, nunca se sugiere.
+        if opp.edge > cfg.max_edge:
+            log.warning("edge sospechoso %.0f%% descartado (>%.0f%%): %s %s %s @ %.2f (sharp %.2f)",
+                        opp.edge * 100, cfg.max_edge * 100, quote.sport, quote.event_name,
+                        quote.outcome, quote.decimal_odds, sharp_odds)
+            continue
         if not learning.is_active(opp.segment):
             continue
         threshold = cfg.min_edge[quote.sport] / learning.multiplier(opp.segment)

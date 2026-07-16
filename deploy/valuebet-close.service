@@ -5,7 +5,8 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-EnvironmentFile=/etc/penca/valuebet-env
+EnvironmentFile=/etc/penca/env
+EnvironmentFile=-/etc/penca/valuebet-env
 Environment="PYTHONPATH=/opt/penca"
 WorkingDirectory=/opt/penca
 ExecStart=/opt/penca/.venv/bin/python -m src.valuebet.runner close
