@@ -1,0 +1,12 @@
+[Unit]
+Description=Valuebet — captura de closing lines (CLV) de sugerencias próximas
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/penca/valuebet-env
+Environment="PYTHONPATH=/opt/penca"
+WorkingDirectory=/opt/penca
+ExecStart=/opt/penca/.venv/bin/python -m src.valuebet.runner close
+User=root

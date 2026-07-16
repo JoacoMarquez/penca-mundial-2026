@@ -17,6 +17,7 @@ env/
 data/raw/
 data/processed/
 data/predictions/
+data/valuebet/
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 !data/predictions/.gitkeep

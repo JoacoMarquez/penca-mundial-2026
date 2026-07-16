@@ -1,0 +1,13 @@
+[Unit]
+Description=Valuebet scan — 3 veces/día (13:00, 20:00, 23:30 UTC)
+Requires=valuebet-scan.service
+
+[Timer]
+OnCalendar=*-*-* 13:00:00
+OnCalendar=*-*-* 20:00:00
+OnCalendar=*-*-* 23:30:00
+Persistent=true
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target
