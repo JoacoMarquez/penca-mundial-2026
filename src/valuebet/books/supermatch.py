@@ -131,9 +131,16 @@ def _map_line(sport: str, line: dict, home: str, away: str) -> tuple[str | None,
                 m["away"] = o.get("dividend")
         return ("moneyline", m) if len(m) == 2 else (None, {})
 
-    if ltype == "to" and desc.startswith("Total"):
+    if ltype == "to":
         pts = _TOTAL_RE.search(desc)
         if not pts:
+            return None, {}
+        # WHITELIST del prefijo: Supermatch publica varios "Total ..." por evento
+        # (goles, córners, tarjetas) con el mismo type "to". Solo el total del
+        # RESULTADO se compara contra Pinnacle — "Total de córners ( 9.5 )" contra
+        # un total de goles daría un edge fantasma (análogo soft del bug bookings).
+        prefix = desc[:pts.start()].strip()
+        if prefix not in ("Total", "Total (incl. prórroga)"):
             return None, {}
         market = total_market(pts.group(1))
         m = {}

@@ -70,3 +70,16 @@ def test_total_linea_media_canonica():
                         {"result": "Menos de", "dividend": 1.9}]}
     market, _ = _map_line("basketball", line, "A", "B")
     assert market == "total_179.5"
+
+
+def test_total_de_corners_o_tarjetas_se_descarta():
+    # Supermatch publica varios "Total ..." por evento (goles/córners/tarjetas) con
+    # el mismo type "to" — solo el total del resultado pasa el whitelist de prefijo
+    from src.valuebet.books.supermatch import _map_line
+    for desc in ("Total de córners ( 9.5 )", "Total de tarjetas ( 4.5 )",
+                 "Total Equipo Local ( 1.5 )"):
+        line = {"type": "to", "description": desc,
+                "options": [{"result": "Más de", "dividend": 1.9},
+                            {"result": "Menos de", "dividend": 1.9}]}
+        market, _ = _map_line("soccer", line, "A", "B")
+        assert market is None, desc
