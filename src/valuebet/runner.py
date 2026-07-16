@@ -14,8 +14,11 @@ import logging
 from collections import defaultdict
 from datetime import datetime, timezone
 
+import os
+from pathlib import Path
+
 from src.valuebet import config as vbconfig
-from src.valuebet import ev, ledger, learning, notify, sharp
+from src.valuebet import ev, ledger, learning, notify, rawstore, sharp
 from src.valuebet.books import oddsapi_vb, pinnacle_vb, supermatch
 from src.valuebet.matching import match_events
 from src.valuebet.staking import apply_caps, kelly_stake
@@ -46,21 +49,54 @@ def cmd_scan(cfg: vbconfig.VBConfig) -> None:
             raise
 
 
+def _data_dir() -> Path:
+    return Path(os.environ.get("VALUEBET_DATA_DIR", "data/valuebet"))
+
+
+def _alert_soft_source(soft_source: str, notifier) -> None:
+    """Avisa por Telegram SOLO en las transiciones supermatch↔fallback (flag en disco).
+
+    Sin esto, la caída del ES de Supermatch es silenciosa: se queman créditos de
+    Odds-API y las sugerencias pasan a referir cuotas de bookies no apostables desde
+    Uruguay sin que nadie se entere.
+    """
+    flag = _data_dir() / ".soft_primary_down"
+    down = soft_source != "supermatch"
+    try:
+        if down and not flag.exists():
+            notifier.send("⚠️ valuebet: Supermatch caído/inescrapeable — "
+                          f"corriendo con <code>{soft_source}</code> (cuotas de referencia, "
+                          "verificar en Supermatch antes de apostar)")
+            flag.parent.mkdir(parents=True, exist_ok=True)
+            flag.touch()
+        elif not down and flag.exists():
+            notifier.send("✅ valuebet: Supermatch volvió — scan normal")
+            flag.unlink()
+    except OSError as e:
+        log.warning("no pude actualizar flag de soft primario: %s", e)
+
+
 def _scan(cfg: vbconfig.VBConfig, notifier) -> None:
     soft = supermatch.fetch_quotes(cfg)
     soft_source = "supermatch"
     if not soft:
         soft = oddsapi_vb.fetch_quotes(cfg)
         soft_source = "oddsapi(fallback)"
+    _alert_soft_source(soft_source, notifier)
     sharp_quotes = pinnacle_vb.fetch_quotes(cfg)
     log.info("scan: %d cuotas soft (%s), %d sharp", len(soft), soft_source, len(sharp_quotes))
+    if soft:
+        rawstore.save_snapshot(soft_source.split("(")[0], soft)
+    if sharp_quotes:
+        rawstore.save_snapshot("pinnacle", sharp_quotes)
     if not soft or not sharp_quotes:
         log.warning("scan: sin datos suficientes (soft=%d sharp=%d) — nada para hacer",
                     len(soft), len(sharp_quotes))
         return
 
     # matchear evento a evento y armar (cuota_soft, fair_probs, cuota_sharp_outcome)
-    pairs = match_events(soft, sharp_quotes, cfg.aliases)
+    pairs = match_events(soft, sharp_quotes, cfg.aliases,
+                         dump_dir=_data_dir() / "unmatched")
     matched: list[tuple] = []
     for soft_q, sharp_evt_quotes in pairs:
         if soft_q.market not in _allowed_markets(soft_q, cfg):

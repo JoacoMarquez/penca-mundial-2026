@@ -123,3 +123,61 @@ def test_elige_el_mejor_entre_varios_sharp():
     assert len(pairs) == 3
     names = {sh[0].event_name for _, sh in pairs}
     assert names == {"Bahia vs Chapecoense"}
+
+
+# -------------------- calificadores de plantel --------------------
+
+def test_reserva_no_matchea_primer_equipo():
+    # "Barcelona B" y "Barcelona" son equipos DISTINTOS que juegan el mismo día
+    assert _sim("Barcelona B", "Barcelona") == 0.0
+    assert _sim("Castilla II", "Castilla") == 0.0
+    assert _sim("Ajax Reserves", "Ajax") == 0.0
+    assert _sim("Milan U23", "Milan") == 0.0
+
+
+def test_femenino_no_matchea_masculino():
+    assert _sim("Arsenal W", "Arsenal") == 0.0
+    assert _sim("Boca Juniors Femenino", "Boca Juniors") == 0.0
+
+
+def test_mismo_calificador_en_ambos_lados_si_matchea():
+    assert _sim("Barcelona B", "Barcelona B") == 1.0
+    assert _sim("Arsenal Women", "Arsenal W") == 0.0  # variantes distintas NO se puentean solas
+    assert _sim("Ajax Reserves", "Ajax Reserves") == 1.0
+
+
+def test_match_events_no_cruza_reserva_con_primer_equipo():
+    soft = _ev("supermatch", "Real Madrid vs Barcelona B")
+    sharp = _ev("pinnacle", "Real Madrid vs Barcelona")
+    assert match_events(soft, sharp, aliases={}) == []
+
+
+# -------------------- ambigüedad --------------------
+
+def test_match_ambiguo_se_descarta():
+    # dos candidatos sharp que solo difieren en una variante ortográfica del nombre:
+    # ambos puntúan 1.0 contra la soft → no hay forma segura de elegir → se descarta
+    soft = _ev("supermatch", "Ljungskile vs Orgryte")
+    sharp = (_ev("pinnacle", "Ljungskile vs Orgryte")
+             + _ev("pinnacle", "Ljungskille vs Orgryte"))
+    assert match_events(soft, sharp, aliases={}) == []
+
+
+def test_candidato_claro_no_es_ambiguo():
+    # un candidato en 1.0 y otro bien abajo del umbral → match normal
+    soft = _ev("supermatch", "Bahia vs Chapecoense SC")
+    sharp = (_ev("pinnacle", "Bahia vs Chapecoense")
+             + _ev("pinnacle", "Flamengo vs Palmeiras"))
+    assert len(match_events(soft, sharp, aliases={})) == 3
+
+
+def test_dump_unmatched_jsonl(tmp_path):
+    import json
+    soft = _ev("supermatch", "Fantasma vs Nadie")
+    sharp = _ev("pinnacle", "Barcelona vs Madrid")
+    match_events(soft, sharp, aliases={}, dump_dir=tmp_path)
+    files = list(tmp_path.glob("*.jsonl"))
+    assert len(files) == 1
+    rows = [json.loads(l) for l in files[0].read_text().splitlines()]
+    assert rows[0]["home"] == "Fantasma"
+    assert rows[0]["reason"] == "below_threshold"
