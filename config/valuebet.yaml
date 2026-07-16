@@ -48,15 +48,36 @@ sport_ids:
   basketball: 4
   tennis: 33
 
-# Ligas Pinnacle a escanear (ids). Se pueblan en Fase 0/deploy con --list-leagues.
+# Ligas Pinnacle a escanear (ids). Refrescar con:
+#   python -m src.valuebet.books.pinnacle_vb --list-leagues <deporte>   (desde el VPS)
+# OJO tenis: Pinnacle numera por torneo-y-ronda (R16/QF) → estos ids ROTAN, revisar
+# cada pocos días. Fútbol/NBA son estables.
 leagues:
-  soccer: []
-  basketball: []
-  tennis: []
+  soccer: [1980, 1834, 1977, 2663, 1982, 2333, 271382, 210697, 1863]
+  basketball: [487, 197215, 209863]
+  tennis: [3326, 3292, 272544, 236965]
 
-# Aliases de nombres de equipos soft↔sharp; se puebla a mano cuando el log
-# reporta "unmatched". clave = nombre normalizado Pinnacle, valores = variantes Supermatch.
+# Aliases soft↔sharp. clave = nombre canónico (como lo nombra Pinnacle, en inglés),
+# valores = variantes que usa Supermatch (español/localizado). El matcher normaliza y
+# quita sufijos de club solo, así que acá van SOLO los casos que el fuzzy no puede
+# bridgear (traducciones reales). Ampliar desde los logs de "unmatched" del scan.
 aliases:
-  soccer: {}
-  basketball: {}
+  soccer:
+    Marseille: [Olympique Marsella, Olympique de Marsella]
+    Bayern Munich: [Bayern Múnich, Bayern de Múnich]
+    Inter Milan: [Inter de Milán, Internazionale]
+    AC Milan: [Milán, AC Milán]
+    Juventus: [Juventus de Turín]
+    Sevilla: [Sevilla FC]
+    Cologne: [Colonia]
+    Munich 1860: [1860 Múnich]
+    Spartak Moscow: [FK Spartak Moscú, Spartak Moscú]
+    Zenit: [Zenit San Petersburgo]
+    Sporting CP: [Sporting de Lisboa, Sporting Lisbon]
+    Red Star Belgrade: [Estrella Roja]
+    Genoa: [Génova]
+    Athletic Bilbao: [Athletic Club, Athletic de Bilbao]
+  basketball:
+    LA Lakers: [Los Angeles Lakers, Lakers]
+    LA Clippers: [Los Angeles Clippers, Clippers]
   tennis: {}
