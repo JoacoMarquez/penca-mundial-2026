@@ -28,11 +28,20 @@ def test_montecarlo_win_or_tie_geq_win():
     assert r.p_at_least_one_wins_or_tie >= r.p_at_least_one_wins
 
 
-def test_montecarlo_distinct_entries_capped_by_menu():
-    """Con 15 pencas y menú de 8, las entradas distintas no superan el menú (resto = clones)."""
+def test_montecarlo_distinct_entries_bounded_by_pencas():
+    """distinct_entries cuenta SECUENCIAS torneo-largas únicas (una por penca), no candidatos.
+
+    El menú (max_candidates) sólo acota los candidatos distintos POR PARTIDO. Las pencas
+    sobrantes (más que el menú) no son clones: desde el fix 028e195 el desempate reparte
+    los excedentes hacia el candidato menos usado, y ese reparto varía partido a partido,
+    así que las secuencias completas se decorrelacionan y pueden superar el tamaño del menú.
+    El único techo real es n_pencas.
+    """
     r = run_montecarlo(_synthetic_matches(), n_sims=300, n_pencas=15, max_candidates=8)
-    assert r.distinct_entries <= 8
-    assert r.distinct_entries >= 1
+    assert 1 <= r.distinct_entries <= r.n_pencas
+    # Guarda de la diversificación (028e195): con más pencas que menú, el reparto de
+    # excedentes genera MÁS secuencias distintas que el menú, no clones amontonados en chalk.
+    assert r.distinct_entries > 8
 
 
 def test_montecarlo_deterministic_with_seed():
