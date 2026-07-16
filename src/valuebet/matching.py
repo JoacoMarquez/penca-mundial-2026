@@ -21,12 +21,14 @@ que jamás se apuesta al outcome equivocado. Se pierde ese evento, no se arriesg
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 import unicodedata
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from difflib import SequenceMatcher
+from pathlib import Path
 
 from src.valuebet.types import OddsQuote
 
@@ -35,6 +37,9 @@ log = logging.getLogger(__name__)
 MATCH_WINDOW_S = 2 * 3600
 TEAM_SIM_THRESHOLD = 0.80
 TOKEN_EQ = 0.85          # dos tokens cuentan como el mismo si se parecen ≥ esto
+AMBIGUITY_MARGIN = 0.10  # si el 2º candidato también supera el umbral y está a menos
+                         # de esto del 1º, el evento se descarta (mejor perderlo que
+                         # apostar al partido equivocado)
 
 # Sufijos/ruido de nombres de club a descartar antes de comparar tokens.
 CLUB_SUFFIXES = {
@@ -42,6 +47,15 @@ CLUB_SUFFIXES = {
     "bk", "if", "ik", "fk", "cd", "ud", "rc", "ca", "club", "bois", "boi", "ec",
     "sk", "aif", "ff", "il", "gk", "kb", "cfr", "asc", "bbc", "cc", "sad", "aa",
     "de", "do", "the",
+}
+
+# Calificadores de plantel: distinguen al equipo reserva/juvenil/femenino del primer
+# equipo. NUNCA se descartan — "Barcelona B" vs "Barcelona" son equipos DISTINTOS
+# aunque compartan todos los demás tokens, y las reservas juegan el mismo día.
+SQUAD_QUALIFIERS = {
+    "b", "c", "ii", "iii", "u17", "u18", "u19", "u20", "u21", "u23",
+    "w", "women", "fem", "femenino", "femenil", "ladies",
+    "reserve", "reserves", "res", "amateur", "youth",
 }
 
 
@@ -73,6 +87,13 @@ def _tokens(name: str, alias_map: dict[str, str]) -> set[str]:
     return set(core) if core else set(raw)
 
 
+def _qualifiers(name: str, alias_map: dict[str, str]) -> set[str]:
+    """Calificadores de plantel presentes en el nombre (post-alias)."""
+    n = norm_name(name)
+    n = alias_map.get(n, n)
+    return {t for t in n.split() if t in SQUAD_QUALIFIERS}
+
+
 def _token_eq(t: str, u: str) -> bool:
     """Dos tokens son 'el mismo' si son iguales o muy parecidos (variantes de ortografía)."""
     return t == u or SequenceMatcher(None, t, u).ratio() >= TOKEN_EQ
@@ -85,7 +106,12 @@ def team_similarity(a: str, b: str, alias_map: dict[str, str]) -> float:
     distintivos tienen que coincidir. Evita el falso positivo de dos equipos de la
     misma ciudad ('Gigantes San Francisco' vs 'Indios de San Francisco'), pero tolera
     variantes de ortografía a nivel token ('Ljungskille' ↔ 'Ljungskile').
+
+    Los calificadores de plantel deben coincidir EXACTO en ambos lados: 'Barcelona B'
+    jamás matchea 'Barcelona' (equipos distintos que juegan el mismo día).
     """
+    if _qualifiers(a, alias_map) != _qualifiers(b, alias_map):
+        return 0.0
     ta, tb = _tokens(a, alias_map), _tokens(b, alias_map)
     if not ta or not tb:
         return 0.0
@@ -130,11 +156,15 @@ def match_events(
     soft: list[OddsQuote],
     sharp: list[OddsQuote],
     aliases: dict[str, dict[str, list[str]]],
+    dump_dir: Path | None = None,
 ) -> list[tuple[OddsQuote, list[OddsQuote]]]:
     """Para cada cuota soft de un evento matcheado, las cuotas sharp de ese evento.
 
     Devuelve [(cuota_soft, cuotas_sharp_del_evento)]. Alineación home↔home garantizada,
     así que soft.outcome 'home' se compara contra sharp 'home' sin remapear.
+
+    Si dump_dir se pasa, los eventos sin match se appendean a
+    {dump_dir}/{fecha}.jsonl para minar aliases en batch (además del warning en logs).
     """
     soft_ev = _group_events(soft)
     sharp_ev = _group_events(sharp)
@@ -145,11 +175,11 @@ def match_events(
         sharp_by_sport[e["sport"]].append(e)
 
     out: list[tuple[OddsQuote, list[OddsQuote]]] = []
-    unmatched: set[str] = set()
+    unmatched: list[dict] = []
 
     for se in soft_ev.values():
         alias_map = _alias_to_canonical(aliases.get(se["sport"], {}))
-        best, best_score = None, 0.0
+        best, best_score, second_score = None, 0.0, 0.0
         for pe in sharp_by_sport.get(se["sport"], []):
             if abs((_dt(se["start"]) - _dt(pe["start"])).total_seconds()) > MATCH_WINDOW_S:
                 continue
@@ -158,16 +188,45 @@ def match_events(
                 team_similarity(se["away"], pe["away"], alias_map),
             )
             if score > best_score:
-                best_score, best = score, pe
+                best_score, second_score, best = score, best_score, pe
+            elif score > second_score:
+                second_score = score
 
-        if best is not None and best_score >= TEAM_SIM_THRESHOLD:
+        ambiguous = (second_score >= TEAM_SIM_THRESHOLD
+                     and best_score - second_score < AMBIGUITY_MARGIN)
+        if best is not None and best_score >= TEAM_SIM_THRESHOLD and not ambiguous:
             for sq in se["quotes"]:
                 out.append((sq, best["quotes"]))
         else:
-            unmatched.add(f"{se['sport']}: {se['home']} vs {se['away']} ({se['start']})")
+            unmatched.append({
+                "sport": se["sport"], "home": se["home"], "away": se["away"],
+                "start_utc": se["start"], "best_score": round(best_score, 3),
+                "reason": "ambiguous" if ambiguous else "below_threshold",
+                "best_sharp": best["home"] + " vs " + best["away"] if best else None,
+            })
 
-    for u in sorted(unmatched):
-        log.warning("unmatched soft event (agregar alias en valuebet.yaml?): %s", u)
+    for u in sorted(unmatched, key=lambda x: (x["sport"], x["home"])):
+        if u["reason"] == "ambiguous":
+            log.warning("match ambiguo descartado (dos candidatos sharp ≥ umbral): "
+                        "%s: %s vs %s", u["sport"], u["home"], u["away"])
+        else:
+            log.warning("unmatched soft event (agregar alias en valuebet.yaml?): "
+                        "%s: %s vs %s (%s)", u["sport"], u["home"], u["away"], u["start_utc"])
+    if dump_dir is not None and unmatched:
+        _dump_unmatched(unmatched, dump_dir)
     log.info("match_events: %d/%d eventos soft matcheados",
              len(soft_ev) - len(unmatched), len(soft_ev))
     return out
+
+
+def _dump_unmatched(unmatched: list[dict], dump_dir: Path) -> None:
+    """Appendea los unmatched del scan a {dump_dir}/{fecha}.jsonl. Best-effort."""
+    now = datetime.now(timezone.utc)
+    path = dump_dir / f"{now.strftime('%Y-%m-%d')}.jsonl"
+    try:
+        dump_dir.mkdir(parents=True, exist_ok=True)
+        with open(path, "a", encoding="utf-8") as f:
+            for u in unmatched:
+                f.write(json.dumps({"ts_utc": now.isoformat(), **u}, ensure_ascii=False) + "\n")
+    except Exception as e:
+        log.warning("no pude volcar unmatched a %s: %s", path, e)

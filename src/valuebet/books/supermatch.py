@@ -23,7 +23,7 @@ from datetime import datetime, timezone
 import httpx
 
 from src.valuebet.config import VBConfig
-from src.valuebet.types import OddsQuote
+from src.valuebet.types import OddsQuote, total_market
 
 log = logging.getLogger(__name__)
 
@@ -44,22 +44,40 @@ SPORT_NAMES = {"soccer": "Fútbol", "basketball": "Baloncesto", "tennis": "Tenis
 
 _TOTAL_RE = re.compile(r"\(\s*([0-9]+(?:\.[0-9]+)?)\s*\)\s*$")
 LOOKAHEAD_MS = 3 * 24 * 3600 * 1000  # 3 días
+PAGE_SIZE = 200
+MAX_EVENTS = 2000  # tope de cordura; ES limita from+size a 10k por default
 
 
 def _fetch_events(sport_name: str, now_ms: int) -> list[dict]:
-    query = {
-        "query": {"bool": {"must": [
-            {"range": {"dateTime": {"gte": now_ms, "lte": now_ms + LOOKAHEAD_MS}}},
-            {"term": {"sportName.keyword": sport_name}},
-        ]}},
-        "size": 200,
-        "_source": ["description", "sportName", "sportId", "leagueName", "leagueId",
-                    "dateTime", "betLines"],
-    }
+    """Todos los eventos del deporte en la ventana, paginando con from/size.
+
+    Sin paginación ni sort, ES devuelve 200 hits en orden arbitrario y el resto se
+    pierde en silencio (fútbol con 3 días de lookahead supera los 200 eventos).
+    """
+    hits: list[dict] = []
     with httpx.Client(timeout=25.0, headers=HEADERS) as c:
-        r = c.post(f"{ES_BASE}{SEARCH_PATH}", json=query)
-        r.raise_for_status()
-        return r.json()["hits"]["hits"]
+        while len(hits) < MAX_EVENTS:
+            query = {
+                "query": {"bool": {"must": [
+                    {"range": {"dateTime": {"gte": now_ms, "lte": now_ms + LOOKAHEAD_MS}}},
+                    {"term": {"sportName.keyword": sport_name}},
+                ]}},
+                "sort": [{"dateTime": "asc"}],
+                "from": len(hits),
+                "size": PAGE_SIZE,
+                "_source": ["description", "sportName", "sportId", "leagueName", "leagueId",
+                            "dateTime", "betLines"],
+            }
+            r = c.post(f"{ES_BASE}{SEARCH_PATH}", json=query)
+            r.raise_for_status()
+            page = r.json()["hits"]["hits"]
+            hits.extend(page)
+            if len(page) < PAGE_SIZE:
+                break
+    if len(hits) >= MAX_EVENTS:
+        log.warning("supermatch %s: tope de %d eventos alcanzado — puede haber truncamiento",
+                    sport_name, MAX_EVENTS)
+    return hits
 
 
 def parse_events(sport: str, hits: list[dict]) -> list[OddsQuote]:
@@ -113,11 +131,18 @@ def _map_line(sport: str, line: dict, home: str, away: str) -> tuple[str | None,
                 m["away"] = o.get("dividend")
         return ("moneyline", m) if len(m) == 2 else (None, {})
 
-    if ltype == "to" and desc.startswith("Total"):
+    if ltype == "to":
         pts = _TOTAL_RE.search(desc)
         if not pts:
             return None, {}
-        market = f"total_{pts.group(1)}"
+        # WHITELIST del prefijo: Supermatch publica varios "Total ..." por evento
+        # (goles, córners, tarjetas) con el mismo type "to". Solo el total del
+        # RESULTADO se compara contra Pinnacle — "Total de córners ( 9.5 )" contra
+        # un total de goles daría un edge fantasma (análogo soft del bug bookings).
+        prefix = desc[:pts.start()].strip()
+        if prefix not in ("Total", "Total (incl. prórroga)"):
+            return None, {}
+        market = total_market(pts.group(1))
         m = {}
         for o in opts:
             res = (o.get("result") or "").lower()

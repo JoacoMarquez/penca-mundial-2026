@@ -75,3 +75,11 @@ def test_basket_es_moneyline_2way():
     q = normalize_sport("basketball", MATCHUPS, mk, league_ids={200})
     ml = [o for o in q if o.market == "moneyline"]
     assert {o.outcome for o in ml} == {"home", "away"}  # sin empate
+
+
+def test_total_linea_entera_canonica():
+    # points=3.0 (float) debe producir "total_3", igual que "Total ( 3 )" de Supermatch
+    mk = [{"matchupId": 1, "type": "total", "period": 0, "points": 3.0,
+           "prices": [{"designation": "over", "price": -105}, {"designation": "under", "price": -115}]}]
+    q = normalize_sport("soccer", MATCHUPS, mk, league_ids={100})
+    assert {x.market for x in q} == {"total_3"}

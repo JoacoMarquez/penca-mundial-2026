@@ -1,11 +1,13 @@
 [Unit]
-Description=Valuebet scan — 3 veces/día (13:00, 20:00, 23:30 UTC)
+# Horario: el edge en un soft book lento aparece y desaparece en horas — 3 pasadas/día
+# perdía casi todas las ventanas. Costo por scan: 1 POST a Supermatch + 2 GETs a
+# Pinnacle por deporte. Al minuto :05 para no colisionar con el close (:00/:30);
+# el flock del ledger cubre igual cualquier solapamiento.
+Description=Valuebet scan — horario, al minuto :05
 Requires=valuebet-scan.service
 
 [Timer]
-OnCalendar=*-*-* 13:00:00
-OnCalendar=*-*-* 20:00:00
-OnCalendar=*-*-* 23:30:00
+OnCalendar=*-*-* *:05:00
 Persistent=true
 AccuracySec=1min
 

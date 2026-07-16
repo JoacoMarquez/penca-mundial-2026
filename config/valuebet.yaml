@@ -14,8 +14,11 @@ min_hours_ahead: 1.0           # no sugerir con el partido a menos de N horas
 max_edge: 0.25                 # edge arriba de esto = casi seguro error de datos/matcheo
                                # (ningún value bet real es tan grande) → se descarta y loguea
 
+# exact_score queda FUERA hasta Fase 2: ningún parser lo emite todavía (Supermatch no
+# mapea esas betLines y Pinnacle lo sirve por /markets/special). El plumbing de ev.py
+# y sharp.py ya lo soporta — al implementarlo, agregarlo acá.
 markets:
-  soccer: [1x2, total, exact_score]
+  soccer: [1x2, total]
   basketball: [moneyline, total]
   tennis: [moneyline]
 
@@ -36,7 +39,8 @@ caps:
 stake_round_to: 10             # redondeo del stake en UYU
 stake_min: 20                  # abajo de esto se descarta la sugerencia
 
-scan_times_utc: ["13:00", "20:00", "23:30"]
+# Informativo (el schedule real vive en deploy/valuebet-scan.timer): scan horario al :05
+scan_times_utc: ["hourly :05"]
 
 sharp:
   devig: shin                  # mercados 2-3 way

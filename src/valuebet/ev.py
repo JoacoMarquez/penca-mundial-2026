@@ -24,7 +24,7 @@ log = logging.getLogger(__name__)
 
 
 def find_singles(
-    matched: list[tuple[OddsQuote, dict[str, float], float]],
+    matched: list[tuple[OddsQuote, dict[str, float], OddsQuote]],
     cfg: VBConfig,
     learning: LearningState,
     now_utc: datetime | None = None,
@@ -32,13 +32,15 @@ def find_singles(
     """Detecta value bets simples.
 
     `matched`: lista de (cuota_soft, fair_probs_del_mercado_completo, cuota_sharp_del_outcome).
-    fair_probs viene de sharp.fair_probs sobre el mercado sharp completo.
+    fair_probs viene de sharp.fair_probs sobre el mercado sharp completo. La cuota
+    sharp viene entera (no solo odds) para persistir su event_id en la Opportunity —
+    el close lo necesita para reencontrar la línea de cierre sin re-matchear nombres.
     """
     now = now_utc or datetime.now(timezone.utc)
     lo, hi = cfg.odds_range
     out: list[Opportunity] = []
 
-    for quote, fair, sharp_odds in matched:
+    for quote, fair, sharp_q in matched:
         p = fair.get(quote.outcome)
         if p is None or not (0.0 < p < 1.0):
             continue
@@ -49,8 +51,9 @@ def find_singles(
             continue
 
         opp = Opportunity(
-            quote=quote, fair_prob=p, sharp_odds=sharp_odds,
+            quote=quote, fair_prob=p, sharp_odds=sharp_q.decimal_odds,
             edge=p * quote.decimal_odds - 1.0,
+            sharp_event_id=sharp_q.event_id,
         )
         # Guardrail: un edge enorme es casi seguro un error de datos o un match a un
         # mercado equivocado (ej. cuota de tarjetas vs cuota de resultado), no una
@@ -58,7 +61,7 @@ def find_singles(
         if opp.edge > cfg.max_edge:
             log.warning("edge sospechoso %.0f%% descartado (>%.0f%%): %s %s %s @ %.2f (sharp %.2f)",
                         opp.edge * 100, cfg.max_edge * 100, quote.sport, quote.event_name,
-                        quote.outcome, quote.decimal_odds, sharp_odds)
+                        quote.outcome, quote.decimal_odds, sharp_q.decimal_odds)
             continue
         if not learning.is_active(opp.segment):
             continue

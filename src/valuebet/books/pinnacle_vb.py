@@ -19,7 +19,7 @@ import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from src.valuebet.config import VBConfig
-from src.valuebet.types import OddsQuote
+from src.valuebet.types import OddsQuote, total_market
 
 log = logging.getLogger(__name__)
 
@@ -156,7 +156,7 @@ def normalize_sport(
             points = market.get("points")
             if points is None:
                 continue
-            market_name = f"total_{points}"
+            market_name = total_market(points)
             normalized = {"over": prices.get("over", 0.0), "under": prices.get("under", 0.0)}
         # correct score llega por /markets/special — Fase 2
 

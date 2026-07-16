@@ -50,3 +50,36 @@ def test_event_name_y_start_utc_presentes():
     assert " vs " in q.event_name
     assert q.start_utc.endswith("+00:00")
     assert q.event_id.startswith("sm:")
+
+
+def test_total_linea_entera_canonica():
+    # "Total ( 3 )" debe producir "total_3" (mismo string que Pinnacle points=3.0)
+    from src.valuebet.books.supermatch import _map_line
+    line = {"type": "to", "description": "Total ( 3 )",
+            "options": [{"result": "Más de", "dividend": 2.1},
+                        {"result": "Menos de", "dividend": 1.7}]}
+    market, m = _map_line("soccer", line, "A", "B")
+    assert market == "total_3"
+    assert m == {"over": 2.1, "under": 1.7}
+
+
+def test_total_linea_media_canonica():
+    from src.valuebet.books.supermatch import _map_line
+    line = {"type": "to", "description": "Total (incl. prórroga) ( 179.5 )",
+            "options": [{"result": "Más de", "dividend": 1.9},
+                        {"result": "Menos de", "dividend": 1.9}]}
+    market, _ = _map_line("basketball", line, "A", "B")
+    assert market == "total_179.5"
+
+
+def test_total_de_corners_o_tarjetas_se_descarta():
+    # Supermatch publica varios "Total ..." por evento (goles/córners/tarjetas) con
+    # el mismo type "to" — solo el total del resultado pasa el whitelist de prefijo
+    from src.valuebet.books.supermatch import _map_line
+    for desc in ("Total de córners ( 9.5 )", "Total de tarjetas ( 4.5 )",
+                 "Total Equipo Local ( 1.5 )"):
+        line = {"type": "to", "description": desc,
+                "options": [{"result": "Más de", "dividend": 1.9},
+                            {"result": "Menos de", "dividend": 1.9}]}
+        market, _ = _map_line("soccer", line, "A", "B")
+        assert market is None, desc

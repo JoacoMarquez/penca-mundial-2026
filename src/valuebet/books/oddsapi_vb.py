@@ -26,7 +26,7 @@ from pathlib import Path
 import httpx
 
 from src.valuebet.config import VBConfig
-from src.valuebet.types import OddsQuote
+from src.valuebet.types import OddsQuote, total_market
 
 log = logging.getLogger(__name__)
 
@@ -144,7 +144,7 @@ def normalize_games(sport: str, sport_key: str, games: list[dict], bookie_filter
                         point = oc.get("point")
                         if point is None:
                             continue
-                        market = f"total_{point}"
+                        market = total_market(point)
                         outcome = oc["name"].lower()  # Over/Under
                         _keep_best(best, (market, outcome), oc["price"], bm["key"])
 

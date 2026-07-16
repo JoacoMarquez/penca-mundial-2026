@@ -38,11 +38,25 @@ class Opportunity:
     fair_prob: float               # prob de-vigeada del sharp para el mismo outcome
     sharp_odds: float              # cuota sharp cruda (para referencia/CLV)
     edge: float                    # fair_prob * quote.decimal_odds - 1
+    # event_id del evento sharp resuelto en el matching. Sin esto, el close no puede
+    # reencontrar la línea de cierre en eventos con nombres traducidos (el fallback
+    # por nombre exacto falla justo donde el fuzzy hizo el trabajo).
+    sharp_event_id: str | None = None
 
     @property
     def segment(self) -> str:
         """deporte|mercado_base|banda de cuota — clave del learning."""
         return segment_key(self.quote.sport, self.quote.market, self.quote.decimal_odds)
+
+
+def total_market(points: float | str) -> str:
+    """Nombre canónico del mercado de totals: la línea sin ceros colgando.
+
+    Todos los parsers DEBEN pasar por acá: "Total ( 3 )" de Supermatch y points=3.0
+    de Pinnacle tienen que producir el mismo string ("total_3") o el runner nunca
+    los compara entre sí.
+    """
+    return f"total_{float(points):g}"
 
 
 def segment_key(sport: str, market: str, odds: float) -> str:
