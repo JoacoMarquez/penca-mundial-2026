@@ -13,20 +13,18 @@ echo "› Directorios de datos"
 mkdir -p "$REPO/data/valuebet"
 
 echo "› Env file"
+# Los secretos (TELEGRAM_*, ODDS_API_KEY) se REUSAN de /etc/penca/env — las unidades
+# cargan ese archivo primero y este después (solo overrides no-secretos). Por eso acá
+# NO se escriben placeholders de secretos: pisarían las credenciales reales de la penca.
 if [[ ! -f "$ENV_FILE" ]]; then
   cat > "$ENV_FILE" <<'EOF'
-# Valuebet — secrets y config de entorno (NO commitear)
-# Telegram: por default reusa el bot penca. Para chat separado, setear VALUEBET_TELEGRAM_CHAT_ID.
-TELEGRAM_BOT_TOKEN=CAMBIAR
-TELEGRAM_CHAT_ID=CAMBIAR
+# Valuebet — overrides NO-secretos. Los secretos vienen de /etc/penca/env (reuso penca).
+# Para mandar las sugerencias a un chat de Telegram distinto al de la penca:
 # VALUEBET_TELEGRAM_CHAT_ID=
-# The Odds API (free tier 500 créditos/mes) — solo fallback y closing lines
-ODDS_API_KEY=CAMBIAR
-# Dir de datos (default data/valuebet relativo a WorkingDirectory)
 VALUEBET_DATA_DIR=/opt/penca/data/valuebet
 EOF
   chmod 600 "$ENV_FILE"
-  echo "  ⚠️  Creado $ENV_FILE con placeholders — completar antes de arrancar los timers."
+  echo "  Creado $ENV_FILE (sin secretos; se reusan de /etc/penca/env)."
 else
   echo "  $ENV_FILE ya existe, no lo toco."
 fi
