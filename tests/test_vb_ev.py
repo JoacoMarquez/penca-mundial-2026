@@ -48,6 +48,21 @@ def test_filtro_horizonte():
     assert find_singles([(q, fair, 2.05)], CFG, LearningState(), now_utc=NOW) == []
 
 
+def test_edge_absurdo_se_descarta():
+    # caso real del bug de tarjetas: fair 0.46 a cuota 5.2 → edge 139% > max_edge 0.25
+    q = _quote(odds=5.2, outcome="away")
+    fair = {"home": 0.44, "draw": 0.10, "away": 0.46}
+    assert find_singles([(q, fair, 2.04)], CFG, LearningState(), now_utc=NOW) == []
+
+
+def test_edge_justo_bajo_el_tope_si_pasa():
+    # edge 20% (< max_edge 25%) con cuota en rango → sí se sugiere
+    q = _quote(odds=3.0, outcome="away")
+    fair = {"home": 0.30, "draw": 0.30, "away": 0.40}  # edge = 0.40*3.0-1 = 0.20
+    out = find_singles([(q, fair, 2.6)], CFG, LearningState(), now_utc=NOW)
+    assert len(out) == 1
+
+
 def test_segmento_desactivado_no_sugiere():
     q = _quote(odds=2.2)
     fair = {"home": 0.50, "draw": 0.28, "away": 0.22}

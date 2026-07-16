@@ -51,6 +51,24 @@ def test_1x2_tiene_tres_outcomes():
     assert abs(x["home"] - 2.5) < 1e-9  # +150 → 2.50
 
 
+def test_ignora_pseudo_eventos_bookings_corners():
+    # Pinnacle publica sub-mercados como pseudo-partidos con "(Bookings)" en el nombre
+    matchups = MATCHUPS + [
+        {"id": 5, "type": "matchup", "startTime": "2026-07-18T14:00:00Z",
+         "league": {"id": 100, "name": "Liga A Bookings"},
+         "participants": [{"name": "Alpha FC (Bookings)", "alignment": "home"},
+                          {"name": "Beta (Bookings)", "alignment": "away"}]},
+    ]
+    markets = MARKETS + [
+        {"matchupId": 5, "type": "moneyline", "period": 0,
+         "prices": [{"designation": "home", "price": -110}, {"designation": "draw", "price": 300},
+                    {"designation": "away", "price": 120}]},
+    ]
+    q = normalize_sport("soccer", matchups, markets)
+    assert "pinn:5" not in {x.event_id for x in q}  # el pseudo-evento se descarta
+    assert "pinn:1" in {x.event_id for x in q}      # el partido real queda
+
+
 def test_basket_es_moneyline_2way():
     mk = [{"matchupId": 2, "type": "moneyline", "period": 0,
            "prices": [{"designation": "home", "price": -200}, {"designation": "away", "price": 170}]}]

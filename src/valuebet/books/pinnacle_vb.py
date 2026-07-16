@@ -114,6 +114,12 @@ def normalize_sport(
         away = next((p["name"] for p in parts if p.get("alignment") == "away"), None)
         if not (home and away) or not m.get("startTime"):
             continue
+        # Pinnacle publica sub-mercados como pseudo-partidos con el mismo nombre pero
+        # un calificador entre paréntesis: "Seattle (Bookings) vs Portland (Bookings)"
+        # (tarjetas), "(Corners)", "(Hits+Runs+Errors)"... NO son el resultado del
+        # partido; descartarlos evita comparar la cuota equivocada con Supermatch.
+        if "(" in home or "(" in away:
+            continue
         matchup_info[m["id"]] = {
             "event_name": f"{home} vs {away}",
             "start_utc": m["startTime"],

@@ -11,6 +11,8 @@ min_edge:
 
 odds_range: [1.4, 6.0]         # fuera de esto no se sugiere (colas mal calibradas)
 min_hours_ahead: 1.0           # no sugerir con el partido a menos de N horas
+max_edge: 0.25                 # edge arriba de esto = casi seguro error de datos/matcheo
+                               # (ningún value bet real es tan grande) → se descarta y loguea
 
 markets:
   soccer: [1x2, total, exact_score]
