@@ -1,10 +1,12 @@
 [Unit]
-Description=Valuebet close — cada 30 min en franja de partidos (12:00-03:00 UTC)
+# 24 h: el tenis (Asia, mañanas europeas) arranca fuera de la vieja franja 12-03 UTC
+# y esos partidos quedaban sin closing line (sin CLV → sin learning). El close solo
+# pega a Pinnacle si hay sugerencias pendientes, así que correr de más es gratis.
+Description=Valuebet close — cada 30 min, 24 h
 Requires=valuebet-close.service
 
 [Timer]
-OnCalendar=*-*-* 12..23:00,30:00
-OnCalendar=*-*-* 00..03:00,30:00
+OnCalendar=*-*-* *:00,30:00
 Persistent=false
 AccuracySec=1min
 

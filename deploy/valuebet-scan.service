@@ -9,5 +9,7 @@ EnvironmentFile=/etc/penca/env
 EnvironmentFile=-/etc/penca/valuebet-env
 Environment="PYTHONPATH=/opt/penca"
 WorkingDirectory=/opt/penca
-ExecStart=/opt/penca/.venv/bin/python -m src.valuebet.runner scan
+# flock: scan (13/20/23:30) y close (:00/:30) colisionan en el ledger — ambos hacen
+# load-all → save-all y el segundo pisaría al primero sin el lock.
+ExecStart=/usr/bin/flock -w 600 /opt/penca/data/valuebet/.ledger.lock /opt/penca/.venv/bin/python -m src.valuebet.runner scan
 User=root

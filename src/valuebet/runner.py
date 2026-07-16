@@ -65,12 +65,13 @@ def _scan(cfg: vbconfig.VBConfig, notifier) -> None:
     for soft_q, sharp_evt_quotes in pairs:
         if soft_q.market not in _allowed_markets(soft_q, cfg):
             continue
-        same_market = {q.outcome: q.decimal_odds for q in sharp_evt_quotes
+        same_market = {q.outcome: q for q in sharp_evt_quotes
                        if q.market == soft_q.market}
         if soft_q.outcome not in same_market or len(same_market) < 2:
             continue
+        odds_map = {k: q.decimal_odds for k, q in same_market.items()}
         try:
-            fair = sharp.fair_probs(same_market, soft_q.market, cfg.sharp)
+            fair = sharp.fair_probs(odds_map, soft_q.market, cfg.sharp)
         except ValueError:
             continue
         matched.append((soft_q, fair, same_market[soft_q.outcome]))
@@ -216,11 +217,18 @@ def _leg_key(l: dict) -> str:
 
 def _find_sharp_quote(by_key: dict, sharp_quotes, leg: dict):
     q = leg["quote"]
-    # 1. match directo si la pata ya era una cuota pinnacle (fallback oddsapi no matchea así)
+    # 1. por el event_id sharp que resolvió el matching en el scan (camino normal)
+    sharp_eid = leg.get("sharp_event_id")
+    if sharp_eid:
+        direct = by_key.get((sharp_eid, q["market"], q["outcome"]))
+        if direct:
+            return direct
+    # 2. match directo por si la pata ya era una cuota pinnacle
     direct = by_key.get((q["event_id"], q["market"], q["outcome"]))
     if direct:
         return direct
-    # 2. por nombre de evento + mercado + outcome
+    # 3. fallback por nombre exacto (legs viejas sin sharp_event_id; solo pega si
+    #    los nombres coinciden — con nombres traducidos no hay nada que hacer acá)
     from src.valuebet.matching import norm_name
     target = norm_name(q["event_name"])
     for sq in sharp_quotes:
