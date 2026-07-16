@@ -1,0 +1,12 @@
+[Unit]
+Description=Valuebet settle — 2 veces/día (03:30 y 14:30 UTC)
+Requires=valuebet-settle.service
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+OnCalendar=*-*-* 14:30:00
+Persistent=true
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

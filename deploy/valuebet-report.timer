@@ -1,0 +1,11 @@
+[Unit]
+Description=Valuebet report — diario 11:05 UTC (justo después del heartbeat penca)
+Requires=valuebet-report.service
+
+[Timer]
+OnCalendar=*-*-* 11:05:00
+Persistent=true
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

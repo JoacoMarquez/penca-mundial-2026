@@ -1,0 +1,62 @@
+# Config del sistema valuebet. Leído por src/valuebet/config.py (validación estricta).
+mode: paper                    # paper | real — promover a real solo tras criterio de CLV (ver runner report)
+bankroll_file: data/valuebet/bankroll.json
+kelly_fraction: 0.25
+
+# Edge mínimo para sugerir, por deporte (antes del multiplicador de learning)
+min_edge:
+  soccer: 0.03
+  basketball: 0.04
+  tennis: 0.04
+
+odds_range: [1.4, 6.0]         # fuera de esto no se sugiere (colas mal calibradas)
+min_hours_ahead: 1.0           # no sugerir con el partido a menos de N horas
+
+markets:
+  soccer: [1x2, total, exact_score]
+  basketball: [moneyline, total]
+  tennis: [moneyline]
+
+# exact_score: umbral extra sobre min_edge (colas ruidosas)
+exact_score_extra_edge: 0.02
+
+parlay:
+  enabled: false               # se activa en Fase 2
+  max_legs: 3
+  min_edge: 0.08
+  max_parlay_pct: 0.02         # stake máximo de UN parlay como fracción del bankroll
+  max_open_parlay_pct: 0.10    # exposición agregada en parlays abiertos
+
+caps:
+  max_single_pct: 0.05
+  max_open_pct: 0.30           # exposición total abierta (singles + parlays)
+
+stake_round_to: 10             # redondeo del stake en UYU
+stake_min: 20                  # abajo de esto se descarta la sugerencia
+
+scan_times_utc: ["13:00", "20:00", "23:30"]
+
+sharp:
+  devig: shin                  # mercados 2-3 way
+  exact_score_devig: proportional
+
+# Pinnacle guest API — sport ids. soccer=29 verificado; basketball/tennis se
+# verifican desde el VPS con `python -m src.valuebet.books.pinnacle_vb --list-sports`
+# (Pinnacle bloquea redes uruguayas; correr desde el droplet NYC).
+sport_ids:
+  soccer: 29
+  basketball: 4
+  tennis: 33
+
+# Ligas Pinnacle a escanear (ids). Se pueblan en Fase 0/deploy con --list-leagues.
+leagues:
+  soccer: []
+  basketball: []
+  tennis: []
+
+# Aliases de nombres de equipos soft↔sharp; se puebla a mano cuando el log
+# reporta "unmatched". clave = nombre normalizado Pinnacle, valores = variantes Supermatch.
+aliases:
+  soccer: {}
+  basketball: {}
+  tennis: {}
