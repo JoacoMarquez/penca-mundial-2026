@@ -60,10 +60,16 @@ SQUAD_QUALIFIERS = {
 
 
 def norm_name(s: str) -> str:
-    """Minúsculas, sin tildes, sin puntuación, espacios colapsados."""
+    """Minúsculas, sin tildes, sin puntuación, espacios colapsados.
+
+    El apóstrofe se ELIMINA (no se vuelve espacio): "K'un" → "kun", no "k un" — así
+    no se parte en un token de 1 letra que después se descarta (rompía Dalian K'un City
+    vs Dalian Kun City). Ídem O'Higgins, N'Golo, etc.
+    """
     s = unicodedata.normalize("NFKD", s)
     s = "".join(c for c in s if not unicodedata.combining(c))
-    s = re.sub(r"[^a-z0-9 ]", " ", s.lower())
+    s = re.sub(r"[''`´’]", "", s.lower())
+    s = re.sub(r"[^a-z0-9 ]", " ", s)
     return re.sub(r"\s+", " ", s).strip()
 
 

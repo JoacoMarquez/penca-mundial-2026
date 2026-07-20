@@ -84,7 +84,16 @@ aliases:
     Red Star Belgrade: [Estrella Roja]
     Genoa: [Génova]
     Athletic Bilbao: [Athletic Club, Athletic de Bilbao]
+    # Poblados desde data/valuebet/unmatched/ (scan 2026-07-16). Clave = nombre Pinnacle.
+    St Louis City: [Saint Louis City, Saint Louis City SC]  # Saint↔St
+    Operario Ferroviario: [Operario PR]                     # Operário-PR = Ferroviário (Paraná)
+    Sporting Club Jacksonville: [Sporting Jax]              # Jax = Jacksonville
+    OFK Beograd: [OFK Belgrado]                             # Belgrado (ES) = Beograd
+    Tianjin Jinmen Tiger: [Tianjin Teda]                    # rebautizado del Teda
+    Club Atletico Mitre: [Mitre Santiago Del Estero]        # CA Mitre (Sgo. del Estero)
   basketball:
     LA Lakers: [Los Angeles Lakers, Lakers]
     LA Clippers: [Los Angeles Clippers, Clippers]
-  tennis: {}
+    North Macedonia: [Macedonia del Norte]                 # selección, traducción
+  tennis:
+    Mayar Sherif: [Sherif Ahmed Abdelaziz Maiar]           # Maiar/Mayar Sherif (EGY)

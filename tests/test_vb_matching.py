@@ -33,6 +33,16 @@ def test_norm_name():
     assert norm_name("São Paulo") == "sao paulo"
 
 
+def test_norm_name_apostrofe_no_parte_token():
+    # el apóstrofe se elimina, no se vuelve espacio (no debe partir K'un en k + un)
+    assert norm_name("Dalian K'un City") == "dalian kun city"
+    assert norm_name("O'Higgins") == "ohiggins"
+
+
+def test_apostrofe_matchea_sin_apostrofe():
+    assert _sim("Dalian Kun City", "Dalian K'un City") == 1.0
+
+
 def test_sufijos_de_club_no_rompen_match():
     # casos reales: SM trae sufijos, Pinnacle no
     assert _sim("IK Start", "Start") == 1.0
@@ -51,6 +61,25 @@ def test_tenis_apellido_nombre_invertido():
 def test_alias_espanol_ingles():
     aliases = {"soccer": {"Marseille": ["Olympique Marsella"]}}
     assert _sim("Olympique Marsella", "Marseille", aliases) == 1.0
+
+
+def test_aliases_del_unmatched_puentean_pares_reales():
+    # cada par (SM, Pinnacle) salió de data/valuebet/unmatched/ (scan 2026-07-16):
+    # con los aliases de config/valuebet.yaml deben puentear a ≥ umbral.
+    from src.valuebet import config as vbconfig
+    aliases = vbconfig.load().aliases
+    pares = [
+        ("soccer", "Saint Louis City SC", "St Louis City SC"),
+        ("soccer", "Operario PR", "Operario Ferroviario"),
+        ("soccer", "Sporting Jax", "Sporting Club Jacksonville"),
+        ("soccer", "OFK Belgrado", "OFK Beograd"),
+        ("soccer", "Tianjin Teda", "Tianjin Jinmen Tiger"),
+        ("soccer", "Mitre Santiago Del Estero", "Club Atletico Mitre"),
+        ("basketball", "Macedonia del Norte", "North Macedonia"),
+        ("tennis", "Sherif Ahmed Abdelaziz, Maiar", "Mayar Sherif"),
+    ]
+    for sport, sm, pinn in pares:
+        assert _sim(sm, pinn, aliases, sport=sport) >= 0.80, f"{sm} ↔ {pinn}"
 
 
 def test_equipos_distintos_no_matchean():
