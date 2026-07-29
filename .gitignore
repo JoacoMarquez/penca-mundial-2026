@@ -27,6 +27,9 @@ data/valuebet/
 .env.local
 config/secrets.yaml
 
+# Backups del VPS (contienen /etc/penca/env con secrets)
+backups/
+
 # IDE
 .vscode/
 .idea/
