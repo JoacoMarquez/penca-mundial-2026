@@ -114,10 +114,23 @@ def build_portfolio(
     prize: PrizeConfig | None = None,
     sim: SimConfig | None = None,
     max_passes: int = 3,
+    frozen_picks: np.ndarray | None = None,
+    frozen_mask: np.ndarray | None = None,
 ) -> PortfolioClausura:
-    """Construye el portfolio de N participaciones maximizando E[premio] simulado."""
+    """Construye el portfolio de N participaciones maximizando E[premio] simulado.
+
+    `frozen_mask[m]=True` marca partidos cuyo pick YA fue cargado en la web (o ya se
+    jugó): en esas columnas se usa `frozen_picks` tal cual y el optimizador no las toca.
+    Es el mecanismo de re-optimización fecha a fecha: lo pasado queda fijo, lo futuro
+    se replanifica con la información nueva.
+    """
     pool_cfg = pool_cfg or PoolConfig()
     n_matches = len(grids)
+
+    if frozen_mask is None:
+        frozen_mask = np.zeros(n_matches, dtype=bool)
+    if frozen_mask.any() and frozen_picks is None:
+        raise ValueError("frozen_mask sin frozen_picks")
 
     pool_qs = [pool_distribution(g, pool_cfg) for g in grids]
     candidatos = [
@@ -130,6 +143,9 @@ def build_portfolio(
     # ancla de EV puro, replicada en todas las participaciones
     picks = np.zeros((n_participaciones, n_matches), dtype=np.int64)
     for m in range(n_matches):
+        if frozen_mask[m]:
+            picks[:, m] = frozen_picks[:, m]
+            continue
         best = max(candidatos[m], key=lambda c: c.e_points)
         picks[:, m] = score_index(*best.pick)
     simulator.load_picks(picks)
@@ -142,6 +158,8 @@ def build_portfolio(
         mejoras = 0
         for i in range(1, n_participaciones):
             for m in range(n_matches):
+                if frozen_mask[m]:
+                    continue
                 orig = int(simulator.picks[i, m])
                 mejor_idx, mejor_val = orig, actual
                 for c in candidatos[m]:

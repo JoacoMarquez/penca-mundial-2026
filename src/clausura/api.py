@@ -185,16 +185,21 @@ class PencaApiClient:
         return parse_eventos(self._get(f"/front/campeonatos/fechas/{fecha_id}/eventos"), fecha_id)
 
     def ranking(self, penca_id: int) -> list[RankingRow]:
-        """Ranking completo, siguiendo la paginación Spring (page=0..N)."""
+        """Ranking completo, siguiendo la paginación.
+
+        OJO: el parámetro `page` de este endpoint es 1-BASED (verificado 2026-08-04:
+        page=0 devuelve 500, page=1 es la primera página, y el `number` del body sí
+        viene 0-based). Spring clásico sería 0-based — no "arreglar" sin re-probar.
+        """
         rows: list[RankingRow] = []
-        page_n = 0
+        page_n = 1
         while True:
             r = self._client.get(f"/front/pencas/{penca_id}/ranking", params={"page": page_n})
             r.raise_for_status()
             page_rows, _total, total_pages = parse_ranking_page(r.json())
             rows.extend(page_rows)
             page_n += 1
-            if page_n >= total_pages or not page_rows:
+            if page_n > total_pages or not page_rows:
                 return rows
 
     def reglamento(self, penca_id: int) -> dict | list:
