@@ -92,10 +92,26 @@ def build_candidates(
 
 
 @dataclass
+class EspecialesInput:
+    """Insumos para optimizar Campeón y Goleador dentro del portfolio."""
+    local_de: np.ndarray               # (n_matches,) índice de equipo local
+    visita_de: np.ndarray              # (n_matches,) índice de equipo visitante
+    n_teams: int
+    pool_q_campeon: np.ndarray         # (n_teams,) qué campeón pica el pool
+    p_goleador: np.ndarray | None = None       # prior sobre opciones de goleador
+    pool_q_goleador: np.ndarray | None = None
+    frozen_campeon: np.ndarray | None = None   # (n_part,) equipo ya cargado, -1 = libre
+    frozen_goleador: np.ndarray | None = None
+
+
+@dataclass
 class PortfolioClausura:
     picks: np.ndarray                  # (n_participaciones, n_partidos) índices de score
     candidatos: list[list[Candidato]]
     resultado: SimResult
+    campeon: np.ndarray | None = None   # (n_participaciones,) índice de equipo
+    goleador: np.ndarray | None = None  # (n_participaciones,) índice de opción
+    p_campeon: np.ndarray | None = None  # (n_teams,) P(campeón) del modelo
 
     def as_scores(self) -> list[list[tuple[int, int]]]:
         return [[index_score(int(i)) for i in fila] for fila in self.picks]
@@ -116,6 +132,7 @@ def build_portfolio(
     max_passes: int = 3,
     frozen_picks: np.ndarray | None = None,
     frozen_mask: np.ndarray | None = None,
+    especiales: EspecialesInput | None = None,
 ) -> PortfolioClausura:
     """Construye el portfolio de N participaciones maximizando E[premio] simulado.
 
@@ -123,6 +140,9 @@ def build_portfolio(
     jugó): en esas columnas se usa `frozen_picks` tal cual y el optimizador no las toca.
     Es el mecanismo de re-optimización fecha a fecha: lo pasado queda fijo, lo futuro
     se replanifica con la información nueva.
+
+    Con `especiales`, Campeón y Goleador entran al mismo ascenso por coordenadas como
+    dos columnas más de cada participación (25 pts c/u sobre el total general).
     """
     pool_cfg = pool_cfg or PoolConfig()
     n_matches = len(grids)
@@ -150,6 +170,27 @@ def build_portfolio(
         picks[:, m] = score_index(*best.pick)
     simulator.load_picks(picks)
 
+    # especiales: activar y anclar en el argmax de probabilidad
+    p_champ = None
+    if especiales is not None:
+        simulator.enable_campeon(
+            especiales.local_de, especiales.visita_de,
+            especiales.n_teams, especiales.pool_q_campeon,
+        )
+        from src.clausura.especiales import p_campeon as _p_campeon
+        p_champ = _p_campeon(simulator.champ_sim, especiales.n_teams)
+        ancla_campeon = int(np.argmax(p_champ))
+        for i in range(n_participaciones):
+            fijo = especiales.frozen_campeon[i] if especiales.frozen_campeon is not None else -1
+            simulator.set_campeon_pick(i, int(fijo) if fijo >= 0 else ancla_campeon)
+        if especiales.p_goleador is not None:
+            simulator.enable_goleador(especiales.p_goleador, especiales.pool_q_goleador)
+            ancla_gol = int(np.argmax(especiales.p_goleador))
+            for i in range(n_participaciones):
+                fijo = (especiales.frozen_goleador[i]
+                        if especiales.frozen_goleador is not None else -1)
+                simulator.set_goleador_pick(i, int(fijo) if fijo >= 0 else ancla_gol)
+
     # ascenso por coordenadas: la participación 0 queda fija como ancla de EV
     actual = simulator.e_premio_total()
     log.info("ancla EV: E[premio]=%.0f", actual)
@@ -174,6 +215,25 @@ def build_portfolio(
                 if mejor_idx != orig:
                     mejoras += 1
                     actual = mejor_val
+
+        # especiales como columnas extra (todas las participaciones, incluida la 0:
+        # diversificar el campeón es barato y no compromete el ancla de marcadores)
+        if especiales is not None:
+            for i in range(n_participaciones):
+                if (especiales.frozen_campeon is None
+                        or especiales.frozen_campeon[i] < 0):
+                    actual, cambio = _optimize_especial(
+                        simulator, simulator.set_campeon_pick, simulator.campeon_picks,
+                        i, especiales.n_teams, actual)
+                    mejoras += cambio
+                if (simulator.gol_sim is not None
+                        and (especiales.frozen_goleador is None
+                             or especiales.frozen_goleador[i] < 0)):
+                    actual, cambio = _optimize_especial(
+                        simulator, simulator.set_goleador_pick, simulator.goleador_picks,
+                        i, len(especiales.p_goleador), actual)
+                    mejoras += cambio
+
         log.info("pasada %d: %d cambios, E[premio]=%.0f", p + 1, mejoras, actual)
         if mejoras == 0:
             break
@@ -182,7 +242,25 @@ def build_portfolio(
         picks=simulator.picks.copy(),
         candidatos=candidatos,
         resultado=simulator.result(),
+        campeon=simulator.campeon_picks.copy() if simulator.campeon_picks is not None else None,
+        goleador=simulator.goleador_picks.copy() if simulator.goleador_picks is not None else None,
+        p_campeon=p_champ,
     )
+
+
+def _optimize_especial(simulator, setter, current, i, n_opciones, actual) -> tuple[float, int]:
+    """Prueba todas las opciones del especial para la participación i. (nuevo_valor, cambió)."""
+    orig = int(current[i])
+    mejor_op, mejor_val = orig, actual
+    for op in range(n_opciones):
+        if op == orig:
+            continue
+        setter(i, op)
+        val = simulator.e_premio_total()
+        if val > mejor_val:
+            mejor_op, mejor_val = op, val
+    setter(i, mejor_op)
+    return mejor_val, int(mejor_op != orig)
 
 
 # -------------------- baselines de comparación --------------------

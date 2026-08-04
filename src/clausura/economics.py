@@ -158,6 +158,89 @@ class SeasonSimulator:
         self.mine_total: np.ndarray | None = None
         self.mine_fecha: np.ndarray | None = None
 
+        # especiales (se activan con enable_campeon / enable_goleador)
+        self._rng_especiales = np.random.default_rng(self.cfg.seed + 1)
+        self.champ_sim: np.ndarray | None = None       # (S,) equipo campeón por sim
+        self.gol_sim: np.ndarray | None = None         # (S,) goleador por sim
+        self.campeon_picks: np.ndarray | None = None   # (n_mine,) equipo elegido
+        self.goleador_picks: np.ndarray | None = None  # (n_mine,) opción elegida
+
+    # ---------- especiales: Campeón y Goleador (25 pts c/u, solo total general) ----------
+
+    def enable_campeon(
+        self,
+        local_de: np.ndarray,
+        visita_de: np.ndarray,
+        n_teams: int,
+        pool_q_campeon: np.ndarray,
+        puntos: int = 25,
+    ) -> None:
+        """Activa el especial Campeón: lo deriva de los MISMOS resultados sorteados.
+
+        Eso preserva la correlación clave: la participación que pica campeón X cobra
+        sus 25 puntos exactamente en los escenarios donde los partidos de X salieron
+        bien — no en un sorteo independiente.
+
+        Los picks de los rivales se sortean de pool_q_campeon y sus 25 puntos se
+        suman a rivals_total (los especiales no cuentan para premios por fecha,
+        Art. 8: la fecha computa "sí y solo sí" sus propios partidos).
+        """
+        from src.clausura.especiales import champions_from_results
+        self._puntos_especial = puntos
+        self.champ_sim = champions_from_results(
+            self.actual, local_de, visita_de, n_teams, self._rng_especiales
+        )
+        rival_picks = self._rng_especiales.choice(
+            n_teams, size=self.cfg.n_rivales, p=pool_q_campeon
+        )
+        self.rivals_total += puntos * (rival_picks[:, None] == self.champ_sim[None, :])
+        self.campeon_picks = None  # nuestras elecciones arrancan vacías (0 puntos)
+
+    def enable_goleador(self, p_goleador: np.ndarray, pool_q_goleador: np.ndarray,
+                        puntos: int = 25) -> None:
+        """Activa el especial Goleador: categórica independiente de los partidos.
+
+        Limitación honesta: no hay nivel jugador en las grillas, así que el goleador
+        se sortea de su prior sin correlación con los marcadores. El campeón sí está
+        correlacionado; el goleador queda como aproximación independiente.
+        """
+        self._puntos_especial = puntos
+        n_op = len(p_goleador)
+        self.gol_sim = self._rng_especiales.choice(n_op, size=self.cfg.n_sims, p=p_goleador)
+        rival_picks = self._rng_especiales.choice(
+            n_op, size=self.cfg.n_rivales, p=pool_q_goleador
+        )
+        self.rivals_total += puntos * (rival_picks[:, None] == self.gol_sim[None, :])
+        self.goleador_picks = None
+
+    def set_campeon_pick(self, i: int, team: int) -> None:
+        """Cambia el campeón de la participación i, con update incremental."""
+        if self.champ_sim is None:
+            raise RuntimeError("enable_campeon() primero")
+        if self.campeon_picks is None:
+            self.campeon_picks = np.full(self.mine_total.shape[0], -1, dtype=np.int64)
+        old = int(self.campeon_picks[i])
+        if old == team:
+            return
+        if old >= 0:
+            self.mine_total[i] -= self._puntos_especial * (self.champ_sim == old)
+        self.mine_total[i] += self._puntos_especial * (self.champ_sim == team)
+        self.campeon_picks[i] = team
+
+    def set_goleador_pick(self, i: int, opcion: int) -> None:
+        """Cambia el goleador de la participación i, con update incremental."""
+        if self.gol_sim is None:
+            raise RuntimeError("enable_goleador() primero")
+        if self.goleador_picks is None:
+            self.goleador_picks = np.full(self.mine_total.shape[0], -1, dtype=np.int64)
+        old = int(self.goleador_picks[i])
+        if old == opcion:
+            return
+        if old >= 0:
+            self.mine_total[i] -= self._puntos_especial * (self.gol_sim == old)
+        self.mine_total[i] += self._puntos_especial * (self.gol_sim == opcion)
+        self.goleador_picks[i] = opcion
+
     # ---------- estado propio ----------
 
     def match_points(self, m: int, pick_idx: int) -> np.ndarray:
@@ -165,7 +248,11 @@ class SeasonSimulator:
         return self.pm[m][pick_idx, self.actual[m]]
 
     def load_picks(self, picks: np.ndarray) -> None:
-        """Carga el portfolio completo (n_participaciones, n_matches) y acumula."""
+        """Carga el portfolio completo (n_participaciones, n_matches) y acumula.
+
+        Resetea también los picks de especiales: hay que re-setearlos después de
+        cada load_picks (set_campeon_pick / set_goleador_pick).
+        """
         if picks.shape[1] != self.n_matches:
             raise ValueError(f"picks tiene {picks.shape[1]} partidos, se esperaban {self.n_matches}")
         n_mine, S = picks.shape[0], self.cfg.n_sims
@@ -176,6 +263,8 @@ class SeasonSimulator:
             pts = self.pm[m][picks[:, m][:, None], self.actual[m][None, :]]
             self.mine_total += pts
             self.mine_fecha[self.match_fecha[m]] += pts
+        self.campeon_picks = None
+        self.goleador_picks = None
 
     def set_pick(self, i: int, m: int, pick_idx: int) -> None:
         """Cambia el pick de la participación i en el partido m, en O(n_sims)."""

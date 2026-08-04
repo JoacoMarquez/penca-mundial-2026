@@ -38,8 +38,15 @@ from src.clausura.economics import MAX_GOALS, SimConfig, index_score, score_inde
 from src.clausura.historical import DATA_DIR, load_dataset
 from src.clausura.odds import EventOdds, _norm, fetch_primera_odds
 from src.clausura.pool import PoolConfig, calibrate_from_exact_rate, observed_exact_rate_from_ranking
+from src.clausura.especiales import (
+    fetch_opciones,
+    goleador_prior_from_ratings,
+    p_campeon_from_grids,
+    pool_campeon_distribution,
+    pool_goleador_distribution,
+)
 from src.clausura.ratings import TeamRatings, fit_ratings
-from src.clausura.strategy import PortfolioClausura, build_portfolio
+from src.clausura.strategy import EspecialesInput, PortfolioClausura, build_portfolio
 from src.model.market_probs import devig
 from src.model.poisson import MarketConstraints, fit_params, score_grid
 from src.utils.versions import latest_version
@@ -196,6 +203,55 @@ def load_frozen(
     return frozen, mask
 
 
+def load_frozen_especiales(
+    target_fecha: int,
+    n_participaciones: int,
+) -> tuple[np.ndarray | None, np.ndarray | None]:
+    """Campeón/Goleador ya guardados en cualquier corrida anterior (-1 = libre).
+
+    Los especiales se eligen una vez (idealmente antes de la Fecha 1); si un archivo
+    previo los tiene, se asumen cargados en la web y quedan fijos.
+    """
+    for f in range(target_fecha, 0, -1):
+        d = fecha_dir(f)
+        latest = latest_version(d.glob("v*_*.json")) if d.exists() else None
+        if latest is None:
+            continue
+        data = json.loads(latest.read_text(encoding="utf-8"))
+        esp = data.get("especiales")
+        if not esp:
+            continue
+        campeon = np.full(n_participaciones, -1, dtype=np.int64)
+        goleador = np.full(n_participaciones, -1, dtype=np.int64)
+        for i, row in enumerate(esp.get("por_participacion", [])[:n_participaciones]):
+            campeon[i] = row.get("campeon_idx", -1)
+            goleador[i] = row.get("goleador_idx", -1)
+        return campeon, goleador
+    return None, None
+
+
+def format_especiales(port: PortfolioClausura, equipo_nombres: list[str],
+                      opciones_goleador) -> str:
+    """Sección de la planilla con Campeón/Goleador por participación."""
+    if port.campeon is None:
+        return ""
+    lines = ["<b>⭐ Especiales (25 pts c/u — pestaña Especial)</b>"]
+    if port.p_campeon is not None:
+        top = np.argsort(-port.p_campeon)[:4]
+        probs = " · ".join(f"{equipo_nombres[t]} {port.p_campeon[t]:.0%}" for t in top)
+        lines.append(f"<i>P(campeón): {probs}</i>")
+    for i in range(len(port.campeon)):
+        campeon = equipo_nombres[int(port.campeon[i])]
+        gol = ""
+        if port.goleador is not None and opciones_goleador:
+            gol = f" · goleador: {opciones_goleador[int(port.goleador[i])].nombre}"
+        lines.append(f"  {i + 1}: campeón <b>{campeon}</b>{gol}")
+    if port.goleador is None:
+        lines.append("  <i>goleador: menú aún no publicado por Supermatch — "
+                     "recomiendo cargarlo apenas aparezca</i>")
+    return "\n".join(lines)
+
+
 def save_version(target_fecha: int, payload: dict) -> Path:
     """Escribe v<N>_<ts>.json sin sobreescribir (regla de trabajo #2)."""
     d = fecha_dir(target_fecha)
@@ -302,6 +358,46 @@ def run(
         if ev["evento_id"] in resultados and not mask[i]:
             mask[i] = True  # sin picks guardados: quedan en 0-0; no afecta el futuro
 
+    # ---------- especiales: Campeón (siempre modelable) + Goleador (si hay menú) ----------
+    equipos_cfg: dict[int, str] = cfg["equipos"]
+    equipo_nombres = [equipos_cfg[k] for k in sorted(equipos_cfg)]
+    equipo_idx = {nombre: i for i, nombre in enumerate(equipo_nombres)}
+    local_de = np.array([equipo_idx[ev["local"]] for ev in eventos])
+    visita_de = np.array([equipo_idx[ev["visitante"]] for ev in eventos])
+
+    p_champ_prior = p_campeon_from_grids(grids, local_de, visita_de, len(equipo_nombres))
+    pool_q_campeon = pool_campeon_distribution(p_champ_prior, equipo_nombres)
+
+    opciones_campeon, opciones_goleador = None, None
+    try:
+        opciones_campeon, opciones_goleador = fetch_opciones(penca_id)
+    except Exception as e:
+        log.warning("opciones de especiales no disponibles (%s)", e)
+
+    p_gol, pool_q_gol = None, None
+    if opciones_goleador:
+        equipo_id_por_nombre = {v: k for k, v in equipos_cfg.items()}
+        p_gol = goleador_prior_from_ratings(
+            opciones_goleador, equipo_nombres, equipo_id_por_nombre, ratings.ataque
+        )
+        pool_q_gol = pool_goleador_distribution(p_gol)
+    else:
+        log.info("goleador: Supermatch aún no publicó el menú de opciones (500) — "
+                 "solo se recomienda Campeón por ahora")
+
+    frozen_campeon, frozen_goleador = load_frozen_especiales(target_fecha, n_participaciones)
+
+    especiales = EspecialesInput(
+        local_de=local_de,
+        visita_de=visita_de,
+        n_teams=len(equipo_nombres),
+        pool_q_campeon=pool_q_campeon,
+        p_goleador=p_gol,
+        pool_q_goleador=pool_q_gol,
+        frozen_campeon=frozen_campeon,
+        frozen_goleador=frozen_goleador,
+    )
+
     port = build_portfolio(
         grids=grids,
         fecha_de_partido=[ev["fecha_id"] for ev in eventos],
@@ -311,10 +407,12 @@ def run(
         sim=SimConfig(n_sims=n_sims, n_rivales=n_rivales),
         frozen_picks=frozen,
         frozen_mask=mask,
+        especiales=especiales,
     )
 
     eventos_fecha = [ev for ev in eventos if ev["fecha_n"] == target_fecha]
     planilla = format_planilla(eventos_fecha, port, idx_of, fuentes, n_rivales)
+    planilla += "\n" + format_especiales(port, equipo_nombres, opciones_goleador)
 
     payload = {
         "generado_utc": datetime.now(timezone.utc).isoformat(),
@@ -327,6 +425,21 @@ def run(
             "e_premio_penca": port.resultado.e_premio_penca,
             "e_premio_fechas": port.resultado.e_premio_fechas,
             "p_gana_penca": port.resultado.p_gana_penca,
+        },
+        "especiales": {
+            "p_campeon": {equipo_nombres[i]: round(float(p), 4)
+                          for i, p in enumerate(port.p_campeon)
+                          if p > 0.001} if port.p_campeon is not None else None,
+            "por_participacion": [
+                {
+                    "campeon_idx": int(port.campeon[i]),
+                    "campeon": equipo_nombres[int(port.campeon[i])],
+                    "goleador_idx": int(port.goleador[i]) if port.goleador is not None else -1,
+                    "goleador": (opciones_goleador[int(port.goleador[i])].nombre
+                                 if port.goleador is not None and opciones_goleador else None),
+                }
+                for i in range(n_participaciones)
+            ] if port.campeon is not None else [],
         },
         "picks": [
             {
