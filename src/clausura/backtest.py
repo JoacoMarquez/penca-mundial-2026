@@ -43,6 +43,7 @@ from src.clausura.economics import (
     SimConfig,
     flatten_grid,
     index_score,
+    points_matrix,
     score_index,
 )
 from src.clausura.historical import PartidoHistorico, load_dataset
@@ -193,6 +194,171 @@ def run_temporada(
     )
 
 
+# -------------------- experimento: rivales empíricos vs pool i.i.d. --------------------
+#
+# Valida el cambio de 2026-08-04 (src/clausura/rivals.py): sembrar el simulador con
+# la tabla real y rivales por participación, en vez de re-sortear un pool i.i.d.
+#
+# Los picks ajenos históricos no son públicos, así que el experimento es de
+# recuperación de modelo: se genera un pool "verdad" con heterogeneidad realista
+# (estilos γ lognormales, ausentismo Beta), se juega la temporada REAL hasta la
+# fecha k, y ambos brazos ven EXACTAMENTE lo mismo que veríamos en producción
+# (picks públicos de las fechas jugadas + tabla). Difieren solo en el modelo:
+#
+#   A (statu quo): Q agregada empírica + rivales re-sorteados i.i.d.
+#   B (nuevo):     RivalModel ajustado (γ, p_show, standings reales)
+#
+# Los dos portfolios resultantes se evalúan contra el MISMO pool verdad (sus picks
+# futuros reales, common random numbers) → la diferencia es solo calidad de decisión.
+
+@dataclass
+class ExperimentoRep:
+    e_premio_a: float
+    e_premio_b: float
+    realizado_a: float
+    realizado_b: float
+    corr_gamma: float
+
+
+def _fechas_ordenadas(partidos: list[PartidoHistorico]) -> list[int]:
+    inicio = {}
+    for p in partidos:
+        inicio[p.fecha_id] = min(inicio.get(p.fecha_id, p.inicio_utc), p.inicio_utc)
+    return sorted(inicio, key=inicio.get)
+
+
+def _ground_truth_pool(rng, prior_qs, n_rivales):
+    """Pool verdad: (picks (R, n_matches), show (R, n_matches), gamma (R,))."""
+    from src.clausura.rivals import _tilted_sample
+    gamma = np.exp(rng.normal(0.0, 0.6, n_rivales))
+    p_show = rng.beta(9.0, 1.0, n_rivales)
+    n_matches = len(prior_qs)
+    picks = np.zeros((n_rivales, n_matches), dtype=np.int64)
+    for m in range(n_matches):
+        picks[:, m] = _tilted_sample(prior_qs[m], gamma, rng)
+    show = rng.random((n_rivales, n_matches)) < p_show[:, None]
+    return picks, show, gamma
+
+
+def run_experimento_rivales(
+    partidos: list[PartidoHistorico],
+    ratings: TeamRatings | None,
+    n_participaciones: int = 12,
+    n_sims: int = 800,
+    n_rivales: int = 151,
+    obs_fechas: int = 5,
+    reps: int = 3,
+    eval_sims: int = 4000,
+    base_seed: int = 20260804,
+) -> list[ExperimentoRep]:
+    from src.clausura.pool_snapshot import blended_q
+    from src.clausura.rivals import RivalModel, build_rival_model_from_arrays
+
+    partidos = sorted(partidos, key=lambda p: p.inicio_utc)
+    fechas = _fechas_ordenadas(partidos)
+    if obs_fechas >= len(fechas):
+        raise ValueError(f"obs_fechas={obs_fechas} pero la temporada tiene {len(fechas)}")
+    pasadas = set(fechas[:obs_fechas])
+
+    fecha_de = [p.fecha_id for p in partidos]
+    pref = [p.preferencial for p in partidos]
+    real = actual_indices(partidos)
+    played = np.array([p.fecha_id in pasadas for p in partidos])
+
+    model_grids = build_grids(partidos, ratings)
+    prior_qs = [pool_distribution(g, PoolConfig()) for g in model_grids]
+    # grillas para optimizar a mitad de temporada: pasado = resultado real (delta)
+    grids_mid = list(model_grids)
+    for i in np.flatnonzero(played):
+        d = np.zeros_like(model_grids[i])
+        d[index_score(int(real[i]))] = 1.0
+        grids_mid[i] = d
+
+    prize = PrizeConfig()
+
+    # picks propios del pasado: portfolio de arranque de temporada (sin info del pool),
+    # compartido por ambos brazos → la diferencia queda solo en las fechas futuras
+    log.warning("experimento rivales: portfolio de arranque (%d participaciones)…",
+                n_participaciones)
+    prelim = build_portfolio(
+        grids=model_grids, fecha_de_partido=fecha_de, preferencial=pref,
+        n_participaciones=n_participaciones, prize=prize,
+        sim=SimConfig(n_sims=n_sims, n_rivales=n_rivales, seed=base_seed),
+    )
+
+    reps_out: list[ExperimentoRep] = []
+    for rep in range(reps):
+        rng = np.random.default_rng(base_seed + 1000 * (rep + 1))
+        gt_picks, gt_show, gt_gamma = _ground_truth_pool(rng, prior_qs, n_rivales)
+
+        # lo observable en producción: picks públicos de las fechas jugadas + tabla
+        known_obs = np.where(gt_show & played[None, :], gt_picks, -1)
+        pm_normal, pm_pref = points_matrix(False), points_matrix(True)
+        puntos_reales = np.zeros(n_rivales, dtype=np.int64)
+        for i in np.flatnonzero(played):
+            pm = pm_pref if pref[i] else pm_normal
+            has = known_obs[:, i] >= 0
+            puntos_reales[has] += pm[known_obs[has, i], real[i]]
+
+        # Q empírica agregada (igual que producción statu quo)
+        pool_qs_obs = list(prior_qs)
+        for i in np.flatnonzero(played):
+            counts = np.bincount(known_obs[known_obs[:, i] >= 0, i], minlength=len(prior_qs[i]))
+            pool_qs_obs[i] = blended_q(prior_qs[i], counts.astype(float))
+
+        comun = dict(
+            grids=grids_mid, fecha_de_partido=fecha_de, preferencial=pref,
+            n_participaciones=n_participaciones, prize=prize,
+            frozen_picks=prelim.picks, frozen_mask=played, pool_qs=pool_qs_obs,
+        )
+        log.warning("  rep %d/%d: brazo A (Q agregada i.i.d.)…", rep + 1, reps)
+        port_a = build_portfolio(
+            sim=SimConfig(n_sims=n_sims, n_rivales=n_rivales, seed=base_seed + rep), **comun)
+
+        log.warning("  rep %d/%d: brazo B (RivalModel empírico)…", rep + 1, reps)
+        model_fit = build_rival_model_from_arrays(
+            known_obs, played, pool_qs_obs, pref, real, puntos_reales)
+        port_b = build_portfolio(
+            sim=SimConfig(n_sims=n_sims, n_rivales=n_rivales, seed=base_seed + rep),
+            rivals=model_fit, **comun)
+
+        # evaluación: pool verdad completo (picks futuros reales), semilla fresca,
+        # mismos sorteos para A y B
+        gt_model = RivalModel(
+            known_picks=np.where(gt_show, gt_picks, -1),
+            played_mask=np.ones(len(partidos), dtype=bool),   # no observado ⇒ no cargó
+            gamma=gt_gamma, p_show=np.ones(n_rivales),
+            residuo=np.zeros(n_rivales, dtype=np.int64),
+        )
+        ev = SeasonSimulator(grids_mid, fecha_de, pref, prior_qs, prize,
+                             SimConfig(n_sims=eval_sims, n_rivales=n_rivales,
+                                       seed=base_seed + 777 * (rep + 1)),
+                             rivals=gt_model)
+        ev.load_picks(port_a.picks)
+        e_a = ev.e_premio_total()
+        ev.load_picks(port_b.picks)
+        e_b = ev.e_premio_total()
+
+        # premio realizado contra el resultado real completo (una muestra, ruidoso)
+        grids_final = []
+        for i in range(len(partidos)):
+            d = np.zeros_like(model_grids[i])
+            d[index_score(int(real[i]))] = 1.0
+            grids_final.append(d)
+        rl = SeasonSimulator(grids_final, fecha_de, pref, prior_qs, prize,
+                             SimConfig(n_sims=1, n_rivales=n_rivales, seed=1), rivals=gt_model)
+        rl.load_picks(port_a.picks)
+        r_a = rl.e_premio_total()
+        rl.load_picks(port_b.picks)
+        r_b = rl.e_premio_total()
+
+        corr = float(np.corrcoef(np.log(model_fit.gamma), np.log(gt_gamma))[0, 1])
+        reps_out.append(ExperimentoRep(e_a, e_b, r_a, r_b, corr))
+        log.warning("  rep %d/%d: E[premio] A $%.0f · B $%.0f · Δ %+.0f · "
+                    "corr(logγ) %.2f", rep + 1, reps, e_a, e_b, e_b - e_a, corr)
+    return reps_out
+
+
 def main() -> None:
     logging.basicConfig(level=logging.WARNING, format="%(message)s")
     ap = argparse.ArgumentParser()
@@ -202,6 +368,13 @@ def main() -> None:
     ap.add_argument("--rivales", type=int, default=151)
     ap.add_argument("--sin-ratings", action="store_true",
                     help="control: prior de liga plano, todos los partidos idénticos")
+    ap.add_argument("--experimento-rivales", action="store_true",
+                    help="A/B: pool i.i.d. (statu quo) vs RivalModel empírico")
+    ap.add_argument("--obs-fechas", type=int, default=5,
+                    help="fechas ya jugadas/observadas en el experimento (default 5)")
+    ap.add_argument("--reps", type=int, default=3,
+                    help="repeticiones del pool verdad por temporada (default 3)")
+    ap.add_argument("--eval-sims", type=int, default=4000)
     args = ap.parse_args()
 
     data = load_dataset()
@@ -224,6 +397,25 @@ def main() -> None:
             ratings = fit_ratings(previas)
         if not args.sin_ratings and ratings is None:
             print(f"\n(salteada {nombre}: no hay temporadas previas para ajustar ratings)")
+            continue
+
+        if args.experimento_rivales:
+            logging.getLogger("src.clausura").setLevel(logging.WARNING)
+            reps = run_experimento_rivales(
+                partidos, ratings, args.participaciones, args.sims, args.rivales,
+                args.obs_fechas, args.reps, args.eval_sims,
+            )
+            deltas = [x.e_premio_b - x.e_premio_a for x in reps]
+            print(f"\n=== {nombre} — rivales empíricos vs pool i.i.d. "
+                  f"({args.obs_fechas} fechas observadas, {args.reps} reps) ===")
+            print(f"{'rep':>4s}  {'E[premio] A':>12s}  {'E[premio] B':>12s}  "
+                  f"{'Δ (B−A)':>10s}  {'real A':>9s}  {'real B':>9s}  {'corr γ':>7s}")
+            for j, x in enumerate(reps):
+                print(f"{j + 1:>4d}  ${x.e_premio_a:11,.0f}  ${x.e_premio_b:11,.0f}  "
+                      f"{x.e_premio_b - x.e_premio_a:+10,.0f}  ${x.realizado_a:8,.0f}  "
+                      f"${x.realizado_b:8,.0f}  {x.corr_gamma:7.2f}")
+            se = float(np.std(deltas, ddof=1) / np.sqrt(len(deltas))) if len(deltas) > 1 else 0.0
+            print(f"   Δ medio {np.mean(deltas):+,.0f} ± {se:,.0f} (se pareado)")
             continue
 
         r = run_temporada(partidos, args.participaciones, args.sims, args.rivales, ratings)

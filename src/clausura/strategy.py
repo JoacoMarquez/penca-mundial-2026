@@ -134,6 +134,7 @@ def build_portfolio(
     frozen_mask: np.ndarray | None = None,
     especiales: EspecialesInput | None = None,
     pool_qs: list[np.ndarray] | None = None,
+    rivals=None,
 ) -> PortfolioClausura:
     """Construye el portfolio de N participaciones maximizando E[premio] simulado.
 
@@ -147,6 +148,10 @@ def build_portfolio(
 
     `pool_qs` permite pasar la distribución del pool por partido ya construida (por
     ejemplo la EMPÍRICA del snapshot post-inicio); sin ella se genera del prior.
+
+    `rivals` (RivalModel de src.clausura.rivals) reemplaza el pool i.i.d. por el
+    empírico por participación: picks conocidos, estilo γ, ausentismo y standings
+    reales. Es el insumo correcto post-inicio del campeonato.
     """
     pool_cfg = pool_cfg or PoolConfig()
     n_matches = len(grids)
@@ -165,7 +170,8 @@ def build_portfolio(
         for g, q, pref in zip(grids, pool_qs, preferencial)
     ]
 
-    simulator = SeasonSimulator(grids, fecha_de_partido, preferencial, pool_qs, prize, sim)
+    simulator = SeasonSimulator(grids, fecha_de_partido, preferencial, pool_qs, prize, sim,
+                                rivals)
 
     # ancla de EV puro, replicada en todas las participaciones
     picks = np.zeros((n_participaciones, n_matches), dtype=np.int64)
