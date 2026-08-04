@@ -1,0 +1,164 @@
+"""Tests del simulador económico: reparto de premios y estado incremental."""
+
+import numpy as np
+import pytest
+
+from src.clausura.economics import (
+    MAX_GOALS,
+    N_SCORES,
+    PrizeConfig,
+    SeasonSimulator,
+    SimConfig,
+    flatten_grid,
+    index_score,
+    picks_to_index_matrix,
+    points_matrix,
+    score_index,
+)
+from src.clausura.pool import PoolConfig, pool_distribution
+from src.clausura.scoring import supermatch_points
+from src.model.poisson import score_grid
+
+
+def test_indices_ida_y_vuelta():
+    for gL in range(MAX_GOALS + 1):
+        for gV in range(MAX_GOALS + 1):
+            assert index_score(score_index(gL, gV)) == (gL, gV)
+
+
+def test_points_matrix_coincide_con_el_kernel():
+    m = points_matrix(False)
+    mp = points_matrix(True)
+    for pi in range(N_SCORES):
+        for ai in range(N_SCORES):
+            esperado = supermatch_points(index_score(pi), index_score(ai))
+            assert m[pi, ai] == esperado
+            assert mp[pi, ai] == esperado * 2
+
+
+def test_flatten_grid_normaliza_y_ubica_bien():
+    g = score_grid(1.3, 1.1, 0.0, max_goals=7)
+    f = flatten_grid(g)
+    assert f.sum() == pytest.approx(1.0)
+    # la celda (1,0) de la grilla tiene que caer en el índice correspondiente
+    assert f[score_index(1, 0)] == pytest.approx(g[1, 0] / g[:6, :6].sum(), rel=1e-9)
+
+
+# -------------------- reparto de premios (Art. 7a) --------------------
+
+def _sim_minimo(n_mine=2, n_rivales=3, n_sims=1):
+    g = score_grid(1.3, 1.1, 0.0, max_goals=MAX_GOALS)
+    q = pool_distribution(g, PoolConfig())
+    return SeasonSimulator(
+        grids=[g], fecha_de_partido=[1], preferencial=[False], pool_q=[q],
+        prize=PrizeConfig(), sim=SimConfig(n_sims=n_sims, n_rivales=n_rivales, seed=1),
+    )
+
+
+def test_liquidar_gana_solo_cobra_todo():
+    s = _sim_minimo()
+    mine = np.array([[10], [5]])
+    rivals = np.array([[3], [4], [2]])
+    assert s._liquidar(mine, rivals, 350_000.0)[0] == pytest.approx(350_000.0)
+
+
+def test_liquidar_empate_con_rival_divide():
+    s = _sim_minimo()
+    mine = np.array([[10], [5]])
+    rivals = np.array([[10], [4], [2]])
+    # 1 nuestra y 1 ajena en el máximo → mitad
+    assert s._liquidar(mine, rivals, 350_000.0)[0] == pytest.approx(175_000.0)
+
+
+def test_liquidar_empate_entre_nuestras_no_es_perdida():
+    """Dos participaciones propias empatadas arriba cobran las DOS partes."""
+    s = _sim_minimo()
+    mine = np.array([[10], [10]])
+    rivals = np.array([[10], [4], [2]])
+    # 2 nuestras + 1 ajena = 3 en el máximo, cobramos 2/3
+    assert s._liquidar(mine, rivals, 300_000.0)[0] == pytest.approx(200_000.0)
+
+
+def test_liquidar_perder_no_cobra():
+    s = _sim_minimo()
+    mine = np.array([[8], [5]])
+    rivals = np.array([[10]])
+    assert s._liquidar(mine, rivals, 350_000.0)[0] == 0.0
+
+
+# -------------------- estado incremental --------------------
+
+@pytest.fixture
+def sim_multi():
+    g = score_grid(1.4, 1.0, 0.0, max_goals=MAX_GOALS)
+    n = 16
+    grids = [g] * n
+    q = pool_distribution(g, PoolConfig())
+    return SeasonSimulator(
+        grids=grids,
+        fecha_de_partido=[i // 8 for i in range(n)],
+        preferencial=[i % 8 == 0 for i in range(n)],
+        pool_q=[q] * n,
+        prize=PrizeConfig(),
+        sim=SimConfig(n_sims=200, n_rivales=20, seed=42),
+    )
+
+
+def test_set_pick_equivale_a_recargar(sim_multi):
+    """El update incremental tiene que dar exactamente lo mismo que recargar de cero."""
+    picks = np.full((3, 16), score_index(1, 0), dtype=np.int64)
+    sim_multi.load_picks(picks)
+
+    sim_multi.set_pick(1, 5, score_index(2, 1))
+    sim_multi.set_pick(2, 0, score_index(0, 0))
+    incremental_total = sim_multi.mine_total.copy()
+    incremental_fecha = sim_multi.mine_fecha.copy()
+    incremental_premio = sim_multi.e_premio_total()
+
+    esperado = picks.copy()
+    esperado[1, 5] = score_index(2, 1)
+    esperado[2, 0] = score_index(0, 0)
+    sim_multi.load_picks(esperado)
+
+    assert np.array_equal(incremental_total, sim_multi.mine_total)
+    assert np.array_equal(incremental_fecha, sim_multi.mine_fecha)
+    assert incremental_premio == pytest.approx(sim_multi.e_premio_total())
+
+
+def test_set_pick_al_mismo_valor_es_noop(sim_multi):
+    picks = np.full((2, 16), score_index(1, 1), dtype=np.int64)
+    sim_multi.load_picks(picks)
+    antes = sim_multi.mine_total.copy()
+    sim_multi.set_pick(0, 3, score_index(1, 1))
+    assert np.array_equal(antes, sim_multi.mine_total)
+
+
+def test_preferencial_duplica_los_puntos_del_partido(sim_multi):
+    """El partido 0 es preferencial y el 1 no: mismo pick, el doble de aporte."""
+    pref = sim_multi.match_points(0, score_index(1, 0))
+    normal = sim_multi.match_points(1, score_index(1, 0))
+    # mismos resultados sorteados no, pero sí el mismo mapeo de puntos:
+    pm_pref = sim_multi.pm[0]
+    pm_norm = sim_multi.pm[1]
+    assert np.array_equal(pm_pref, pm_norm * 2)
+    assert pref.max() <= 16 and normal.max() <= 8
+
+
+def test_load_picks_valida_dimension(sim_multi):
+    with pytest.raises(ValueError, match="partidos"):
+        sim_multi.load_picks(np.zeros((2, 5), dtype=np.int64))
+
+
+def test_picks_to_index_matrix():
+    m = picks_to_index_matrix([[(1, 0), (2, 1)], [(0, 0), (3, 2)]])
+    assert m.shape == (2, 2)
+    assert m[0, 0] == score_index(1, 0)
+    assert m[1, 1] == score_index(3, 2)
+
+
+def test_result_reporta_costo_por_participacion(sim_multi):
+    sim_multi.load_picks(np.full((5, 16), score_index(1, 0), dtype=np.int64))
+    r = sim_multi.result()
+    assert r.costo == 5 * 400.0
+    assert 0.0 <= r.p_gana_penca <= 1.0
+    assert r.e_premio_total == pytest.approx(r.e_premio_penca + r.e_premio_fechas)
