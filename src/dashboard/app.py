@@ -152,6 +152,19 @@ def page_system(request: Request, token: str):
     return templates.TemplateResponse(request, "system.html", {"data": data, "token": token})
 
 
+@app.get("/dash/{token}/clausura/", response_class=HTMLResponse)
+def page_clausura(request: Request, token: str, fecha: Optional[int] = None):
+    """Penca Supermatch del Clausura 2026 — planilla, ranking en vivo y especiales.
+
+    Independiente del pipeline del Mundial: lee data/predictions/clausura/ y el
+    penca-api público, así que funciona aunque el resto del data/ esté vacío.
+    """
+    _check_token(token)
+    from src.clausura.dashboard_loader import load_clausura_page
+    data = load_clausura_page(fecha_q=fecha)
+    return templates.TemplateResponse(request, "clausura.html", {"data": data, "token": token})
+
+
 @app.get("/dash/{token}/api/data")
 def api_data(token: str):
     _check_token(token)
