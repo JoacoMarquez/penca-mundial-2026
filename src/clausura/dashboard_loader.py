@@ -162,6 +162,12 @@ def load_clausura_page(fecha_q: int | None = None) -> dict:
 
     premios = {p["tipo"]: p["monto"] for p in cfg.get("premios", [])}
 
+    # Números de participación propios (CLAUSURA_MIS_PARTICIPACIONES), ascendente.
+    # Convención de carga: columna i de la planilla ↔ i-ésimo número — cualquier
+    # mapeo 1:1 consistente sirve; este es el que muestran las tarjetas del modo carga.
+    mios_raw = os.environ.get("CLAUSURA_MIS_PARTICIPACIONES", "")
+    mis_numeros = sorted(int(x) for x in mios_raw.split(",") if x.strip().isdigit())
+
     return {
         "ok": True,
         "fecha_n": fecha_n,
@@ -172,4 +178,8 @@ def load_clausura_page(fecha_q: int | None = None) -> dict:
         "premios": premios,
         "penca_id": penca_id,
         "precio": cfg["pencas"]["paga"].get("precio", 400),
+        "mis_numeros": mis_numeros,
+        # Deep link a la penca en la web (la ruta lleva un cache-buster numérico,
+        # mismo patrón que usa el propio front de Supermatch)
+        "supermatch_url": f"https://www.supermatch.com.uy/pencas/1/{penca_id}/penca",
     }
