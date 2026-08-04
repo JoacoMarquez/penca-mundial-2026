@@ -68,7 +68,7 @@
               <tr>
                 <th class="text-left py-2 pr-2">Partido</th>
                 {% for i in range(data.planilla.n_participaciones) %}
-                  <th class="text-center px-1.5">{{ i + 1 }}</th>
+                  <th class="text-center px-1 whitespace-nowrap">{{ i + 1 }}</th>
                 {% endfor %}
                 <th class="text-right pl-2">Cierre</th>
               </tr>
@@ -82,7 +82,7 @@
                   <div class="text-[11px] text-slate-500">{{ row.fuente_modelo }}</div>
                 </td>
                 {% for s in row.scores_fmt %}
-                  <td class="text-center px-1.5 font-mono {% if loop.index0 == 0 %}text-indigo-300 font-bold{% endif %}">{{ s }}</td>
+                  <td class="text-center px-1 font-mono text-xs whitespace-nowrap {% if loop.index0 == 0 %}text-indigo-300 font-bold{% endif %}">{{ s }}</td>
                 {% endfor %}
                 <td class="text-right pl-2 text-xs text-slate-400">
                   {{ row.cierre_uy }}{% if row.cerrado %} 🔒{% endif %}
