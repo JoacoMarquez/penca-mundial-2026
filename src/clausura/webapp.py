@@ -50,6 +50,15 @@ def page_clausura(request: Request, token: str, fecha: Optional[int] = None):
     return templates.TemplateResponse(request, "clausura.html", {"data": data, "token": token})
 
 
+@app.get("/dash/{token}/carga/", response_class=HTMLResponse)
+def page_carga(request: Request, token: str, fecha: Optional[int] = None):
+    """Modo carga: una tarjeta por participación en el orden de la web, con
+    checkbox de progreso persistido en el teléfono (localStorage)."""
+    _check_token(token)
+    data = load_clausura_page(fecha_q=fecha)
+    return templates.TemplateResponse(request, "carga.html", {"data": data, "token": token})
+
+
 @app.get("/dash/{token}/api/data")
 def api_data(token: str, fecha: Optional[int] = None):
     """JSON crudo de la página (debug / consumo externo)."""
