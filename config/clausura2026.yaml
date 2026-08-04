@@ -1,0 +1,1283 @@
+generado_utc: '2026-08-04T15:26:06.483778+00:00'
+campeonato:
+  id: 44
+  nombre: Torneo Clausura 2026
+pencas:
+  paga:
+    id: 46
+    precio: 400.0
+  gratuita:
+    id: 47
+premios:
+- nombre: Ganador Penca Clausura 2026
+  tipo: PENCA
+  monto: 350000.0
+- nombre: Ganador Fecha Clausura 2026
+  tipo: FECHA
+  monto: 10000.0
+- nombre: Ganador Grupo Amigo Clausura 2026
+  tipo: GRUPOAMIGO
+  monto: 3000.0
+equipos:
+  69: Boston River
+  70: Cerro
+  71: Cerro Largo
+  72: Deportivo Maldonado
+  73: Danubio
+  74: Defensor Sporting
+  76: Liverpool
+  77: Montevideo City Torque
+  79: Nacional
+  80: Peñarol
+  82: Racing
+  84: Wanderers
+  103: Progreso
+  169: Juventud
+  221: Albion
+  222: Central Español
+fechas:
+  Fecha 1:
+    fecha_id: 280
+    eventos:
+    - evento_id: 2080
+      local: Liverpool
+      visitante: Albion
+      local_id: 76
+      visitante_id: 221
+      inicio_utc: '2026-08-07T22:00:00+00:00'
+      cierre_pronostico_utc: '2026-08-07T21:45:00+00:00'
+      estadio: Alfredo Victor Viera
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2085
+      local: Deportivo Maldonado
+      visitante: Racing
+      local_id: 72
+      visitante_id: 82
+      inicio_utc: '2026-08-08T18:00:00+00:00'
+      cierre_pronostico_utc: '2026-08-08T17:45:00+00:00'
+      estadio: Domingo Burgueño Miguel
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2082
+      local: Montevideo City Torque
+      visitante: Peñarol
+      local_id: 77
+      visitante_id: 80
+      inicio_utc: '2026-08-08T19:00:00+00:00'
+      cierre_pronostico_utc: '2026-08-08T18:45:00+00:00'
+      estadio: Estadio Charrua
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2081
+      local: Defensor Sporting
+      visitante: Wanderers
+      local_id: 74
+      visitante_id: 84
+      inicio_utc: '2026-08-08T23:00:00+00:00'
+      cierre_pronostico_utc: '2026-08-08T22:45:00+00:00'
+      estadio: Luis Franzini
+      preferencial: true
+      estado: PENDIENTE
+    - evento_id: 2083
+      local: Central Español
+      visitante: Progreso
+      local_id: 222
+      visitante_id: 103
+      inicio_utc: '2026-08-09T18:00:00+00:00'
+      cierre_pronostico_utc: '2026-08-09T17:45:00+00:00'
+      estadio: Parque Palermo
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2086
+      local: Cerro Largo
+      visitante: Juventud
+      local_id: 71
+      visitante_id: 169
+      inicio_utc: '2026-08-09T18:00:00+00:00'
+      cierre_pronostico_utc: '2026-08-09T17:45:00+00:00'
+      estadio: Antonio Ubilla
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2087
+      local: Danubio
+      visitante: Cerro
+      local_id: 73
+      visitante_id: 70
+      inicio_utc: '2026-08-09T19:00:00+00:00'
+      cierre_pronostico_utc: '2026-08-09T18:45:00+00:00'
+      estadio: Jardines del Hipodromo
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2084
+      local: Nacional
+      visitante: Boston River
+      local_id: 79
+      visitante_id: 69
+      inicio_utc: '2026-08-09T22:00:00+00:00'
+      cierre_pronostico_utc: '2026-08-09T21:45:00+00:00'
+      estadio: Gran Parque Central
+      preferencial: false
+      estado: PENDIENTE
+  Fecha 2:
+    fecha_id: 281
+    eventos:
+    - evento_id: 2088
+      local: Defensor Sporting
+      visitante: Liverpool
+      local_id: 74
+      visitante_id: 76
+      inicio_utc: '2026-08-15T00:00:00+00:00'
+      cierre_pronostico_utc: '2026-08-14T23:45:00+00:00'
+      estadio: Luis Franzini
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2089
+      local: Wanderers
+      visitante: Cerro Largo
+      local_id: 84
+      visitante_id: 71
+      inicio_utc: '2026-08-15T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-08-15T20:45:00+00:00'
+      estadio: Alfredo Victor Viera
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2091
+      local: Juventud
+      visitante: Montevideo City Torque
+      local_id: 169
+      visitante_id: 77
+      inicio_utc: '2026-08-16T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-08-16T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2092
+      local: Peñarol
+      visitante: Central Español
+      local_id: 80
+      visitante_id: 222
+      inicio_utc: '2026-08-16T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-08-16T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2093
+      local: Racing
+      visitante: Nacional
+      local_id: 82
+      visitante_id: 79
+      inicio_utc: '2026-08-16T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-08-16T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2094
+      local: Boston River
+      visitante: Danubio
+      local_id: 69
+      visitante_id: 73
+      inicio_utc: '2026-08-16T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-08-16T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2095
+      local: Cerro
+      visitante: Albion
+      local_id: 70
+      visitante_id: 221
+      inicio_utc: '2026-08-16T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-08-16T20:45:00+00:00'
+      estadio: '---'
+      preferencial: true
+      estado: PENDIENTE
+    - evento_id: 2090
+      local: Progreso
+      visitante: Deportivo Maldonado
+      local_id: 103
+      visitante_id: 72
+      inicio_utc: '2026-08-16T22:00:00+00:00'
+      cierre_pronostico_utc: '2026-08-16T21:45:00+00:00'
+      estadio: '-'
+      preferencial: false
+      estado: PENDIENTE
+  Fecha 3:
+    fecha_id: 282
+    eventos:
+    - evento_id: 2096
+      local: Liverpool
+      visitante: Cerro
+      local_id: 76
+      visitante_id: 70
+      inicio_utc: '2026-08-21T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-08-21T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2097
+      local: Albion
+      visitante: Boston River
+      local_id: 221
+      visitante_id: 69
+      inicio_utc: '2026-08-21T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-08-21T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2098
+      local: Danubio
+      visitante: Racing
+      local_id: 73
+      visitante_id: 82
+      inicio_utc: '2026-08-21T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-08-21T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2099
+      local: Nacional
+      visitante: Progreso
+      local_id: 79
+      visitante_id: 103
+      inicio_utc: '2026-08-21T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-08-21T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2100
+      local: Deportivo Maldonado
+      visitante: Peñarol
+      local_id: 72
+      visitante_id: 80
+      inicio_utc: '2026-08-21T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-08-21T20:45:00+00:00'
+      estadio: '---'
+      preferencial: true
+      estado: PENDIENTE
+    - evento_id: 2101
+      local: Central Español
+      visitante: Juventud
+      local_id: 222
+      visitante_id: 169
+      inicio_utc: '2026-08-21T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-08-21T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2102
+      local: Montevideo City Torque
+      visitante: Wanderers
+      local_id: 77
+      visitante_id: 84
+      inicio_utc: '2026-08-21T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-08-21T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2103
+      local: Cerro Largo
+      visitante: Defensor Sporting
+      local_id: 71
+      visitante_id: 74
+      inicio_utc: '2026-08-21T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-08-21T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+  Fecha 4:
+    fecha_id: 283
+    eventos:
+    - evento_id: 2104
+      local: Cerro Largo
+      visitante: Liverpool
+      local_id: 71
+      visitante_id: 76
+      inicio_utc: '2026-08-28T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-08-28T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2105
+      local: Defensor Sporting
+      visitante: Montevideo City Torque
+      local_id: 74
+      visitante_id: 77
+      inicio_utc: '2026-08-28T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-08-28T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2106
+      local: Wanderers
+      visitante: Central Español
+      local_id: 84
+      visitante_id: 222
+      inicio_utc: '2026-08-28T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-08-28T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2107
+      local: Juventud
+      visitante: Deportivo Maldonado
+      local_id: 169
+      visitante_id: 72
+      inicio_utc: '2026-08-28T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-08-28T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2109
+      local: Progreso
+      visitante: Danubio
+      local_id: 103
+      visitante_id: 73
+      inicio_utc: '2026-08-28T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-08-28T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2110
+      local: Racing
+      visitante: Albion
+      local_id: 82
+      visitante_id: 221
+      inicio_utc: '2026-08-28T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-08-28T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2111
+      local: Boston River
+      visitante: Cerro
+      local_id: 69
+      visitante_id: 70
+      inicio_utc: '2026-08-28T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-08-28T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2108
+      local: Peñarol
+      visitante: Nacional
+      local_id: 80
+      visitante_id: 79
+      inicio_utc: '2026-08-30T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-08-30T20:45:00+00:00'
+      estadio: '---'
+      preferencial: true
+      estado: PENDIENTE
+  Fecha 5:
+    fecha_id: 284
+    eventos:
+    - evento_id: 2112
+      local: Liverpool
+      visitante: Boston River
+      local_id: 76
+      visitante_id: 69
+      inicio_utc: '2026-09-04T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-09-04T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2113
+      local: Cerro
+      visitante: Racing
+      local_id: 70
+      visitante_id: 82
+      inicio_utc: '2026-09-04T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-09-04T20:45:00+00:00'
+      estadio: '---'
+      preferencial: true
+      estado: PENDIENTE
+    - evento_id: 2114
+      local: Albion
+      visitante: Progreso
+      local_id: 221
+      visitante_id: 103
+      inicio_utc: '2026-09-04T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-09-04T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2115
+      local: Danubio
+      visitante: Peñarol
+      local_id: 73
+      visitante_id: 80
+      inicio_utc: '2026-09-04T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-09-04T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2116
+      local: Nacional
+      visitante: Juventud
+      local_id: 79
+      visitante_id: 169
+      inicio_utc: '2026-09-04T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-09-04T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2117
+      local: Deportivo Maldonado
+      visitante: Wanderers
+      local_id: 72
+      visitante_id: 84
+      inicio_utc: '2026-09-04T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-09-04T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2118
+      local: Central Español
+      visitante: Defensor Sporting
+      local_id: 222
+      visitante_id: 74
+      inicio_utc: '2026-09-04T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-09-04T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2119
+      local: Montevideo City Torque
+      visitante: Cerro Largo
+      local_id: 77
+      visitante_id: 71
+      inicio_utc: '2026-09-04T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-09-04T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+  Fecha 6:
+    fecha_id: 285
+    eventos:
+    - evento_id: 2120
+      local: Montevideo City Torque
+      visitante: Liverpool
+      local_id: 77
+      visitante_id: 76
+      inicio_utc: '2026-09-11T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-09-11T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2121
+      local: Cerro Largo
+      visitante: Central Español
+      local_id: 71
+      visitante_id: 222
+      inicio_utc: '2026-09-11T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-09-11T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2122
+      local: Defensor Sporting
+      visitante: Deportivo Maldonado
+      local_id: 74
+      visitante_id: 72
+      inicio_utc: '2026-09-11T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-09-11T20:45:00+00:00'
+      estadio: '---'
+      preferencial: true
+      estado: PENDIENTE
+    - evento_id: 2123
+      local: Wanderers
+      visitante: Nacional
+      local_id: 84
+      visitante_id: 79
+      inicio_utc: '2026-09-11T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-09-11T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2124
+      local: Juventud
+      visitante: Danubio
+      local_id: 169
+      visitante_id: 73
+      inicio_utc: '2026-09-11T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-09-11T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2125
+      local: Peñarol
+      visitante: Albion
+      local_id: 80
+      visitante_id: 221
+      inicio_utc: '2026-09-11T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-09-11T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2126
+      local: Progreso
+      visitante: Cerro
+      local_id: 103
+      visitante_id: 70
+      inicio_utc: '2026-09-11T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-09-11T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2127
+      local: Racing
+      visitante: Boston River
+      local_id: 82
+      visitante_id: 69
+      inicio_utc: '2026-09-11T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-09-11T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+  Fecha 7:
+    fecha_id: 286
+    eventos:
+    - evento_id: 2128
+      local: Liverpool
+      visitante: Racing
+      local_id: 76
+      visitante_id: 82
+      inicio_utc: '2026-09-18T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-09-18T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2129
+      local: Boston River
+      visitante: Progreso
+      local_id: 69
+      visitante_id: 103
+      inicio_utc: '2026-09-18T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-09-18T20:45:00+00:00'
+      estadio: '---'
+      preferencial: true
+      estado: PENDIENTE
+    - evento_id: 2130
+      local: Cerro
+      visitante: Peñarol
+      local_id: 70
+      visitante_id: 80
+      inicio_utc: '2026-09-18T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-09-18T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2131
+      local: Albion
+      visitante: Juventud
+      local_id: 221
+      visitante_id: 169
+      inicio_utc: '2026-09-18T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-09-18T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2132
+      local: Danubio
+      visitante: Wanderers
+      local_id: 73
+      visitante_id: 84
+      inicio_utc: '2026-09-18T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-09-18T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2133
+      local: Nacional
+      visitante: Defensor Sporting
+      local_id: 79
+      visitante_id: 74
+      inicio_utc: '2026-09-18T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-09-18T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2134
+      local: Deportivo Maldonado
+      visitante: Cerro Largo
+      local_id: 72
+      visitante_id: 71
+      inicio_utc: '2026-09-18T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-09-18T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2135
+      local: Central Español
+      visitante: Montevideo City Torque
+      local_id: 222
+      visitante_id: 77
+      inicio_utc: '2026-09-18T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-09-18T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+  Fecha 8:
+    fecha_id: 287
+    eventos:
+    - evento_id: 2136
+      local: Central Español
+      visitante: Liverpool
+      local_id: 222
+      visitante_id: 76
+      inicio_utc: '2026-09-25T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-09-25T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2137
+      local: Montevideo City Torque
+      visitante: Deportivo Maldonado
+      local_id: 77
+      visitante_id: 72
+      inicio_utc: '2026-09-25T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-09-25T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2138
+      local: Cerro Largo
+      visitante: Nacional
+      local_id: 71
+      visitante_id: 79
+      inicio_utc: '2026-09-25T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-09-25T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2139
+      local: Defensor Sporting
+      visitante: Danubio
+      local_id: 74
+      visitante_id: 73
+      inicio_utc: '2026-09-25T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-09-25T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2140
+      local: Wanderers
+      visitante: Albion
+      local_id: 84
+      visitante_id: 221
+      inicio_utc: '2026-09-25T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-09-25T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2141
+      local: Juventud
+      visitante: Cerro
+      local_id: 169
+      visitante_id: 70
+      inicio_utc: '2026-09-25T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-09-25T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2142
+      local: Peñarol
+      visitante: Boston River
+      local_id: 80
+      visitante_id: 69
+      inicio_utc: '2026-09-25T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-09-25T20:45:00+00:00'
+      estadio: '---'
+      preferencial: true
+      estado: PENDIENTE
+    - evento_id: 2143
+      local: Progreso
+      visitante: Racing
+      local_id: 103
+      visitante_id: 82
+      inicio_utc: '2026-09-25T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-09-25T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+  Fecha 9:
+    fecha_id: 288
+    eventos:
+    - evento_id: 2144
+      local: Liverpool
+      visitante: Progreso
+      local_id: 76
+      visitante_id: 103
+      inicio_utc: '2026-10-02T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-02T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2145
+      local: Racing
+      visitante: Peñarol
+      local_id: 82
+      visitante_id: 80
+      inicio_utc: '2026-10-02T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-02T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2146
+      local: Boston River
+      visitante: Juventud
+      local_id: 69
+      visitante_id: 169
+      inicio_utc: '2026-10-02T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-02T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2147
+      local: Cerro
+      visitante: Wanderers
+      local_id: 70
+      visitante_id: 84
+      inicio_utc: '2026-10-02T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-02T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2148
+      local: Albion
+      visitante: Defensor Sporting
+      local_id: 221
+      visitante_id: 74
+      inicio_utc: '2026-10-02T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-02T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2149
+      local: Danubio
+      visitante: Cerro Largo
+      local_id: 73
+      visitante_id: 71
+      inicio_utc: '2026-10-02T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-02T20:45:00+00:00'
+      estadio: '---'
+      preferencial: true
+      estado: PENDIENTE
+    - evento_id: 2150
+      local: Nacional
+      visitante: Montevideo City Torque
+      local_id: 79
+      visitante_id: 77
+      inicio_utc: '2026-10-02T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-02T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2151
+      local: Deportivo Maldonado
+      visitante: Central Español
+      local_id: 72
+      visitante_id: 222
+      inicio_utc: '2026-10-02T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-02T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+  Fecha 10:
+    fecha_id: 289
+    eventos:
+    - evento_id: 2152
+      local: Deportivo Maldonado
+      visitante: Liverpool
+      local_id: 72
+      visitante_id: 76
+      inicio_utc: '2026-10-09T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-09T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2153
+      local: Central Español
+      visitante: Nacional
+      local_id: 222
+      visitante_id: 79
+      inicio_utc: '2026-10-09T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-09T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2154
+      local: Montevideo City Torque
+      visitante: Danubio
+      local_id: 77
+      visitante_id: 73
+      inicio_utc: '2026-10-09T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-09T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2155
+      local: Cerro Largo
+      visitante: Albion
+      local_id: 71
+      visitante_id: 221
+      inicio_utc: '2026-10-09T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-09T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2156
+      local: Defensor Sporting
+      visitante: Cerro
+      local_id: 74
+      visitante_id: 70
+      inicio_utc: '2026-10-09T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-09T20:45:00+00:00'
+      estadio: '---'
+      preferencial: true
+      estado: PENDIENTE
+    - evento_id: 2157
+      local: Wanderers
+      visitante: Boston River
+      local_id: 84
+      visitante_id: 69
+      inicio_utc: '2026-10-09T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-09T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2158
+      local: Juventud
+      visitante: Racing
+      local_id: 169
+      visitante_id: 82
+      inicio_utc: '2026-10-09T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-09T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2159
+      local: Peñarol
+      visitante: Progreso
+      local_id: 80
+      visitante_id: 103
+      inicio_utc: '2026-10-09T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-09T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+  Fecha 11:
+    fecha_id: 290
+    eventos:
+    - evento_id: 2160
+      local: Liverpool
+      visitante: Peñarol
+      local_id: 76
+      visitante_id: 80
+      inicio_utc: '2026-10-16T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-16T20:45:00+00:00'
+      estadio: '-'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2161
+      local: Progreso
+      visitante: Juventud
+      local_id: 103
+      visitante_id: 169
+      inicio_utc: '2026-10-16T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-16T20:45:00+00:00'
+      estadio: '-'
+      preferencial: true
+      estado: PENDIENTE
+    - evento_id: 2162
+      local: Racing
+      visitante: Wanderers
+      local_id: 82
+      visitante_id: 84
+      inicio_utc: '2026-10-16T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-16T20:45:00+00:00'
+      estadio: '-'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2163
+      local: Boston River
+      visitante: Defensor Sporting
+      local_id: 69
+      visitante_id: 74
+      inicio_utc: '2026-10-16T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-16T20:45:00+00:00'
+      estadio: '-'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2164
+      local: Cerro
+      visitante: Cerro Largo
+      local_id: 70
+      visitante_id: 71
+      inicio_utc: '2026-10-16T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-16T20:45:00+00:00'
+      estadio: '-'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2165
+      local: Albion
+      visitante: Montevideo City Torque
+      local_id: 221
+      visitante_id: 77
+      inicio_utc: '2026-10-16T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-16T20:45:00+00:00'
+      estadio: '-'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2166
+      local: Danubio
+      visitante: Central Español
+      local_id: 73
+      visitante_id: 222
+      inicio_utc: '2026-10-16T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-16T20:45:00+00:00'
+      estadio: '-'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2167
+      local: Nacional
+      visitante: Deportivo Maldonado
+      local_id: 79
+      visitante_id: 72
+      inicio_utc: '2026-10-16T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-16T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+  Fecha 12:
+    fecha_id: 291
+    eventos:
+    - evento_id: 2168
+      local: Nacional
+      visitante: Liverpool
+      local_id: 79
+      visitante_id: 76
+      inicio_utc: '2026-10-23T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-23T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2169
+      local: Deportivo Maldonado
+      visitante: Danubio
+      local_id: 72
+      visitante_id: 73
+      inicio_utc: '2026-10-23T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-23T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2170
+      local: Central Español
+      visitante: Albion
+      local_id: 222
+      visitante_id: 221
+      inicio_utc: '2026-10-23T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-23T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2171
+      local: Montevideo City Torque
+      visitante: Cerro
+      local_id: 77
+      visitante_id: 70
+      inicio_utc: '2026-10-23T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-23T20:45:00+00:00'
+      estadio: '-'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2172
+      local: Cerro Largo
+      visitante: Boston River
+      local_id: 71
+      visitante_id: 69
+      inicio_utc: '2026-10-23T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-23T20:45:00+00:00'
+      estadio: '-'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2173
+      local: Defensor Sporting
+      visitante: Racing
+      local_id: 74
+      visitante_id: 82
+      inicio_utc: '2026-10-23T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-23T20:45:00+00:00'
+      estadio: '-'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2174
+      local: Wanderers
+      visitante: Progreso
+      local_id: 84
+      visitante_id: 103
+      inicio_utc: '2026-10-23T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-23T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2175
+      local: Juventud
+      visitante: Peñarol
+      local_id: 169
+      visitante_id: 80
+      inicio_utc: '2026-10-23T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-23T20:45:00+00:00'
+      estadio: '-'
+      preferencial: true
+      estado: PENDIENTE
+  Fecha 13:
+    fecha_id: 292
+    eventos:
+    - evento_id: 2176
+      local: Liverpool
+      visitante: Juventud
+      local_id: 76
+      visitante_id: 169
+      inicio_utc: '2026-10-30T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-30T20:45:00+00:00'
+      estadio: '-'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2177
+      local: Peñarol
+      visitante: Wanderers
+      local_id: 80
+      visitante_id: 84
+      inicio_utc: '2026-10-30T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-30T20:45:00+00:00'
+      estadio: '-'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2178
+      local: Progreso
+      visitante: Defensor Sporting
+      local_id: 103
+      visitante_id: 74
+      inicio_utc: '2026-10-30T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-30T20:45:00+00:00'
+      estadio: --
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2179
+      local: Racing
+      visitante: Cerro Largo
+      local_id: 82
+      visitante_id: 71
+      inicio_utc: '2026-10-30T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-30T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2180
+      local: Boston River
+      visitante: Montevideo City Torque
+      local_id: 69
+      visitante_id: 77
+      inicio_utc: '2026-10-30T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-30T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2181
+      local: Cerro
+      visitante: Central Español
+      local_id: 70
+      visitante_id: 222
+      inicio_utc: '2026-10-30T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-30T20:45:00+00:00'
+      estadio: '-'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2182
+      local: Albion
+      visitante: Deportivo Maldonado
+      local_id: 221
+      visitante_id: 72
+      inicio_utc: '2026-10-30T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-30T20:45:00+00:00'
+      estadio: '-'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2183
+      local: Danubio
+      visitante: Nacional
+      local_id: 73
+      visitante_id: 79
+      inicio_utc: '2026-10-30T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-10-30T20:45:00+00:00'
+      estadio: '---'
+      preferencial: true
+      estado: PENDIENTE
+  Fecha 14:
+    fecha_id: 293
+    eventos:
+    - evento_id: 2184
+      local: Danubio
+      visitante: Liverpool
+      local_id: 73
+      visitante_id: 76
+      inicio_utc: '2026-11-06T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-11-06T20:45:00+00:00'
+      estadio: '-'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2185
+      local: Nacional
+      visitante: Albion
+      local_id: 79
+      visitante_id: 221
+      inicio_utc: '2026-11-06T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-11-06T20:45:00+00:00'
+      estadio: '-'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2186
+      local: Deportivo Maldonado
+      visitante: Cerro
+      local_id: 72
+      visitante_id: 70
+      inicio_utc: '2026-11-06T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-11-06T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2187
+      local: Central Español
+      visitante: Boston River
+      local_id: 222
+      visitante_id: 69
+      inicio_utc: '2026-11-06T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-11-06T20:45:00+00:00'
+      estadio: '-'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2188
+      local: Montevideo City Torque
+      visitante: Racing
+      local_id: 77
+      visitante_id: 82
+      inicio_utc: '2026-11-06T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-11-06T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2189
+      local: Cerro Largo
+      visitante: Progreso
+      local_id: 71
+      visitante_id: 103
+      inicio_utc: '2026-11-06T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-11-06T20:45:00+00:00'
+      estadio: '-'
+      preferencial: true
+      estado: PENDIENTE
+    - evento_id: 2190
+      local: Defensor Sporting
+      visitante: Peñarol
+      local_id: 74
+      visitante_id: 80
+      inicio_utc: '2026-11-06T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-11-06T20:45:00+00:00'
+      estadio: '-'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2191
+      local: Wanderers
+      visitante: Juventud
+      local_id: 84
+      visitante_id: 169
+      inicio_utc: '2026-11-06T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-11-06T20:45:00+00:00'
+      estadio: '-'
+      preferencial: false
+      estado: PENDIENTE
+  Fecha 15:
+    fecha_id: 294
+    eventos:
+    - evento_id: 2192
+      local: Liverpool
+      visitante: Wanderers
+      local_id: 76
+      visitante_id: 84
+      inicio_utc: '2026-11-13T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-11-13T20:45:00+00:00'
+      estadio: '-'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2193
+      local: Juventud
+      visitante: Defensor Sporting
+      local_id: 169
+      visitante_id: 74
+      inicio_utc: '2026-11-13T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-11-13T20:45:00+00:00'
+      estadio: '-'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2194
+      local: Peñarol
+      visitante: Cerro Largo
+      local_id: 80
+      visitante_id: 71
+      inicio_utc: '2026-11-13T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-11-13T20:45:00+00:00'
+      estadio: '-'
+      preferencial: true
+      estado: PENDIENTE
+    - evento_id: 2195
+      local: Progreso
+      visitante: Montevideo City Torque
+      local_id: 103
+      visitante_id: 77
+      inicio_utc: '2026-11-13T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-11-13T20:45:00+00:00'
+      estadio: '-'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2196
+      local: Racing
+      visitante: Central Español
+      local_id: 82
+      visitante_id: 222
+      inicio_utc: '2026-11-13T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-11-13T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2197
+      local: Boston River
+      visitante: Deportivo Maldonado
+      local_id: 69
+      visitante_id: 72
+      inicio_utc: '2026-11-13T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-11-13T20:45:00+00:00'
+      estadio: '---'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2198
+      local: Cerro
+      visitante: Nacional
+      local_id: 70
+      visitante_id: 79
+      inicio_utc: '2026-11-13T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-11-13T20:45:00+00:00'
+      estadio: '-'
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2199
+      local: Albion
+      visitante: Danubio
+      local_id: 221
+      visitante_id: 73
+      inicio_utc: '2026-11-13T21:00:00+00:00'
+      cierre_pronostico_utc: '2026-11-13T20:45:00+00:00'
+      estadio: '-'
+      preferencial: false
+      estado: PENDIENTE
