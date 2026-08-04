@@ -133,6 +133,7 @@ def build_portfolio(
     frozen_picks: np.ndarray | None = None,
     frozen_mask: np.ndarray | None = None,
     especiales: EspecialesInput | None = None,
+    pool_qs: list[np.ndarray] | None = None,
 ) -> PortfolioClausura:
     """Construye el portfolio de N participaciones maximizando E[premio] simulado.
 
@@ -143,6 +144,9 @@ def build_portfolio(
 
     Con `especiales`, Campeón y Goleador entran al mismo ascenso por coordenadas como
     dos columnas más de cada participación (25 pts c/u sobre el total general).
+
+    `pool_qs` permite pasar la distribución del pool por partido ya construida (por
+    ejemplo la EMPÍRICA del snapshot post-inicio); sin ella se genera del prior.
     """
     pool_cfg = pool_cfg or PoolConfig()
     n_matches = len(grids)
@@ -152,7 +156,10 @@ def build_portfolio(
     if frozen_mask.any() and frozen_picks is None:
         raise ValueError("frozen_mask sin frozen_picks")
 
-    pool_qs = [pool_distribution(g, pool_cfg) for g in grids]
+    if pool_qs is None:
+        pool_qs = [pool_distribution(g, pool_cfg) for g in grids]
+    elif len(pool_qs) != n_matches:
+        raise ValueError(f"pool_qs tiene {len(pool_qs)} entradas, se esperaban {n_matches}")
     candidatos = [
         build_candidates(g, q, pref)
         for g, q, pref in zip(grids, pool_qs, preferencial)

@@ -9,6 +9,7 @@ EnvironmentFile=/etc/penca/env
 Environment="PYTHONPATH=/opt/penca"
 WorkingDirectory=/opt/penca
 ExecStartPre=/opt/penca/.venv/bin/python -m src.clausura.sync
+ExecStartPre=/opt/penca/.venv/bin/python -m src.clausura.pool_snapshot --if-started
 ExecStart=/opt/penca/.venv/bin/python -m src.clausura.picks --fecha auto --telegram
 StandardOutput=append:/var/lib/penca/logs/clausura-picks.log
 StandardError=append:/var/lib/penca/logs/clausura-picks.err

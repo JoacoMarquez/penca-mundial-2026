@@ -358,6 +358,26 @@ def run(
         if ev["evento_id"] in resultados and not mask[i]:
             mask[i] = True  # sin picks guardados: quedan en 0-0; no afecta el futuro
 
+    # ---------- pool: prior + Q empírica del snapshot (si el campeonato ya inició) ----------
+    from src.clausura.pool import pool_distribution
+    from src.clausura.pool_snapshot import (
+        blended_q, empirical_campeon_counts, empirical_counts, load_latest_snapshot,
+    )
+    pool_qs = [pool_distribution(g, pool_cfg) for g in grids]
+    snapshot = load_latest_snapshot(max_age_hours=48)
+    campeon_counts = None
+    if snapshot:
+        counts = empirical_counts(snapshot)
+        observados = 0
+        for i, ev in enumerate(eventos):
+            c = counts.get(ev["evento_id"])
+            if c is not None and c.sum() > 0:
+                pool_qs[i] = blended_q(pool_qs[i], c)
+                observados += 1
+        log.info("pool empírico: snapshot de %s participaciones, %d/%d eventos observados",
+                 snapshot.get("n_participaciones"), observados, len(eventos))
+        campeon_counts = snapshot  # se resuelve más abajo, con el índice de equipos armado
+
     # ---------- especiales: Campeón (siempre modelable) + Goleador (si hay menú) ----------
     equipos_cfg: dict[int, str] = cfg["equipos"]
     equipo_nombres = [equipos_cfg[k] for k in sorted(equipos_cfg)]
@@ -367,6 +387,9 @@ def run(
 
     p_champ_prior = p_campeon_from_grids(grids, local_de, visita_de, len(equipo_nombres))
     pool_q_campeon = pool_campeon_distribution(p_champ_prior, equipo_nombres)
+    if campeon_counts is not None:
+        c = empirical_campeon_counts(campeon_counts, equipo_idx, len(equipo_nombres))
+        pool_q_campeon = blended_q(pool_q_campeon, c)
 
     opciones_campeon, opciones_goleador = None, None
     try:
@@ -408,6 +431,7 @@ def run(
         frozen_picks=frozen,
         frozen_mask=mask,
         especiales=especiales,
+        pool_qs=pool_qs,
     )
 
     eventos_fecha = [ev for ev in eventos if ev["fecha_n"] == target_fecha]
