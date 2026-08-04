@@ -1,0 +1,15 @@
+[Unit]
+Description=Penca Clausura 2026 — pipeline de picks (fecha auto) + planilla por Telegram
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/penca/env
+Environment="PYTHONPATH=/opt/penca"
+WorkingDirectory=/opt/penca
+ExecStartPre=/opt/penca/.venv/bin/python -m src.clausura.sync
+ExecStart=/opt/penca/.venv/bin/python -m src.clausura.picks --fecha auto --telegram
+StandardOutput=append:/var/lib/penca/logs/clausura-picks.log
+StandardError=append:/var/lib/penca/logs/clausura-picks.err
+User=root
