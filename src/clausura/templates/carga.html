@@ -1,0 +1,95 @@
+{% extends "base_clausura.html" %}
+{% block title %}Modo carga — Fecha {{ data.fecha_n }}{% endblock %}
+{% block autorefresh %}{% endblock %}{# sin auto-refresh: no saltar a mitad de carga #}
+
+{% block content %}
+{% if not data.ok or not data.planilla %}
+  <div class="bg-slate-800 rounded-xl p-4 text-slate-300">
+    Sin planilla para la Fecha {{ data.fecha_n }} —
+    <code class="text-xs bg-slate-700 px-1.5 py-0.5 rounded">python3 -m src.clausura.picks --fecha {{ data.fecha_n }}</code>
+  </div>
+{% else %}
+
+  <div class="flex items-center justify-between mb-3">
+    <div>
+      <h1 class="text-lg font-bold">📲 Modo carga — Fecha {{ data.fecha_n }}</h1>
+      <div class="text-xs text-slate-400">
+        {{ data.planilla.version_file.split('_')[0] }} · {{ data.planilla.generado_uy }} UY ·
+        una tarjeta por participación, en el orden de la web
+      </div>
+    </div>
+    <a href="/dash/{{ token }}/?fecha={{ data.fecha_n }}"
+       class="text-sm text-indigo-300 hover:text-indigo-200 shrink-0">← planilla</a>
+  </div>
+
+  <div class="text-xs text-slate-400 mb-4" id="progreso"></div>
+
+  <div class="grid gap-3 lg:grid-cols-2">
+    {% for i in range(data.planilla.n_participaciones) %}
+    {% set key = data.planilla.version_file ~ ':' ~ data.fecha_n ~ ':' ~ i %}
+    <div class="bg-slate-800 rounded-xl p-4 carga-card" data-key="{{ key }}">
+      <div class="flex items-center justify-between mb-2">
+        <span class="font-bold">Participación {{ i + 1 }}
+          {% if i == 0 %}<span class="text-indigo-300 text-xs font-medium">(ancla EV)</span>{% endif %}
+        </span>
+        <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer select-none">
+          <input type="checkbox" class="cargada w-5 h-5 accent-emerald-500">
+          cargada
+        </label>
+      </div>
+      <table class="w-full text-sm">
+        {% for row in data.planilla.picks %}
+        <tr class="border-b border-slate-700/40 {% if row.cerrado %}opacity-40{% endif %}">
+          <td class="py-1.5 pr-2 text-slate-300">
+            {{ row.partido }}{% if row.preferencial %} <span class="text-amber-300">⭐</span>{% endif %}
+          </td>
+          <td class="text-right font-mono text-xl font-bold whitespace-nowrap
+                     {% if i == 0 %}text-indigo-300{% else %}text-slate-100{% endif %}">
+            {{ row.scores_fmt[i] }}
+          </td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if data.planilla.especiales and data.planilla.especiales.por_participacion %}
+  <div class="bg-slate-800 rounded-xl p-4 mt-4">
+    <h2 class="font-bold mb-2">⭐ Especiales (pestaña Especial, una vez)</h2>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-2 text-sm">
+      {% for esp in data.planilla.especiales.por_participacion %}
+      <div class="bg-slate-700/60 rounded-lg px-3 py-2">
+        <span class="text-slate-400">{{ loop.index }}:</span>
+        <span class="font-semibold">{{ esp.campeon }}</span>
+        {% if esp.goleador %}<div class="text-xs text-slate-400">{{ esp.goleador }}</div>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <script>
+    // Progreso de carga persistido en el teléfono (localStorage), por versión de
+    // planilla: si se regenera la planilla, los checks se resetean solos.
+    const cards = document.querySelectorAll('.carga-card');
+    const update = () => {
+      const done = [...cards].filter(c => c.querySelector('.cargada').checked).length;
+      document.getElementById('progreso').textContent =
+        `${done}/${cards.length} participaciones cargadas` + (done === cards.length ? ' ✅' : '');
+    };
+    cards.forEach(card => {
+      const key = 'carga:' + card.dataset.key;
+      const box = card.querySelector('.cargada');
+      box.checked = localStorage.getItem(key) === '1';
+      if (box.checked) card.classList.add('opacity-50');
+      box.addEventListener('change', () => {
+        localStorage.setItem(key, box.checked ? '1' : '0');
+        card.classList.toggle('opacity-50', box.checked);
+        update();
+      });
+    });
+    update();
+  </script>
+{% endif %}
+{% endblock %}
