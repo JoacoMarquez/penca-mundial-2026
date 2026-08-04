@@ -123,7 +123,11 @@ class SeasonSimulator:
         pool_q: list[np.ndarray],
         prize: PrizeConfig | None = None,
         sim: SimConfig | None = None,
+        rivals=None,
     ):
+        """`rivals` (opcional): un RivalModel de src.clausura.rivals — pool empírico
+        por participación (picks conocidos, estilo γ, ausentismo, residuo vs tabla
+        real). Sin él, el camino clásico: R rivales i.i.d. de la Q agregada."""
         self.prize = prize or PrizeConfig()
         self.cfg = sim or SimConfig()
         rng = np.random.default_rng(self.cfg.seed)
@@ -137,7 +141,9 @@ class SeasonSimulator:
         self.match_fecha = [self.fecha_idx[f] for f in fecha_de_partido]
         self.n_fechas = len(fechas)
 
-        S, R = self.cfg.n_sims, self.cfg.n_rivales
+        self.rival_model = rivals
+        S = self.cfg.n_sims
+        R = self.n_rivales = rivals.n_rivales if rivals is not None else self.cfg.n_rivales
 
         # resultados sorteados: (n_matches, S)
         self.actual = np.stack([
@@ -147,11 +153,21 @@ class SeasonSimulator:
         # picks de los rivales: (n_matches, R) → acumulados fijos
         self.rivals_total = np.zeros((R, S), dtype=np.int32)
         self.rivals_fecha = np.zeros((self.n_fechas, R, S), dtype=np.int32)
-        for m in range(self.n_matches):
-            rp = rng.choice(N_SCORES, size=R, p=pool_q[m])
-            pts = self.pm[m][rp[:, None], self.actual[m][None, :]]
-            self.rivals_total += pts
-            self.rivals_fecha[self.match_fecha[m]] += pts
+        if rivals is not None:
+            rp_all, show_all = rivals.sample_picks(pool_q, rng)
+            for m in range(self.n_matches):
+                pts = self.pm[m][rp_all[m][:, None], self.actual[m][None, :]]
+                pts = pts * show_all[m][:, None]   # no cargó → 0 puntos
+                self.rivals_total += pts
+                self.rivals_fecha[self.match_fecha[m]] += pts
+            # ancla a la tabla real: puntos del ranking − puntos implicados
+            self.rivals_total += rivals.residuo.astype(np.int32)[:, None]
+        else:
+            for m in range(self.n_matches):
+                rp = rng.choice(N_SCORES, size=R, p=pool_q[m])
+                pts = self.pm[m][rp[:, None], self.actual[m][None, :]]
+                self.rivals_total += pts
+                self.rivals_fecha[self.match_fecha[m]] += pts
 
         # estado propio (se setea con load_picks)
         self.picks: np.ndarray | None = None
@@ -191,8 +207,12 @@ class SeasonSimulator:
             self.actual, local_de, visita_de, n_teams, self._rng_especiales
         )
         rival_picks = self._rng_especiales.choice(
-            n_teams, size=self.cfg.n_rivales, p=pool_q_campeon
+            n_teams, size=self.n_rivales, p=pool_q_campeon
         )
+        # con modelo empírico, el campeón OBSERVADO de cada rival pisa al sorteado
+        if self.rival_model is not None and self.rival_model.campeon_idx is not None:
+            known = self.rival_model.campeon_idx
+            rival_picks = np.where(known >= 0, known, rival_picks)
         self.rivals_total += puntos * (rival_picks[:, None] == self.champ_sim[None, :])
         self.campeon_picks = None  # nuestras elecciones arrancan vacías (0 puntos)
 
@@ -208,7 +228,7 @@ class SeasonSimulator:
         n_op = len(p_goleador)
         self.gol_sim = self._rng_especiales.choice(n_op, size=self.cfg.n_sims, p=p_goleador)
         rival_picks = self._rng_especiales.choice(
-            n_op, size=self.cfg.n_rivales, p=pool_q_goleador
+            n_op, size=self.n_rivales, p=pool_q_goleador
         )
         self.rivals_total += puntos * (rival_picks[:, None] == self.gol_sim[None, :])
         self.goleador_picks = None
@@ -331,9 +351,10 @@ def simulate(
     pool_q: list[np.ndarray],
     prize: PrizeConfig | None = None,
     sim: SimConfig | None = None,
+    rivals=None,
 ) -> SimResult:
     """Wrapper de un solo tiro: construye el simulador, carga picks y liquida."""
-    s = SeasonSimulator(grids, fecha_de_partido, preferencial, pool_q, prize, sim)
+    s = SeasonSimulator(grids, fecha_de_partido, preferencial, pool_q, prize, sim, rivals)
     s.load_picks(our_picks)
     return s.result()
 

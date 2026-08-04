@@ -391,6 +391,16 @@ def run(
         c = empirical_campeon_counts(campeon_counts, equipo_idx, len(equipo_nombres))
         pool_q_campeon = blended_q(pool_q_campeon, c)
 
+    # ---------- rivales empíricos por participación (standings reales + estilo) ----------
+    rival_model = None
+    if snapshot:
+        from src.clausura.rivals import build_rival_model
+        rival_model = build_rival_model(
+            snapshot, eventos, pool_qs, resultados, equipo_idx=equipo_idx,
+        )
+        if rival_model is not None:
+            n_rivales = rival_model.n_rivales
+
     opciones_campeon, opciones_goleador = None, None
     try:
         opciones_campeon, opciones_goleador = fetch_opciones(penca_id)
@@ -432,6 +442,7 @@ def run(
         frozen_mask=mask,
         especiales=especiales,
         pool_qs=pool_qs,
+        rivals=rival_model,
     )
 
     eventos_fecha = [ev for ev in eventos if ev["fecha_n"] == target_fecha]
@@ -443,7 +454,8 @@ def run(
         "fecha": target_fecha,
         "n_participaciones": n_participaciones,
         "pool": {"n_rivales": n_rivales, "temperatura": pool_cfg.temperature,
-                 "exact_rate_observada": exact_rate},
+                 "exact_rate_observada": exact_rate,
+                 "rival_model": rival_model.resumen() if rival_model else None},
         "resultado_sim": {
             "e_premio_total": port.resultado.e_premio_total,
             "e_premio_penca": port.resultado.e_premio_penca,
