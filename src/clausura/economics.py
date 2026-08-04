@@ -1,0 +1,257 @@
+"""Objetivo económico de la Penca Supermatch: E[premio], no P(ganar).
+
+Diferencia estructural con la penca JMLM del Mundial:
+
+1. **El premio se REPARTE entre empatados** (Art. 7a y 8). No hay desempate por
+   exactos ni por nada: si tres participaciones terminan con el mismo puntaje,
+   cada una cobra $350.000/3. Entonces el objetivo correcto es
+
+       E[premio] = Σ_escenarios P(escenario) · pozo · (nuestras en el máximo / total en el máximo)
+
+   y no P(ser el máximo). Esto castiga converger con el pool: no alcanza con
+   empatar arriba, empatar te divide el premio. Y empatar con vos mismo no es
+   pérdida — si dos participaciones propias comparten el tope, cobramos las dos partes.
+
+2. **Hay 15 premios por fecha** ($10.000 c/u = $150.000, casi la mitad del premio
+   grande) que dependen SOLO de los 8 partidos de esa fecha (Art. 8: "no se acumulan
+   los puntos precedentes"). Son 15 loterías cortas donde la varianza paga mucho más
+   que en la general.
+
+3. **Múltiples participaciones propias** (Art. 1), o sea portfolio real.
+
+El simulador es Monte Carlo con **estado incremental**: sortea una vez los resultados
+y los picks de los rivales, y después permite cambiar un pick propio y reliquidar en
+O(n_sims) en vez de re-simular la temporada. Eso es lo que hace viable el ascenso por
+coordenadas de src/clausura/strategy.py.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
+import numpy as np
+
+from src.clausura.scoring import supermatch_points
+
+# Grilla de trabajo: 0..5 goles por lado cubre >99% de los resultados reales de la
+# Primera uruguaya (598 partidos históricos).
+MAX_GOALS = 5
+SIDE = MAX_GOALS + 1
+N_SCORES = SIDE * SIDE
+
+
+def score_index(gL: int, gV: int) -> int:
+    return gL * SIDE + gV
+
+
+def index_score(idx: int) -> tuple[int, int]:
+    return divmod(idx, SIDE)
+
+
+def points_matrix(preferencial: bool = False) -> np.ndarray:
+    """P[pick_idx, actual_idx] → puntos. Precalculada una vez, reusada en todo el MC."""
+    m = np.zeros((N_SCORES, N_SCORES), dtype=np.int32)
+    for pi in range(N_SCORES):
+        pick = index_score(pi)
+        for ai in range(N_SCORES):
+            m[pi, ai] = supermatch_points(pick, index_score(ai), preferencial)
+    return m
+
+
+_POINTS_NORMAL = points_matrix(False)
+_POINTS_PREF = points_matrix(True)
+
+
+def flatten_grid(grid: np.ndarray) -> np.ndarray:
+    """Grilla (n,n) del modelo → vector de probabilidades sobre los N_SCORES índices.
+
+    La masa fuera de la grilla de trabajo (6+ goles) se redistribuye proporcionalmente.
+    """
+    n = grid.shape[0]
+    flat = np.zeros(N_SCORES)
+    lim = min(n, SIDE)
+    flat[: lim * SIDE].reshape(lim, SIDE)[:, :lim] = grid[:lim, :lim]
+    s = flat.sum()
+    return flat / s if s > 0 else flat
+
+
+@dataclass
+class PrizeConfig:
+    """Premios del reglamento (Art. 7-8). Montos de la penca paga 2026."""
+    premio_penca: float = 350_000.0
+    premio_fecha: float = 10_000.0
+    costo_participacion: float = 400.0
+
+
+@dataclass
+class SimConfig:
+    n_sims: int = 2_000
+    n_rivales: int = 151         # totalElements del ranking público
+    seed: int = 20260807
+
+
+@dataclass
+class SimResult:
+    e_premio_total: float
+    e_premio_penca: float
+    e_premio_fechas: float
+    p_gana_penca: float           # P(cobramos algo del premio grande)
+    p_gana_alguna_fecha: float
+    e_fechas_ganadas: float
+    e_puntos_mejor: float
+    e_puntos_pool_max: float
+    costo: float
+    roi: float = field(init=False)
+
+    def __post_init__(self):
+        self.roi = (self.e_premio_total - self.costo) / self.costo if self.costo else float("nan")
+
+
+class SeasonSimulator:
+    """Monte Carlo de la temporada con estado incremental.
+
+    Sortea una sola vez los resultados de los partidos y los picks de los rivales
+    (common random numbers), y mantiene los acumulados propios para poder cambiar
+    un pick y reliquidar barato.
+    """
+
+    def __init__(
+        self,
+        grids: list[np.ndarray],
+        fecha_de_partido: list[int],
+        preferencial: list[bool],
+        pool_q: list[np.ndarray],
+        prize: PrizeConfig | None = None,
+        sim: SimConfig | None = None,
+    ):
+        self.prize = prize or PrizeConfig()
+        self.cfg = sim or SimConfig()
+        rng = np.random.default_rng(self.cfg.seed)
+
+        self.n_matches = len(grids)
+        self.preferencial = list(preferencial)
+        self.pm = [_POINTS_PREF if p else _POINTS_NORMAL for p in preferencial]
+
+        fechas = sorted(set(fecha_de_partido))
+        self.fecha_idx = {f: i for i, f in enumerate(fechas)}
+        self.match_fecha = [self.fecha_idx[f] for f in fecha_de_partido]
+        self.n_fechas = len(fechas)
+
+        S, R = self.cfg.n_sims, self.cfg.n_rivales
+
+        # resultados sorteados: (n_matches, S)
+        self.actual = np.stack([
+            rng.choice(N_SCORES, size=S, p=flatten_grid(g)) for g in grids
+        ])
+
+        # picks de los rivales: (n_matches, R) → acumulados fijos
+        self.rivals_total = np.zeros((R, S), dtype=np.int32)
+        self.rivals_fecha = np.zeros((self.n_fechas, R, S), dtype=np.int32)
+        for m in range(self.n_matches):
+            rp = rng.choice(N_SCORES, size=R, p=pool_q[m])
+            pts = self.pm[m][rp[:, None], self.actual[m][None, :]]
+            self.rivals_total += pts
+            self.rivals_fecha[self.match_fecha[m]] += pts
+
+        # estado propio (se setea con load_picks)
+        self.picks: np.ndarray | None = None
+        self.mine_total: np.ndarray | None = None
+        self.mine_fecha: np.ndarray | None = None
+
+    # ---------- estado propio ----------
+
+    def match_points(self, m: int, pick_idx: int) -> np.ndarray:
+        """Puntos que da ese pick en el partido m, por simulación. (S,)"""
+        return self.pm[m][pick_idx, self.actual[m]]
+
+    def load_picks(self, picks: np.ndarray) -> None:
+        """Carga el portfolio completo (n_participaciones, n_matches) y acumula."""
+        if picks.shape[1] != self.n_matches:
+            raise ValueError(f"picks tiene {picks.shape[1]} partidos, se esperaban {self.n_matches}")
+        n_mine, S = picks.shape[0], self.cfg.n_sims
+        self.picks = picks.copy()
+        self.mine_total = np.zeros((n_mine, S), dtype=np.int32)
+        self.mine_fecha = np.zeros((self.n_fechas, n_mine, S), dtype=np.int32)
+        for m in range(self.n_matches):
+            pts = self.pm[m][picks[:, m][:, None], self.actual[m][None, :]]
+            self.mine_total += pts
+            self.mine_fecha[self.match_fecha[m]] += pts
+
+    def set_pick(self, i: int, m: int, pick_idx: int) -> None:
+        """Cambia el pick de la participación i en el partido m, en O(n_sims)."""
+        if self.picks is None:
+            raise RuntimeError("load_picks() primero")
+        old = int(self.picks[i, m])
+        if old == pick_idx:
+            return
+        delta = self.match_points(m, pick_idx) - self.match_points(m, old)
+        self.mine_total[i] += delta
+        self.mine_fecha[self.match_fecha[m]][i] += delta
+        self.picks[i, m] = pick_idx
+
+    # ---------- liquidación ----------
+
+    def _liquidar(self, mine: np.ndarray, rivals: np.ndarray, pozo: float) -> np.ndarray:
+        """Premio cobrado en cada simulación, con reparto entre empatados (Art. 7a)."""
+        top = np.maximum(mine.max(axis=0), rivals.max(axis=0))
+        k = (mine == top[None, :]).sum(axis=0)
+        j = (rivals == top[None, :]).sum(axis=0)
+        total = k + j
+        return np.where(total > 0, pozo * k / np.maximum(total, 1), 0.0)
+
+    def e_premio_total(self) -> float:
+        """Objetivo escalar: E[premio del portfolio]. Es lo que optimiza la estrategia."""
+        premio = self._liquidar(self.mine_total, self.rivals_total, self.prize.premio_penca)
+        for fi in range(self.n_fechas):
+            premio = premio + self._liquidar(
+                self.mine_fecha[fi], self.rivals_fecha[fi], self.prize.premio_fecha
+            )
+        return float(premio.mean())
+
+    def result(self) -> SimResult:
+        """Reporte completo (más caro que e_premio_total, para el final)."""
+        premio_penca = self._liquidar(self.mine_total, self.rivals_total, self.prize.premio_penca)
+        premio_fechas = np.zeros(self.cfg.n_sims)
+        fechas_ganadas = np.zeros(self.cfg.n_sims)
+        for fi in range(self.n_fechas):
+            cobro = self._liquidar(
+                self.mine_fecha[fi], self.rivals_fecha[fi], self.prize.premio_fecha
+            )
+            premio_fechas += cobro
+            fechas_ganadas += (cobro > 0).astype(float)
+
+        n_mine = self.mine_total.shape[0]
+        return SimResult(
+            e_premio_total=float((premio_penca + premio_fechas).mean()),
+            e_premio_penca=float(premio_penca.mean()),
+            e_premio_fechas=float(premio_fechas.mean()),
+            p_gana_penca=float((premio_penca > 0).mean()),
+            p_gana_alguna_fecha=float((fechas_ganadas > 0).mean()),
+            e_fechas_ganadas=float(fechas_ganadas.mean()),
+            e_puntos_mejor=float(self.mine_total.max(axis=0).mean()),
+            e_puntos_pool_max=float(self.rivals_total.max(axis=0).mean()),
+            costo=n_mine * self.prize.costo_participacion,
+        )
+
+
+def simulate(
+    grids: list[np.ndarray],
+    fecha_de_partido: list[int],
+    preferencial: list[bool],
+    our_picks: np.ndarray,
+    pool_q: list[np.ndarray],
+    prize: PrizeConfig | None = None,
+    sim: SimConfig | None = None,
+) -> SimResult:
+    """Wrapper de un solo tiro: construye el simulador, carga picks y liquida."""
+    s = SeasonSimulator(grids, fecha_de_partido, preferencial, pool_q, prize, sim)
+    s.load_picks(our_picks)
+    return s.result()
+
+
+def picks_to_index_matrix(picks: list[list[tuple[int, int]]]) -> np.ndarray:
+    """[[(gL,gV) por partido] por participación] → matriz de índices."""
+    return np.array(
+        [[score_index(min(gL, MAX_GOALS), min(gV, MAX_GOALS)) for gL, gV in fila] for fila in picks],
+        dtype=np.int64,
+    )

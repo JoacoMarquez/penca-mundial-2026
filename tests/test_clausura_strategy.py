@@ -1,0 +1,221 @@
+"""Tests del modelo de pool, ratings y construcción del portfolio."""
+
+import numpy as np
+import pytest
+
+from src.clausura.economics import (
+    MAX_GOALS,
+    PrizeConfig,
+    SeasonSimulator,
+    SimConfig,
+    index_score,
+    score_index,
+)
+from src.clausura.historical import PartidoHistorico
+from src.clausura.pool import (
+    PoolConfig,
+    calibrate_from_exact_rate,
+    expected_exact_rate,
+    observed_exact_rate_from_ranking,
+    pool_distribution,
+    top_pool_picks,
+)
+from src.clausura.ratings import fit_ratings, ranking
+from src.clausura.strategy import (
+    baseline_chalk,
+    baseline_ev,
+    build_candidates,
+    build_portfolio,
+)
+from src.model.poisson import score_grid
+
+
+@pytest.fixture(scope="module")
+def grid():
+    return score_grid(1.4, 1.0, 0.0, max_goals=MAX_GOALS)
+
+
+# -------------------- pool --------------------
+
+def test_pool_distribution_es_distribucion(grid):
+    q = pool_distribution(grid)
+    assert q.sum() == pytest.approx(1.0)
+    assert (q >= 0).all()
+
+
+def test_pool_subjuega_el_0_0(grid):
+    """El hallazgo central: el 0-0 es frecuente en la liga pero impopular en el pool."""
+    q = pool_distribution(grid)
+    i00 = score_index(0, 0)
+    from src.clausura.economics import flatten_grid
+    p_real = flatten_grid(grid)[i00]
+    assert q[i00] < p_real, "el pool debería subjugar el 0-0 respecto de su probabilidad real"
+
+
+def test_temperatura_alta_aplana_el_pool(grid):
+    q_frio = pool_distribution(grid, PoolConfig(temperature=0.5))
+    q_tibio = pool_distribution(grid, PoolConfig(temperature=3.0))
+    # más temperatura → más entropía
+    ent = lambda q: -np.sum(q * np.log(q + 1e-12))
+    assert ent(q_tibio) > ent(q_frio)
+
+
+def test_exact_rate_baja_con_temperatura(grid):
+    grids = [grid] * 5
+    r_frio = expected_exact_rate(grids, PoolConfig(temperature=0.5))
+    r_tibio = expected_exact_rate(grids, PoolConfig(temperature=3.0))
+    assert r_frio > r_tibio
+
+
+def test_calibracion_recupera_la_temperatura(grid):
+    """Generamos una tasa de exactos con temperatura conocida y la recuperamos."""
+    grids = [grid] * 8
+    verdadera = PoolConfig(temperature=0.7)
+    objetivo = expected_exact_rate(grids, verdadera)
+    ajustada = calibrate_from_exact_rate(grids, objetivo)
+    assert ajustada.temperature == pytest.approx(0.7)
+
+
+def test_observed_exact_rate_desde_ranking():
+    class Row:
+        def __init__(self, e): self.cant_resultados_exactos = e
+    rows = [Row(2), Row(4), Row(3)]
+    assert observed_exact_rate_from_ranking(rows, 24) == pytest.approx(3 / 24)
+    assert observed_exact_rate_from_ranking(rows, 0) is None
+    assert observed_exact_rate_from_ranking([], 24) is None
+
+
+def test_top_pool_picks_ordenado(grid):
+    top = top_pool_picks(grid, k=4)
+    assert len(top) == 4
+    assert [q for _, q in top] == sorted([q for _, q in top], reverse=True)
+
+
+# -------------------- ratings --------------------
+
+def _partido(local, visitante, gl, gv, fecha=1):
+    return PartidoHistorico(
+        campeonato_id=1, campeonato="test", fecha_nombre=f"Fecha {fecha}", fecha_id=fecha,
+        evento_id=0, local=local, visitante=visitante,
+        goles_local=gl, goles_visitante=gv, preferencial=False,
+        inicio_utc="2026-01-01T00:00:00+00:00",
+    )
+
+
+def test_ratings_detecta_el_equipo_fuerte():
+    """Un equipo que golea siempre debe quedar arriba del ranking de fuerza neta."""
+    partidos = []
+    for i in range(12):
+        partidos.append(_partido("Fuerte", "Debil", 3, 0, i))
+        partidos.append(_partido("Debil", "Fuerte", 0, 2, i))
+        partidos.append(_partido("Medio", "Debil", 2, 1, i))
+        partidos.append(_partido("Fuerte", "Medio", 2, 0, i))
+    r = fit_ratings(partidos)
+    orden = [e for e, *_ in ranking(r)]
+    assert orden[0] == "Fuerte"
+    assert orden[-1] == "Debil"
+
+
+def test_ratings_ventaja_local_positiva():
+    partidos = []
+    for i in range(20):
+        partidos.append(_partido("A", "B", 2, 1, i))
+        partidos.append(_partido("B", "A", 2, 1, i))
+    r = fit_ratings(partidos)
+    assert r.ventaja_local > 0
+
+
+def test_lambdas_equipo_desconocido_no_explota():
+    partidos = [_partido("A", "B", 1, 1, i) for i in range(10)]
+    r = fit_ratings(partidos)
+    lam_l, lam_v = r.lambdas("Recien Ascendido", "Otro Nuevo")
+    assert 0.1 < lam_l < 5.0 and 0.1 < lam_v < 5.0
+
+
+# -------------------- candidatos y portfolio --------------------
+
+def test_build_candidates_incluye_el_mejor_por_ev(grid):
+    q = pool_distribution(grid)
+    cands = build_candidates(grid, q)
+    from src.clausura.scoring import best_pick
+    mejor, _ = best_pick(grid)
+    assert mejor in [c.pick for c in cands]
+
+
+def test_build_candidates_sin_duplicados(grid):
+    q = pool_distribution(grid)
+    cands = build_candidates(grid, q)
+    picks = [c.pick for c in cands]
+    assert len(picks) == len(set(picks))
+
+
+def test_build_candidates_trae_huecos_de_pool(grid):
+    """El menú tiene que incluir algún marcador que el pool subjuegue."""
+    q = pool_distribution(grid)
+    cands = build_candidates(grid, q, k_ev=3, k_hueco=3)
+    solo_ev = build_candidates(grid, q, k_ev=3, k_hueco=0)
+    assert len(cands) > len(solo_ev)
+
+
+@pytest.fixture(scope="module")
+def escenario():
+    """Mini-temporada: 3 fechas x 4 partidos, con fuerzas distintas por partido."""
+    grids, fechas, pref = [], [], []
+    for f in range(3):
+        for m in range(4):
+            grids.append(score_grid(1.1 + 0.25 * m, 1.0, 0.0, max_goals=MAX_GOALS))
+            fechas.append(f)
+            pref.append(m == 0)
+    return grids, fechas, pref
+
+
+def test_portfolio_no_empeora_el_ancla_ev(escenario):
+    """El ascenso por coordenadas nunca puede terminar peor que el punto de partida."""
+    grids, fechas, pref = escenario
+    sim = SimConfig(n_sims=300, n_rivales=40, seed=5)
+    port = build_portfolio(grids, fechas, pref, n_participaciones=3,
+                           sim=sim, max_passes=1)
+
+    pool_qs = [pool_distribution(g) for g in grids]
+    s = SeasonSimulator(grids, fechas, pref, pool_qs, PrizeConfig(), sim)
+    s.load_picks(baseline_ev(grids, pref, 3))
+    ancla = s.e_premio_total()
+
+    s.load_picks(port.picks)
+    assert s.e_premio_total() >= ancla - 1e-6
+
+
+def test_portfolio_diversifica(escenario):
+    """Con premio repartido entre empatados, el óptimo NO es clonar la misma planilla."""
+    grids, fechas, pref = escenario
+    port = build_portfolio(grids, fechas, pref, n_participaciones=4,
+                           sim=SimConfig(n_sims=300, n_rivales=40, seed=5), max_passes=1)
+    assert port.diversidad() > 0.0
+
+
+def test_portfolio_respeta_dimensiones(escenario):
+    grids, fechas, pref = escenario
+    port = build_portfolio(grids, fechas, pref, n_participaciones=3,
+                           sim=SimConfig(n_sims=200, n_rivales=30, seed=5), max_passes=1)
+    assert port.picks.shape == (3, len(grids))
+    scores = port.as_scores()
+    assert len(scores) == 3 and len(scores[0]) == len(grids)
+    for fila in scores:
+        for gL, gV in fila:
+            assert 0 <= gL <= MAX_GOALS and 0 <= gV <= MAX_GOALS
+
+
+def test_participacion_0_es_el_ancla_ev(escenario):
+    """La primera participación queda fija en argmax E[pts] (no se perturba)."""
+    grids, fechas, pref = escenario
+    port = build_portfolio(grids, fechas, pref, n_participaciones=3,
+                           sim=SimConfig(n_sims=200, n_rivales=30, seed=5), max_passes=1)
+    esperado = baseline_ev(grids, pref, 1)[0]
+    assert np.array_equal(port.picks[0], esperado)
+
+
+def test_baselines_son_uniformes(escenario):
+    grids, fechas, pref = escenario
+    for picks in (baseline_chalk(grids, 4), baseline_ev(grids, pref, 4)):
+        for m in range(len(grids)):
+            assert len(set(picks[:, m])) == 1
