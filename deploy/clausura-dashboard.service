@@ -1,0 +1,19 @@
+[Unit]
+Description=Penca Clausura 2026 — Dashboard standalone (src.clausura.webapp)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/penca/env
+Environment="PYTHONPATH=/opt/penca"
+WorkingDirectory=/opt/penca
+ExecStart=/opt/penca/.venv/bin/uvicorn src.clausura.webapp:app --host 0.0.0.0 --port 8000
+Restart=on-failure
+RestartSec=5s
+StandardOutput=append:/var/lib/penca/logs/clausura-dashboard.log
+StandardError=append:/var/lib/penca/logs/clausura-dashboard.err
+User=root
+
+[Install]
+WantedBy=multi-user.target

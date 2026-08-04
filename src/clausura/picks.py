@@ -467,15 +467,24 @@ def run(
     return path
 
 
+def resolve_fecha(arg: str) -> int:
+    """'auto' → primera fecha con partidos pendientes (para el timer del VPS)."""
+    if arg.lower() == "auto":
+        from src.clausura.dashboard_loader import fecha_actual
+        return fecha_actual(load_config())
+    return int(arg)
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     ap = argparse.ArgumentParser()
-    ap.add_argument("--fecha", type=int, required=True, help="número de fecha (1-15)")
+    ap.add_argument("--fecha", default="auto",
+                    help="número de fecha (1-15) o 'auto' = próxima con partidos pendientes")
     ap.add_argument("--participaciones", type=int, default=5)
     ap.add_argument("--telegram", action="store_true", help="mandar la planilla al bot")
     ap.add_argument("--sims", type=int, default=800)
     args = ap.parse_args()
-    run(args.fecha, args.participaciones, args.telegram, args.sims)
+    run(resolve_fecha(args.fecha), args.participaciones, args.telegram, args.sims)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,14 @@
+[Unit]
+Description=Timer del pipeline de picks del Clausura — jue a dom 12:00 UTC (09:00 UY)
+
+# Jueves: primera pasada con odds recién publicadas (aparecen 24-48h antes).
+# Vie/sáb/dom: refresh la mañana de cada día de partido, con el mercado maduro.
+# La planilla llega por Telegram; la carga en la web sigue siendo manual.
+
+[Timer]
+OnCalendar=Thu,Fri,Sat,Sun *-*-* 12:00:00 UTC
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

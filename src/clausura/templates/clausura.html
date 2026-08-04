@@ -1,0 +1,173 @@
+{% extends "base_clausura.html" %}
+{% block title %}Clausura 2026 — Penca Supermatch{% endblock %}
+
+{% block content %}
+{% if not data.ok %}
+  <div class="bg-red-900/40 border border-red-700 rounded-xl p-4 text-red-200">
+    ⚠️ {{ data.error }}
+  </div>
+{% else %}
+
+  {# ---------- HEADER CARDS ---------- #}
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+    <div class="bg-slate-800 rounded-xl p-4">
+      <div class="text-xs text-slate-400 mb-1">Pool</div>
+      <div class="text-2xl font-bold">
+        {% if data.ranking.ok %}{{ data.ranking.total }}{% else %}—{% endif %}
+      </div>
+      <div class="text-xs text-slate-500">participaciones · ${{ '%.0f' % data.precio }} c/u</div>
+    </div>
+    <div class="bg-slate-800 rounded-xl p-4">
+      <div class="text-xs text-slate-400 mb-1">1er premio</div>
+      <div class="text-2xl font-bold text-amber-300">${{ '{:,.0f}'.format(data.premios.get('PENCA', 350000)) }}</div>
+      <div class="text-xs text-slate-500">+ ${{ '{:,.0f}'.format(data.premios.get('FECHA', 10000)) }} por fecha</div>
+    </div>
+    {% if data.planilla %}
+    <div class="bg-slate-800 rounded-xl p-4">
+      <div class="text-xs text-slate-400 mb-1">E[premio] portfolio</div>
+      <div class="text-2xl font-bold text-emerald-300">${{ '{:,.0f}'.format(data.planilla.resultado_sim.e_premio_total) }}</div>
+      <div class="text-xs text-slate-500">P(1er premio): {{ '%.0f' % (100 * data.planilla.resultado_sim.p_gana_penca) }}%</div>
+    </div>
+    <div class="bg-slate-800 rounded-xl p-4">
+      <div class="text-xs text-slate-400 mb-1">Planilla</div>
+      <div class="text-2xl font-bold">{{ data.planilla.version_file.split('_')[0] }}</div>
+      <div class="text-xs text-slate-500">{{ data.planilla.generado_uy }} UY · pool T° {{ '%.2f' % data.planilla.pool.temperatura }}</div>
+    </div>
+    {% else %}
+    <div class="bg-slate-800 rounded-xl p-4 col-span-2">
+      <div class="text-xs text-slate-400 mb-1">Planilla</div>
+      <div class="text-sm text-slate-300 mt-2">Sin picks guardados para esta fecha —
+        <code class="text-xs bg-slate-700 px-1.5 py-0.5 rounded">python3 -m src.clausura.picks --fecha {{ data.fecha_n }}</code>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  {# ---------- SELECTOR DE FECHA ---------- #}
+  <div class="flex items-center gap-1.5 mb-4 overflow-x-auto pb-1">
+    {% for f in range(1, 16) %}
+      <a href="/dash/{{ token }}/?fecha={{ f }}"
+         class="shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium transition
+                {% if f == data.fecha_n %}bg-indigo-600 text-white
+                {% elif f in data.fechas_guardadas %}bg-slate-700 text-slate-200 hover:bg-slate-600
+                {% else %}bg-slate-800 text-slate-500 hover:bg-slate-700{% endif %}">
+        F{{ f }}{% if f == data.fecha_actual %} •{% endif %}
+      </a>
+    {% endfor %}
+  </div>
+
+  <div class="grid lg:grid-cols-3 gap-4">
+
+    {# ---------- PLANILLA ---------- #}
+    <div class="lg:col-span-2 bg-slate-800 rounded-xl p-4">
+      <h2 class="font-bold mb-3">📋 Planilla — Fecha {{ data.fecha_n }}</h2>
+      {% if data.planilla %}
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="text-xs text-slate-400 border-b border-slate-700">
+              <tr>
+                <th class="text-left py-2 pr-2">Partido</th>
+                {% for i in range(data.planilla.n_participaciones) %}
+                  <th class="text-center px-1.5">{{ i + 1 }}</th>
+                {% endfor %}
+                <th class="text-right pl-2">Cierre</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in data.planilla.picks %}
+              <tr class="border-b border-slate-700/50 {% if row.cerrado %}opacity-50{% endif %}">
+                <td class="py-2 pr-2">
+                  <span class="font-medium">{{ row.partido }}</span>
+                  {% if row.preferencial %}<span class="text-amber-300 text-xs ml-1">⭐x2</span>{% endif %}
+                  <div class="text-[11px] text-slate-500">{{ row.fuente_modelo }}</div>
+                </td>
+                {% for s in row.scores_fmt %}
+                  <td class="text-center px-1.5 font-mono {% if loop.index0 == 0 %}text-indigo-300 font-bold{% endif %}">{{ s }}</td>
+                {% endfor %}
+                <td class="text-right pl-2 text-xs text-slate-400">
+                  {{ row.cierre_uy }}{% if row.cerrado %} 🔒{% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div class="text-xs text-slate-500 mt-2">Columna 1 = ancla EV puro · 2..N = perturbaciones óptimas · horas en UY (UTC-3)</div>
+
+        {# ---------- ESPECIALES ---------- #}
+        {% if data.planilla.especiales and data.planilla.especiales.por_participacion %}
+        <div class="mt-4 pt-3 border-t border-slate-700">
+          <h3 class="font-semibold text-sm mb-2">⭐ Especiales (25 pts c/u)</h3>
+          {% if data.planilla.especiales.p_campeon %}
+          <div class="mb-3 space-y-1">
+            {% for equipo, p in (data.planilla.especiales.p_campeon.items() | sort(attribute='1', reverse=True))[:5] %}
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-40 truncate text-slate-300">{{ equipo }}</span>
+              <div class="flex-1 bg-slate-700 rounded-full h-2">
+                <div class="bg-indigo-500 h-2 rounded-full" style="width: {{ (100 * p) | round(1) }}%"></div>
+              </div>
+              <span class="w-10 text-right text-slate-400">{{ (100 * p) | round(0) | int }}%</span>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+          <div class="flex flex-wrap gap-2">
+            {% for esp in data.planilla.especiales.por_participacion %}
+            <div class="bg-slate-700/60 rounded-lg px-3 py-1.5 text-xs">
+              <span class="text-slate-400">{{ loop.index }}:</span>
+              <span class="font-medium">{{ esp.campeon }}</span>
+              {% if esp.goleador %}<span class="text-slate-400"> · {{ esp.goleador }}</span>{% endif %}
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+      {% else %}
+        <div class="text-slate-400 text-sm">No hay planilla guardada para la Fecha {{ data.fecha_n }}.</div>
+      {% endif %}
+    </div>
+
+    {# ---------- RANKING ---------- #}
+    <div class="bg-slate-800 rounded-xl p-4">
+      <h2 class="font-bold mb-3">🏆 Ranking en vivo</h2>
+      {% if data.ranking.ok %}
+        <div class="text-xs text-slate-400 mb-2">
+          {{ data.ranking.total }} participaciones ·
+          exactos máx {{ data.ranking.exactos_max }} · media {{ '%.1f' % data.ranking.exactos_media }}
+          {% if data.ranking.mias_encontradas %}
+            · <span class="text-indigo-300">{{ data.ranking.mias_encontradas }} tuyas resaltadas</span>
+          {% endif %}
+        </div>
+        <table class="w-full text-sm">
+          <thead class="text-xs text-slate-400 border-b border-slate-700">
+            <tr>
+              <th class="text-left py-1.5">#</th>
+              <th class="text-left">Part.</th>
+              <th class="text-right">Pts</th>
+              <th class="text-right">Exact.</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in data.ranking.rows %}
+            <tr class="border-b border-slate-700/40 {% if r.mia %}bg-indigo-900/40 text-indigo-200 font-semibold{% endif %}">
+              <td class="py-1.5">{{ r.pos }}</td>
+              <td class="font-mono text-xs">{{ r.numero }}</td>
+              <td class="text-right">{{ r.puntos }}</td>
+              <td class="text-right">{{ r.exactos }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% if not data.ranking.mias_encontradas %}
+        <div class="text-[11px] text-slate-500 mt-2">
+          Para resaltar las tuyas: <code class="bg-slate-700 px-1 rounded">CLAUSURA_MIS_PARTICIPACIONES=nro1,nro2</code> en el .env
+        </div>
+        {% endif %}
+      {% else %}
+        <div class="text-slate-400 text-sm">Ranking no disponible: {{ data.ranking.error }}</div>
+      {% endif %}
+    </div>
+
+  </div>
+{% endif %}
+{% endblock %}
