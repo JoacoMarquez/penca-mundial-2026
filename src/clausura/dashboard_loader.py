@@ -27,9 +27,19 @@ RANKING_TTL = 120.0     # segundos de cache para no golpear el penca-api en cada
 CONFIG_TTL = 300.0
 
 
+_CACHE: dict[str, tuple[float, object]] = {}
+
+
 def _cached(key: str, ttl: float, loader):
-    from src.dashboard.data_loader import _cached as base_cached
-    return base_cached(f"clausura:{key}", ttl, loader)
+    """Memoize con TTL (mismo patrón que el dashboard del Mundial, sin depender de él)."""
+    import time
+    now = time.time()
+    entry = _CACHE.get(key)
+    if entry and (now - entry[0]) < ttl:
+        return entry[1]
+    value = loader()
+    _CACHE[key] = (now, value)
+    return value
 
 
 def _load_config() -> dict | None:

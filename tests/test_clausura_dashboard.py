@@ -72,3 +72,17 @@ def test_load_planilla_fecha_inexistente(tmp_path, monkeypatch):
     import src.clausura.picks as picks_mod
     monkeypatch.setattr(picks_mod, "PRED_DIR", tmp_path)
     assert load_planilla(9) is None
+
+
+def test_webapp_token(monkeypatch):
+    """El app standalone respeta DASHBOARD_TOKEN (404 con token malo, 503 sin config)."""
+    pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+    from src.clausura.webapp import app
+
+    client = TestClient(app)
+    monkeypatch.delenv("DASHBOARD_TOKEN", raising=False)
+    assert client.get("/dash/x/").status_code == 503
+    monkeypatch.setenv("DASHBOARD_TOKEN", "bueno")
+    assert client.get("/dash/malo/").status_code == 404
+    assert client.get("/").json()["status"] == "ok"

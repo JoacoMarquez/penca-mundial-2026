@@ -1,5 +1,4 @@
-{% extends "base.html" %}
-{% set current_page = 'clausura' %}
+{% extends "base_clausura.html" %}
 {% block title %}Clausura 2026 — Penca Supermatch{% endblock %}
 
 {% block content %}
@@ -47,7 +46,7 @@
   {# ---------- SELECTOR DE FECHA ---------- #}
   <div class="flex items-center gap-1.5 mb-4 overflow-x-auto pb-1">
     {% for f in range(1, 16) %}
-      <a href="/dash/{{ token }}/clausura/?fecha={{ f }}"
+      <a href="/dash/{{ token }}/?fecha={{ f }}"
          class="shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium transition
                 {% if f == data.fecha_n %}bg-indigo-600 text-white
                 {% elif f in data.fechas_guardadas %}bg-slate-700 text-slate-200 hover:bg-slate-600
