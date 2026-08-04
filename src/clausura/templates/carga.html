@@ -18,8 +18,14 @@
         una tarjeta por participación, en el orden de la web
       </div>
     </div>
-    <a href="/dash/{{ token }}/?fecha={{ data.fecha_n }}"
-       class="text-sm text-indigo-300 hover:text-indigo-200 shrink-0">← planilla</a>
+    <div class="flex items-center gap-3 shrink-0">
+      <a href="{{ data.supermatch_url }}" target="_blank" rel="noopener"
+         class="text-sm bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg font-medium">
+        Abrir penca ↗
+      </a>
+      <a href="/dash/{{ token }}/?fecha={{ data.fecha_n }}"
+         class="text-sm text-indigo-300 hover:text-indigo-200">← planilla</a>
+    </div>
   </div>
 
   <div class="text-xs text-slate-400 mb-4" id="progreso"></div>
@@ -30,6 +36,9 @@
     <div class="bg-slate-800 rounded-xl p-4 carga-card" data-key="{{ key }}">
       <div class="flex items-center justify-between mb-2">
         <span class="font-bold">Participación {{ i + 1 }}
+          {% if data.mis_numeros and i < data.mis_numeros | length %}
+            <span class="font-mono text-sm text-emerald-300">N° {{ data.mis_numeros[i] }}-1</span>
+          {% endif %}
           {% if i == 0 %}<span class="text-indigo-300 text-xs font-medium">(ancla EV)</span>{% endif %}
         </span>
         <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer select-none">
