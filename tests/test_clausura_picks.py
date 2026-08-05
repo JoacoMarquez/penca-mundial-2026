@@ -76,7 +76,7 @@ def test_build_season_grids_separa_liquidacion_de_predictivas():
     """Jugados: grilla de liquidación = delta, pero la predictiva sigue siendo la
     del modelo (calibración/Q/γ no pueden ver el resultado)."""
     eventos = [_evento(10, "A", "B"), _evento(20, "C", "D")]
-    grids, fuentes, pred = build_season_grids(
+    grids, fuentes, pred, _ = build_season_grids(
         eventos, _RatingsStub(), odds_by_evento={}, resultados={10: (2, 1)})
 
     assert grids[0][2, 1] == 1.0 and fuentes[0] == "final 2-1"   # delta
