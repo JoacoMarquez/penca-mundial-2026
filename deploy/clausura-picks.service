@@ -10,6 +10,8 @@ EnvironmentFile=/etc/penca/env
 Environment="PYTHONPATH=/opt/penca"
 WorkingDirectory=/opt/penca
 ExecStartPre=/opt/penca/.venv/bin/python -m src.clausura.sync
+# "-": si Wikipedia falla, el pipeline sigue con el intermedio ya guardado
+ExecStartPre=-/opt/penca/.venv/bin/python -m src.clausura.intermedio
 ExecStartPre=/opt/penca/.venv/bin/python -m src.clausura.pool_snapshot --if-started
 ExecStart=/opt/penca/.venv/bin/python -m src.clausura.picks --fecha auto --telegram --participaciones 12
 StandardOutput=append:/var/lib/penca/logs/clausura-picks.log
