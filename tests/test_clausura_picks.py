@@ -197,3 +197,31 @@ def test_build_portfolio_frozen_sin_picks_falla():
         build_portfolio([g] * 2, [1, 1], [False] * 2, n_participaciones=2,
                         sim=SimConfig(n_sims=50, n_rivales=10, seed=1),
                         frozen_mask=np.array([True, False]))
+
+
+# -------------------- sección de la penca gratuita --------------------
+
+def test_format_gratuita_usa_la_participacion_1_y_el_campeon_mas_probable():
+    """La gratuita (premio indivisible, 1 planilla) va con EV puro = participación 1,
+    pero con el campeón MÁS PROBABLE (los especiales sí se diversifican en la fila 1)."""
+    from src.clausura.picks import format_gratuita
+    from src.clausura.strategy import PortfolioClausura
+
+    eventos = [_evento(10, "Nacional", "Cerro"), _evento(20, "Danubio", "Racing", pref=True)]
+    idx_of = {10: 0, 20: 1}
+    picks = np.array([
+        [score_index(1, 0), score_index(2, 1)],   # participación 1 (ancla EV)
+        [score_index(0, 0), score_index(1, 1)],   # participación 2 (perturbada)
+    ], dtype=np.int64)
+    port = PortfolioClausura(
+        picks=picks, candidatos=[], resultado=None,
+        campeon=np.array([2, 0]),                 # la fila 1 tiene el campeón 2…
+        p_campeon=np.array([0.5, 0.2, 0.3]),      # …pero el más probable es el 0
+    )
+    txt = format_gratuita(eventos, port, idx_of, ["Peñarol", "Nacional", "Defensor"], None)
+
+    assert "1-0" in txt and "2-1" in txt        # marcadores de la participación 1
+    assert "0-0" not in txt and "1-1" not in txt  # NO los de la participación 2
+    assert "Peñarol" in txt                     # argmax P(campeón), no el de la fila 1
+    assert "Defensor" not in txt
+    assert "⭐x2" in txt                         # marca el partido estrella
