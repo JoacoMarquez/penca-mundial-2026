@@ -20,7 +20,16 @@ Tipos de discrepancia:
   - sin_planilla:        hay un pick cargado para un evento sin planilla guardada
   (faltantes ANTES del cierre no son drift — de eso se ocupa carga_alert)
 
-También audita los especiales (campeón/goleador) contra la última planilla que los tenga.
+También audita los especiales (campeón/goleador) contra la última planilla que los
+tenga, con una asimetría deliberada (2026-08-05: el usuario cargó especiales por la
+web mientras los endpoints públicos de opciones daban 500 — el front autenticado usa
+otro canal):
+
+  - **Campeón**: la planilla lo asignó → mismatch = drift, se reporta.
+  - **Goleador**: la planilla nunca pudo asignarlo (sin menú vía API) → lo cargado
+    en la web ES la verdad. Post-inicio, el audit lo ADOPTA: versiona una planilla
+    nueva con los goleadores reales para que el freeze del optimizador y las
+    auditorías siguientes queden alineados. Se notifica una vez.
 
 Uso:
     python -m src.clausura.drift_audit               # audita y avisa (error si no inició)
@@ -263,6 +272,67 @@ def formatear_reporte(discrepancias: list[Discrepancia]) -> str:
     return "\n".join(lines)
 
 
+# -------------------- adopción de especiales reales --------------------
+
+def payload_con_goleadores_reales(
+    payload: dict,
+    cargados: list[Cargado],
+    mis_numeros: list[int],
+) -> tuple[dict, list[tuple[int, str]]] | None:
+    """(payload nuevo, [(numero, goleador)]) adoptando los goleadores cargados en la
+    web donde la planilla no tiene (None). None si no hay nada que adoptar.
+
+    Nota: goleador_idx queda en -1 (sin menú vía API no hay índice); si el endpoint
+    de opciones alguna vez responde, el nombre adoptado es la referencia.
+    """
+    gol_por_numero = {c.numero: c.goleador for c in cargados
+                      if c.especiales_visibles and c.goleador}
+    if not gol_por_numero:
+        return None
+    esp = payload.setdefault("especiales", {})
+    rows = esp.get("por_participacion") or []
+    while len(rows) < len(mis_numeros):
+        rows.append({"campeon_idx": -1, "campeon": None,
+                     "goleador_idx": -1, "goleador": None})
+    adoptados: list[tuple[int, str]] = []
+    for k, numero in enumerate(mis_numeros):
+        real = gol_por_numero.get(numero)
+        if real and not rows[k].get("goleador"):
+            rows[k]["goleador"] = real
+            rows[k]["goleador_idx"] = -1
+            adoptados.append((numero, real))
+    if not adoptados:
+        return None
+    esp["por_participacion"] = rows
+    payload["especiales_adoptados_utc"] = datetime.now(timezone.utc).isoformat()
+    return payload, adoptados
+
+
+def adoptar_goleadores(cargados: list[Cargado], mis_numeros: list[int]) -> str | None:
+    """Versiona una planilla nueva con los goleadores reales. Devuelve el texto del
+    aviso, o None si no había nada que adoptar."""
+    import src.clausura.picks as picks
+    from src.utils.versions import latest_version
+
+    target = picks.resolve_fecha("auto")
+    d = picks.fecha_dir(target)
+    latest = latest_version(d.glob("v*_*.json")) if d.exists() else None
+    if latest is None:
+        log.warning("sin planilla de la fecha %d — no puedo adoptar goleadores", target)
+        return None
+    payload = json.loads(latest.read_text(encoding="utf-8"))
+    resultado = payload_con_goleadores_reales(payload, cargados, mis_numeros)
+    if resultado is None:
+        return None
+    payload, adoptados = resultado
+    path = picks.save_version(target, payload)
+    log.info("goleadores reales adoptados → %s", path.name)
+    lines = ["<b>📌 Goleadores cargados en la web, adoptados a la planilla</b>",
+             "(la planilla no tenía asignación — sin menú vía API):"]
+    lines += [f"  {numero}: <b>{gol}</b>" for numero, gol in adoptados]
+    return "\n".join(lines)
+
+
 # -------------------- estado --------------------
 
 def load_state() -> set[str]:
@@ -295,6 +365,16 @@ def run(dry_run: bool = False, now: datetime | None = None) -> list[Discrepancia
         return []
 
     cargados = fetch_cargados(cfg["pencas"]["paga"]["id"], set(mis_numeros))
+
+    # goleadores cargados en la web sin asignación en la planilla → adoptarlos
+    # (una vez; después la planilla ya los tiene y esto devuelve None)
+    aviso_adopcion = None
+    if not dry_run:
+        try:
+            aviso_adopcion = adoptar_goleadores(cargados, mis_numeros)
+        except Exception as e:
+            log.warning("adopción de goleadores falló (%s)", e)
+
     discrepancias = (diff_picks(eventos, esperado, cargados, now)
                      + diff_especiales(especiales_esperados(mis_numeros), cargados))
 
@@ -307,13 +387,19 @@ def run(dry_run: bool = False, now: datetime | None = None) -> list[Discrepancia
     elif not nuevas:
         log.info("%d discrepancia(s) persisten pero ya fueron avisadas", len(discrepancias))
 
+    partes = []
+    if aviso_adopcion:
+        partes.append(aviso_adopcion)
     if nuevas:
-        reporte = formatear_reporte(nuevas)
+        partes.append(formatear_reporte(nuevas))
+    if partes:
+        reporte = "\n\n".join(partes)
         print(reporte.replace("<b>", "").replace("</b>", ""))
         if not dry_run:
             from src.notifier.telegram import TelegramConfig, TelegramNotifier
             TelegramNotifier(TelegramConfig.from_env()).send(reporte)
-            save_state(avisadas | {d.clave for d in nuevas})
+            if nuevas:
+                save_state(avisadas | {d.clave for d in nuevas})
     return discrepancias
 
 

@@ -7,6 +7,7 @@ from src.clausura.drift_audit import (
     diff_especiales,
     diff_picks,
     formatear_reporte,
+    payload_con_goleadores_reales,
 )
 
 NOW = datetime(2026, 8, 8, 15, 0, tzinfo=timezone.utc)
@@ -88,6 +89,36 @@ def test_diff_especiales_gate_cerrado_no_es_drift():
     cargados = [Cargado(NUMS[0], {}, campeon=None, goleador=None,
                         especiales_visibles=False)]
     assert diff_especiales(esperados, cargados) == []
+
+
+def test_adopcion_toma_goleadores_web_solo_donde_planilla_no_tiene():
+    payload = {"especiales": {"por_participacion": [
+        {"campeon": "Peñarol", "campeon_idx": 0, "goleador": None, "goleador_idx": -1},
+        {"campeon": "Nacional", "campeon_idx": 1, "goleador": "M. Terans", "goleador_idx": 2},
+        {"campeon": "Nacional", "campeon_idx": 1, "goleador": None, "goleador_idx": -1},
+    ]}}
+    cargados = [
+        Cargado(NUMS[0], {}, goleador="L. Suárez"),
+        Cargado(NUMS[1], {}, goleador="Otro"),          # planilla ya tiene → no pisa
+        Cargado(NUMS[2], {}, goleador="C. Romero", especiales_visibles=True),
+    ]
+    nuevo, adoptados = payload_con_goleadores_reales(payload, cargados, NUMS)
+    rows = nuevo["especiales"]["por_participacion"]
+    assert rows[0]["goleador"] == "L. Suárez" and rows[0]["goleador_idx"] == -1
+    assert rows[1]["goleador"] == "M. Terans"           # intacto
+    assert rows[2]["goleador"] == "C. Romero"
+    assert adoptados == [(NUMS[0], "L. Suárez"), (NUMS[2], "C. Romero")]
+    assert "especiales_adoptados_utc" in nuevo
+    # segunda pasada: ya no hay nada que adoptar → idempotente
+    assert payload_con_goleadores_reales(nuevo, cargados, NUMS) is None
+
+
+def test_adopcion_ignora_gate_cerrado_y_sin_goleador():
+    payload = {"especiales": {"por_participacion": [
+        {"campeon": None, "campeon_idx": -1, "goleador": None, "goleador_idx": -1}]}}
+    cargados = [Cargado(NUMS[0], {}, goleador="X", especiales_visibles=False),
+                Cargado(NUMS[1], {}, goleador=None)]
+    assert payload_con_goleadores_reales(payload, cargados, NUMS) is None
 
 
 def test_reporte_agrupa_por_participacion():
