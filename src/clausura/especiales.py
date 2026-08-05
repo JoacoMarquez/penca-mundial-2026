@@ -156,17 +156,25 @@ def pool_campeon_distribution(
     equipos: list[str],
     chalk_strength: float = 0.8,
     big_club_bias: float = 2.5,
+    lean: dict[str, float] | None = None,
 ) -> np.ndarray:
     """Qué campeón pica el pencista típico.
 
     El pool sobre-pica a los grandes (Peñarol/Nacional) incluso más allá de su
     probabilidad real — sesgo de hincha + folclore. big_club_bias multiplica su masa.
+
+    `lean` inclina el pool hacia equipos puntuales (multiplicador por nombre) cuando
+    hay señal cualitativa de hacia dónde va el consenso (prensa, pronósticos
+    públicos) — ej. {"Nacional": 1.6, "Peñarol": 0.9}. Post-inicio la Q empírica
+    del snapshot pisa todo esto; el lean importa ANTES del lock de especiales.
     """
     eps = 1e-9
     score = np.log(p_champ + eps) * chalk_strength
     for i, e in enumerate(equipos):
         if e in ("Peñarol", "Nacional"):
             score[i] += np.log(big_club_bias)
+        if lean and e in lean:
+            score[i] += np.log(max(lean[e], eps))
     score -= score.max()
     q = np.exp(score)
     return q / q.sum()
