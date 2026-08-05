@@ -1,0 +1,17 @@
+[Unit]
+Description=Penca Clausura — corrida extra ~2h antes del primer cierre del día (diff vs planilla)
+After=network-online.target
+Wants=network-online.target
+OnFailure=penca-failure-notify@%n.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/penca/env
+Environment="PYTHONPATH=/opt/penca"
+WorkingDirectory=/opt/penca
+ExecStartPre=/opt/penca/.venv/bin/python -m src.clausura.sync
+ExecStartPre=/opt/penca/.venv/bin/python -m src.clausura.pool_snapshot --if-started
+ExecStart=/opt/penca/.venv/bin/python -m src.clausura.rerun_cierre --participaciones 12
+StandardOutput=append:/var/lib/penca/logs/clausura-rerun-cierre.log
+StandardError=append:/var/lib/penca/logs/clausura-rerun-cierre.err
+User=root
