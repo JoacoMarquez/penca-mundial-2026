@@ -37,6 +37,7 @@ import yaml
 from src.clausura.api import TZ_UY, PencaApiClient
 from src.clausura.economics import MAX_GOALS, SimConfig, index_score, score_index
 from src.clausura.historical import DATA_DIR, load_dataset
+from src.clausura.market_grid import refine_grid
 from src.clausura.odds import EventOdds, _norm, fetch_primera_odds
 from src.clausura.pool import PoolConfig, calibrate_from_exact_rate, observed_exact_rate_from_ranking
 from src.clausura.especiales import (
@@ -140,21 +141,39 @@ def market_lambdas(o: EventOdds) -> tuple[float, float] | None:
     return lam_l, lam_v
 
 
+def mercados_ricos_activos() -> bool:
+    """CLAUSURA_MERCADOS_RICOS=1 activa el refinado con marcador exacto/goles.
+
+    Default APAGADO: el backtest de recuperación (scripts/backtest_market_grid.py,
+    2026-08-05) mostró que si la liga es Poisson dado el λ del partido — y ε≈0-0.1
+    dice que lo es — el refinado solo agrega ruido de vig. El valor real, si existe,
+    es información del mercado que el 1X2 no revela, y eso se mide en modo sombra:
+    ambas grillas se versionan en el payload y el postmortem las compara contra los
+    resultados reales. Prender el flag recién si la sombra gana.
+    """
+    return os.environ.get("CLAUSURA_MERCADOS_RICOS", "0") == "1"
+
+
 def build_season_grids(
     eventos: list[dict],
     ratings: TeamRatings,
     odds_by_evento: dict[int, EventOdds],
     resultados: dict[int, tuple[int, int]],
-) -> tuple[list[np.ndarray], list[str], list[np.ndarray]]:
-    """(grids, fuentes, pred_grids) por evento.
+) -> tuple[list[np.ndarray], list[str], list[np.ndarray], list[dict | None]]:
+    """(grids, fuentes, pred_grids, shadow) por evento.
 
     `grids` es la grilla de LIQUIDACIÓN: delta en los partidos ya jugados (toda la
     masa en el resultado real), predictiva en los futuros. `pred_grids` es la grilla
     PREDICTIVA pre-partido para todos los eventos: es la única válida para calibrar
     el pool, construir Q y ajustar γ — sobre una delta, cualquier pencista "acierta"
     el exacto con probabilidad 1 y la calibración degenera.
+
+    `shadow[i]` guarda ambas grillas (base Poisson y refinada con mercados ricos)
+    cuando hay mercados ricos, para la comparación del postmortem contra resultados
+    reales. Cuál de las dos va a `pred_grids` lo decide mercados_ricos_activos().
     """
-    grids, fuentes, pred_grids = [], [], []
+    usar_ricos = mercados_ricos_activos()
+    grids, fuentes, pred_grids, shadow = [], [], [], []
     for ev in eventos:
         eid = ev["evento_id"]
         lam_rt = ratings.lambdas(ev["local"], ev["visitante"])
@@ -167,7 +186,23 @@ def build_season_grids(
         else:
             lam_l, lam_v = lam_rt
             fuente = "ratings"
-        pred = score_grid(lam_l, lam_v, 0.0, max_goals=MAX_GOALS)
+        base = score_grid(lam_l, lam_v, 0.0, max_goals=MAX_GOALS)
+        rica, ricos = refine_grid(base, o)
+
+        if ricos:
+            shadow.append({
+                "mercados": ricos,
+                "base": [round(float(x), 6) for x in base.ravel()],
+                "rica": [round(float(x), 6) for x in rica.ravel()],
+            })
+        else:
+            shadow.append(None)
+
+        if usar_ricos and ricos:
+            pred = rica
+            fuente += "+" + "+".join(ricos)
+        else:
+            pred = base
         pred_grids.append(pred)
 
         if eid in resultados:
@@ -177,7 +212,7 @@ def build_season_grids(
         else:
             grids.append(pred)
             fuentes.append(fuente)
-    return grids, fuentes, pred_grids
+    return grids, fuentes, pred_grids, shadow
 
 
 # -------------------- estado congelado (picks ya cargados) --------------------
@@ -379,7 +414,11 @@ def run(
         odds = []
     odds_by_evento = match_odds(eventos, odds)
 
-    grids, fuentes, pred_grids = build_season_grids(eventos, ratings, odds_by_evento, resultados)
+    grids, fuentes, pred_grids, shadow = build_season_grids(
+        eventos, ratings, odds_by_evento, resultados)
+    log.info("mercados ricos: %s (%d eventos con sombra)",
+             "ACTIVOS" if mercados_ricos_activos() else "sombra",
+             sum(s is not None for s in shadow))
 
     # calibración del pool: SIEMPRE con las grillas predictivas de los jugados —
     # sobre la delta el exacto esperado es ≈1 para cualquier temperatura y el
@@ -560,6 +599,10 @@ def run(
                               index_score(int(port.picks[k, idx_of[ev["evento_id"]]])),
                               grids[idx_of[ev["evento_id"]]], ev["preferencial"]), 2)
                           for k in range(n_participaciones)],
+                # sombra de mercados ricos: base Poisson vs refinada, para que el
+                # postmortem compare log-loss contra el resultado real y decidamos
+                # con datos si prender CLAUSURA_MERCADOS_RICOS
+                "grilla_shadow": shadow[idx_of[ev["evento_id"]]],
             }
             for ev in eventos_fecha
         ],
