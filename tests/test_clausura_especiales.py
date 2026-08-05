@@ -82,6 +82,17 @@ def test_pool_campeon_sobrepondera_grandes():
     assert q[1] > q[0]
 
 
+def test_pool_campeon_lean_inclina_el_consenso():
+    equipos = ["Peñarol", "Nacional", "Cerro"]
+    p = np.array([0.30, 0.30, 0.40])
+    base = pool_campeon_distribution(p, equipos)
+    leaned = pool_campeon_distribution(p, equipos,
+                                       lean={"Nacional": 1.6, "Peñarol": 0.9})
+    assert np.isclose(base[0], base[1])          # sin lean, los grandes empatan
+    assert leaned[1] > leaned[0]                 # con lean, el pool carga a Nacional
+    assert np.isclose(leaned.sum(), 1.0)
+
+
 def test_goleador_prior_reparte_por_ataque():
     opciones = [
         OpcionGoleador(1, "Otros", -1),

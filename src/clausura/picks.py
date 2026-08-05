@@ -27,6 +27,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -387,7 +388,18 @@ def run(
     visita_de = np.array([equipo_idx[ev["visitante"]] for ev in eventos])
 
     p_champ_prior = p_campeon_from_grids(grids, local_de, visita_de, len(equipo_nombres))
-    pool_q_campeon = pool_campeon_distribution(p_champ_prior, equipo_nombres)
+    # sesgo asimétrico del pool hacia equipos puntuales (señal cualitativa pre-lock):
+    #   CLAUSURA_POOL_CAMPEON_LEAN="Nacional:1.6,Peñarol:0.9"
+    lean = None
+    lean_raw = os.environ.get("CLAUSURA_POOL_CAMPEON_LEAN", "")
+    if lean_raw:
+        try:
+            lean = {k.strip(): float(v) for k, v in
+                    (par.split(":") for par in lean_raw.split(","))}
+            log.info("pool campeón con lean: %s", lean)
+        except ValueError:
+            log.warning("CLAUSURA_POOL_CAMPEON_LEAN inválido (%r) — ignorado", lean_raw)
+    pool_q_campeon = pool_campeon_distribution(p_champ_prior, equipo_nombres, lean=lean)
     if campeon_counts is not None:
         c = empirical_campeon_counts(campeon_counts, equipo_idx, len(equipo_nombres))
         pool_q_campeon = blended_q(pool_q_campeon, c)
