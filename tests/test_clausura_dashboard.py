@@ -86,3 +86,75 @@ def test_webapp_token(monkeypatch):
     monkeypatch.setenv("DASHBOARD_TOKEN", "bueno")
     assert client.get("/dash/malo/").status_code == 404
     assert client.get("/").json()["status"] == "ok"
+
+
+# -------------------- tarjeta de la penca gratuita --------------------
+
+def _cfg_pencas():
+    return {"pencas": {"paga": {"id": 46, "precio": 400.0}, "gratuita": {"id": 47}}}
+
+
+def _planilla_stub():
+    return {
+        "picks": [
+            {"partido": "Liverpool vs Albion", "preferencial": False,
+             "cierre_uy": "vie 07/08 18:45", "cerrado": False,
+             "scores": [[1, 0], [0, 0], [2, 1]]},
+            {"partido": "Defensor vs Wanderers", "preferencial": True,
+             "cierre_uy": "sáb 08/08 19:45", "cerrado": False,
+             "scores": [[2, 1], [1, 1], [1, 0]]},
+        ],
+        "especiales": {
+            "p_campeon": {"Peñarol": 0.42, "Nacional": 0.31, "Liverpool": 0.09},
+            "por_participacion": [
+                {"campeon": "Nacional", "goleador": "Cabrera"},   # fila 1 diversificada
+                {"campeon": "Peñarol", "goleador": "Cabrera"},
+            ],
+        },
+    }
+
+
+def test_gratuita_usa_columna_1_y_campeon_mas_probable(monkeypatch):
+    """Marcadores = columna 1 (ancla EV). Campeón = argmax P(campeón), que NO es
+    el de la fila 1 (los especiales sí se diversifican en todas las columnas)."""
+    import src.clausura.dashboard_loader as dl
+    monkeypatch.setattr(dl, "load_ranking", lambda pid, mios=None: {"ok": False, "rows": []})
+    monkeypatch.delenv("CLAUSURA_MI_PARTICIPACION_GRATUITA", raising=False)
+
+    g = dl.build_gratuita(_planilla_stub(), _cfg_pencas())
+    assert g["ok"] and g["penca_id"] == 47
+    assert [p["score"] for p in g["picks"]] == ["1-0", "2-1"]
+    assert g["picks"][1]["preferencial"] is True
+    assert g["campeon"]["equipo"] == "Peñarol"      # argmax, no "Nacional" de la fila 1
+    assert g["goleador"] == "Cabrera"
+    assert g["mi_numero"] is None
+
+
+def test_gratuita_resalta_mi_numero_en_su_ranking(monkeypatch):
+    import src.clausura.dashboard_loader as dl
+    visto = {}
+
+    def fake_ranking(pid, mios=None):
+        visto["pid"], visto["mios"] = pid, mios
+        return {"ok": True, "rows": [], "total": 245}
+
+    monkeypatch.setattr(dl, "load_ranking", fake_ranking)
+    monkeypatch.setenv("CLAUSURA_MI_PARTICIPACION_GRATUITA", "899299999")
+
+    g = dl.build_gratuita(_planilla_stub(), _cfg_pencas())
+    assert g["mi_numero"] == 899299999
+    assert visto["pid"] == 47                       # ranking de la GRATUITA, no la paga
+    assert visto["mios"] == frozenset({899299999})
+
+
+def test_gratuita_sin_planilla_no_rompe(monkeypatch):
+    import src.clausura.dashboard_loader as dl
+    monkeypatch.setattr(dl, "load_ranking", lambda pid, mios=None: {"ok": False, "rows": []})
+    g = dl.build_gratuita(None, _cfg_pencas())
+    assert g["ok"] and g["picks"] == [] and g["campeon"] is None
+
+
+def test_gratuita_sin_config_de_penca_queda_apagada(monkeypatch):
+    import src.clausura.dashboard_loader as dl
+    g = dl.build_gratuita(_planilla_stub(), {"pencas": {"paga": {"id": 46}}})
+    assert g["ok"] is False

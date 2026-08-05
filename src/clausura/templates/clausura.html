@@ -149,6 +149,60 @@
       {% endif %}
     </div>
 
+    {# ---------- PENCA GRATUITA (1 participación, premio PS5) ---------- #}
+    {% if data.gratuita and data.gratuita.ok and data.gratuita.picks %}
+    <div class="bg-slate-800 rounded-xl p-4 border border-emerald-700/50">
+      <div class="flex items-center justify-between mb-1">
+        <h2 class="font-bold">🎁 Penca gratuita <span class="text-xs font-normal text-slate-400">— PlayStation 5</span></h2>
+        {% if data.gratuita.supermatch_url %}
+        <a href="{{ data.gratuita.supermatch_url }}" target="_blank"
+           class="text-xs text-emerald-300 hover:underline">abrir en Supermatch →</a>
+        {% endif %}
+      </div>
+      <div class="text-xs text-slate-400 mb-3">
+        Premio indivisible con desempate por exactos ⇒ diferenciarse no paga:
+        va el <span class="text-emerald-300">EV puro</span> (columna 1 de la planilla).
+      </div>
+
+      <div class="space-y-1">
+        {% for p in data.gratuita.picks %}
+        <div class="flex items-center gap-2 text-sm {% if p.cerrado %}opacity-50{% endif %}">
+          <span class="flex-1 truncate">{{ p.partido }}{% if p.preferencial %} <span class="text-amber-400 text-xs">⭐x2</span>{% endif %}</span>
+          <span class="font-mono font-semibold text-emerald-300">{{ p.score }}</span>
+          <span class="w-24 text-right text-xs text-slate-500">{{ p.cierre_uy }}</span>
+        </div>
+        {% endfor %}
+      </div>
+
+      {% if data.gratuita.campeon %}
+      <div class="mt-3 pt-3 border-t border-slate-700 text-sm">
+        <span class="text-slate-400 text-xs">Campeón:</span>
+        <span class="font-medium">{{ data.gratuita.campeon.equipo }}</span>
+        <span class="text-slate-500 text-xs">({{ (100 * data.gratuita.campeon.p) | round(0) | int }}% — el más probable,
+          <span class="text-amber-300">NO el de la participación 1</span>)</span>
+        {% if data.gratuita.goleador %}
+        <div class="mt-1"><span class="text-slate-400 text-xs">Goleador:</span>
+          <span class="font-medium">{{ data.gratuita.goleador }}</span></div>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      {% if data.gratuita.ranking and data.gratuita.ranking.ok %}
+      <div class="mt-3 pt-3 border-t border-slate-700 text-xs text-slate-400">
+        {{ data.gratuita.ranking.total }} participaciones · exactos máx
+        {{ data.gratuita.ranking.exactos_max }}
+        {% if data.gratuita.mi_numero %}
+          {% for r in data.gratuita.ranking.rows %}{% if r.mia %}
+            · <span class="text-emerald-300">vas #{{ r.pos }} con {{ r.puntos }} pts</span>
+          {% endif %}{% endfor %}
+        {% else %}
+          · <span class="text-slate-500">seteá CLAUSURA_MI_PARTICIPACION_GRATUITA para ver tu posición</span>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
     {# ---------- RANKING ---------- #}
     <div class="bg-slate-800 rounded-xl p-4">
       <h2 class="font-bold mb-3">🏆 Ranking en vivo</h2>
