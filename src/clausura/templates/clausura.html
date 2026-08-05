@@ -81,8 +81,13 @@
             <thead class="text-xs text-slate-400 border-b border-slate-700">
               <tr>
                 <th class="text-left py-2 pr-2">Partido</th>
+                {# encabezado = últimos 3 dígitos del N° de participación real #}
                 {% for i in range(data.planilla.n_participaciones) %}
-                  <th class="text-center px-1 whitespace-nowrap">{{ i + 1 }}</th>
+                  <th class="text-center px-1 whitespace-nowrap">
+                    {%- if data.mis_numeros and i < data.mis_numeros | length -%}
+                      {{ data.mis_numeros[i] % 1000 }}
+                    {%- else -%}{{ i + 1 }}{%- endif -%}
+                  </th>
                 {% endfor %}
                 <th class="text-right pl-2">Cierre</th>
               </tr>
@@ -128,7 +133,10 @@
           <div class="flex flex-wrap gap-2">
             {% for esp in data.planilla.especiales.por_participacion %}
             <div class="bg-slate-700/60 rounded-lg px-3 py-1.5 text-xs">
-              <span class="text-slate-400">{{ loop.index }}:</span>
+              <span class="text-slate-400">
+                {%- if data.mis_numeros and loop.index0 < data.mis_numeros | length -%}
+                  {{ data.mis_numeros[loop.index0] % 1000 }}
+                {%- else -%}{{ loop.index }}{%- endif -%}:</span>
               <span class="font-medium">{{ esp.campeon }}</span>
               {% if esp.goleador %}<span class="text-slate-400"> · {{ esp.goleador }}</span>{% endif %}
             </div>
