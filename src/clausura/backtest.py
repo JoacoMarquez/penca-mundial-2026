@@ -128,7 +128,10 @@ def realized_prizes(
     simulator.actual = np.repeat(real[:, None], sim.n_sims, axis=1)
 
     # Los acumulados de rivales se calcularon con los resultados sorteados: recalcular.
-    rng = np.random.default_rng(sim.seed)
+    # Semilla desplazada: el portfolio se optimizó contra los sorteos de sim.seed y
+    # evaluarlo sobre los mismos le daría ventaja espuria (winner's curse).
+    from src.clausura.strategy import EVAL_SEED_OFFSET
+    rng = np.random.default_rng(sim.seed + EVAL_SEED_OFFSET)
     simulator.rivals_total = np.zeros((sim.n_rivales, sim.n_sims), dtype=np.int32)
     simulator.rivals_fecha = np.zeros(
         (simulator.n_fechas, sim.n_rivales, sim.n_sims), dtype=np.int32
@@ -178,12 +181,18 @@ def run_temporada(
     )
     estrategias["portfolio"] = port.picks
 
+    # E[premio] con semilla de evaluación INDEPENDIENTE de la de optimización
+    # (misma para todas las estrategias → la comparación queda pareada)
+    from src.clausura.strategy import EVAL_SEED_OFFSET
+    eval_sim = SimConfig(n_sims=n_sims, n_rivales=n_rivales,
+                         seed=sim.seed + EVAL_SEED_OFFSET)
+
     puntos, premio, exactos, esperado = {}, {}, {}, {}
     for nombre, picks in estrategias.items():
         pr, pts, ex = realized_prizes(picks, partidos, grids, pool_qs, prize, sim)
         premio[nombre], puntos[nombre], exactos[nombre] = pr, pts, ex
         # E[premio] bajo el simulador (miles de escenarios, no los 5 de la muestra)
-        s = SeasonSimulator(grids, fechas, pref, pool_qs, prize, sim)
+        s = SeasonSimulator(grids, fechas, pref, pool_qs, prize, eval_sim)
         s.load_picks(picks)
         esperado[nombre] = s.e_premio_total()
 

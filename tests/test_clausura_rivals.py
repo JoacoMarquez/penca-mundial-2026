@@ -169,3 +169,51 @@ def test_camino_iid_sigue_intacto_sin_modelo():
                           SimConfig(n_sims=10, n_rivales=7, seed=8))
     assert sim.n_rivales == 7
     assert sim.rivals_total.shape == (7, 10)
+
+
+# -------------------- picks rivales POR SIMULACIÓN --------------------
+
+def test_sample_picks_match_re_sortea_por_simulacion():
+    """Futuro no observado: los picks varían entre sims (antes: un sorteo fijo).
+    El pick observado queda constante en todas las sims."""
+    q = _q()
+    known = np.full((5, 1), -1, dtype=np.int64)
+    known[0, 0] = score_index(3, 3)   # rival 0 ya cargó
+    model = RivalModel(
+        known_picks=known,
+        played_mask=np.array([False]),
+        gamma=np.ones(5),
+        p_show=np.ones(5),
+        residuo=np.zeros(5, dtype=np.int64),
+    )
+    picks, show = model.sample_picks_match(0, q, np.random.default_rng(3), n_sims=200)
+    assert picks.shape == (5, 200) and show.shape == (5, 200)
+    assert (picks[0] == score_index(3, 3)).all() and show[0].all()
+    # los rivales libres NO repiten el mismo pick en las 200 sims
+    assert all(len(np.unique(picks[r])) > 1 for r in range(1, 5))
+
+
+def test_rivales_iid_varian_entre_sims_con_resultado_fijo():
+    """Grillas delta (resultado determinístico): la única fuente de varianza del
+    máximo del pool son los picks rivales — con el sorteo único era 0 y el
+    optimizador podía explotar huecos muestrales."""
+    d = np.zeros((MAX_GOALS + 1, MAX_GOALS + 1)); d[1, 1] = 1.0
+    q = _q()
+    sim = SeasonSimulator([d], [280], [False], [q], PrizeConfig(),
+                          SimConfig(n_sims=100, n_rivales=30, seed=4))
+    assert sim.rivals_total.std(axis=1).max() > 0
+
+
+def test_rivales_modelo_varian_entre_sims_con_resultado_fijo():
+    d = np.zeros((MAX_GOALS + 1, MAX_GOALS + 1)); d[1, 1] = 1.0
+    q = _q()
+    model = RivalModel(
+        known_picks=np.full((10, 1), -1, dtype=np.int64),
+        played_mask=np.array([False]),
+        gamma=np.ones(10),
+        p_show=np.ones(10),
+        residuo=np.zeros(10, dtype=np.int64),
+    )
+    sim = SeasonSimulator([d], [280], [False], [q], PrizeConfig(),
+                          SimConfig(n_sims=100, seed=4), rivals=model)
+    assert sim.rivals_total.std(axis=1).max() > 0

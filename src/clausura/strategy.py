@@ -251,14 +251,57 @@ def build_portfolio(
         if mejoras == 0:
             break
 
+    # El E[premio] que se reporta se evalúa con sorteos FRESCOS (semilla distinta):
+    # el valor in-sample del optimizador está sesgado hacia arriba por construcción
+    # (el ascenso por coordenadas maximizó exactamente esos sorteos — winner's curse).
+    resultado = _evaluate_fresh(
+        simulator, grids, fecha_de_partido, preferencial, pool_qs, prize, especiales,
+        rivals,
+    )
+    log.info("E[premio] out-of-sample: $%.0f (in-sample del optimizador: $%.0f)",
+             resultado.e_premio_total, actual)
+
     return PortfolioClausura(
         picks=simulator.picks.copy(),
         candidatos=candidatos,
-        resultado=simulator.result(),
+        resultado=resultado,
         campeon=simulator.campeon_picks.copy() if simulator.campeon_picks is not None else None,
         goleador=simulator.goleador_picks.copy() if simulator.goleador_picks is not None else None,
         p_campeon=p_champ,
     )
+
+
+# offset de la semilla de evaluación respecto de la de optimización (fix winner's curse)
+EVAL_SEED_OFFSET = 900_001
+
+
+def _evaluate_fresh(
+    simulator: SeasonSimulator,
+    grids: list[np.ndarray],
+    fecha_de_partido: list[int],
+    preferencial: list[bool],
+    pool_qs: list[np.ndarray],
+    prize: PrizeConfig | None,
+    especiales: EspecialesInput | None,
+    rivals,
+) -> SimResult:
+    """Re-liquida el portfolio final en un simulador con semilla independiente."""
+    cfg = simulator.cfg
+    eval_cfg = SimConfig(n_sims=cfg.n_sims, n_rivales=cfg.n_rivales,
+                         seed=cfg.seed + EVAL_SEED_OFFSET)
+    ev = SeasonSimulator(grids, fecha_de_partido, preferencial, pool_qs, prize,
+                         eval_cfg, rivals)
+    ev.load_picks(simulator.picks)
+    if especiales is not None and simulator.champ_sim is not None:
+        ev.enable_campeon(especiales.local_de, especiales.visita_de,
+                          especiales.n_teams, especiales.pool_q_campeon)
+        for i in range(simulator.campeon_picks.shape[0]):
+            ev.set_campeon_pick(i, int(simulator.campeon_picks[i]))
+        if simulator.gol_sim is not None:
+            ev.enable_goleador(especiales.p_goleador, especiales.pool_q_goleador)
+            for i in range(simulator.goleador_picks.shape[0]):
+                ev.set_goleador_pick(i, int(simulator.goleador_picks[i]))
+    return ev.result()
 
 
 def _optimize_especial(simulator, setter, current, i, n_opciones, actual) -> tuple[float, int]:

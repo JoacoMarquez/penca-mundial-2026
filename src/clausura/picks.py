@@ -145,29 +145,39 @@ def build_season_grids(
     ratings: TeamRatings,
     odds_by_evento: dict[int, EventOdds],
     resultados: dict[int, tuple[int, int]],
-) -> tuple[list[np.ndarray], list[str]]:
-    """Grilla por evento + etiqueta de la fuente usada (para el reporte)."""
-    grids, fuentes = [], []
+) -> tuple[list[np.ndarray], list[str], list[np.ndarray]]:
+    """(grids, fuentes, pred_grids) por evento.
+
+    `grids` es la grilla de LIQUIDACIÓN: delta en los partidos ya jugados (toda la
+    masa en el resultado real), predictiva en los futuros. `pred_grids` es la grilla
+    PREDICTIVA pre-partido para todos los eventos: es la única válida para calibrar
+    el pool, construir Q y ajustar γ — sobre una delta, cualquier pencista "acierta"
+    el exacto con probabilidad 1 y la calibración degenera.
+    """
+    grids, fuentes, pred_grids = [], [], []
     for ev in eventos:
         eid = ev["evento_id"]
-        if eid in resultados:
-            gl, gv = resultados[eid]
-            grids.append(delta_grid(gl, gv))
-            fuentes.append(f"final {gl}-{gv}")
-            continue
-
         lam_rt = ratings.lambdas(ev["local"], ev["visitante"])
         o = odds_by_evento.get(eid)
         lam_mkt = market_lambdas(o) if o else None
         if lam_mkt:
             lam_l = MARKET_WEIGHT * lam_mkt[0] + (1 - MARKET_WEIGHT) * lam_rt[0]
             lam_v = MARKET_WEIGHT * lam_mkt[1] + (1 - MARKET_WEIGHT) * lam_rt[1]
-            fuentes.append("mercado+ratings")
+            fuente = "mercado+ratings"
         else:
             lam_l, lam_v = lam_rt
-            fuentes.append("ratings")
-        grids.append(score_grid(lam_l, lam_v, 0.0, max_goals=MAX_GOALS))
-    return grids, fuentes
+            fuente = "ratings"
+        pred = score_grid(lam_l, lam_v, 0.0, max_goals=MAX_GOALS)
+        pred_grids.append(pred)
+
+        if eid in resultados:
+            gl, gv = resultados[eid]
+            grids.append(delta_grid(gl, gv))
+            fuentes.append(f"final {gl}-{gv}")
+        else:
+            grids.append(pred)
+            fuentes.append(fuente)
+    return grids, fuentes, pred_grids
 
 
 # -------------------- estado congelado (picks ya cargados) --------------------
@@ -180,30 +190,44 @@ def load_frozen(
     eventos: list[dict],
     target_fecha: int,
     n_participaciones: int,
+    cerrados: set[int] | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """(frozen_picks, frozen_mask) desde los archivos versionados de fechas anteriores.
+    """(frozen_picks, frozen_mask) desde los archivos versionados.
 
     Un partido queda congelado si pertenece a una fecha anterior a la objetivo Y hay
     picks guardados para él. Si falta el archivo de una fecha pasada avisamos: eso
     significa que lo cargado en la web no está registrado acá.
+
+    `cerrados`: evento_ids de la PROPIA fecha objetivo cuyo pick ya no se puede
+    cambiar (cierre pasado o partido jugado). Sin esto, una regeneración intra-fecha
+    (p.ej. la corrida del sábado con el partido del viernes ya jugado) pisaría esos
+    picks con 0-0 y rompería drift audit, postmortem y el estado del simulador.
     """
+    cerrados = cerrados or set()
     n = len(eventos)
     frozen = np.zeros((n_participaciones, n), dtype=np.int64)
     mask = np.zeros(n, dtype=bool)
     idx_by_evento = {ev["evento_id"]: i for i, ev in enumerate(eventos)}
 
-    for f in range(1, target_fecha):
+    for f in range(1, target_fecha + 1):
         d = fecha_dir(f)
         latest = latest_version(d.glob("v*_*.json")) if d.exists() else None
         if latest is None:
-            log.warning("fecha %d sin picks guardados — sus partidos quedan libres "
-                        "(si ya los cargaste en la web, hay drift)", f)
+            if f < target_fecha:
+                log.warning("fecha %d sin picks guardados — sus partidos quedan libres "
+                            "(si ya los cargaste en la web, hay drift)", f)
             continue
         data = json.loads(latest.read_text(encoding="utf-8"))
         for row in data["picks"]:
             i = idx_by_evento.get(row["evento_id"])
             if i is None:
                 continue
+            if f == target_fecha and row["evento_id"] not in cerrados:
+                continue   # la fecha objetivo solo congela sus partidos ya cerrados
+            if len(row["scores"]) < n_participaciones:
+                log.warning("fecha %d: el archivo tiene %d participaciones y se piden "
+                            "%d — las filas faltantes quedan congeladas en 0-0",
+                            f, len(row["scores"]), n_participaciones)
             for k, (gl, gv) in enumerate(row["scores"][:n_participaciones]):
                 frozen[k, i] = score_index(gl, gv)
             mask[i] = True
@@ -319,7 +343,12 @@ def run(
     eventos = flat_eventos(cfg)
     idx_of = {ev["evento_id"]: i for i, ev in enumerate(eventos)}
 
-    # resultados ya conocidos + tamaño real del pool + tasa de exactos
+    # resultados ya conocidos + tamaño real del pool + tasa de exactos.
+    # El ranking incluye NUESTRAS participaciones: para el tamaño del pool rival y
+    # los observables de calibración hay que excluirlas (si no, simulamos contra
+    # nosotros mismos y nos dividimos el premio).
+    from src.clausura.rivals import mis_numeros_env
+    mis_numeros = mis_numeros_env()
     resultados: dict[int, tuple[int, int]] = {}
     n_rivales, exact_rate = 151, None
     penca_id = cfg["pencas"]["paga"]["id"]
@@ -334,9 +363,10 @@ def run(
                     if gl is not None and gv is not None:
                         resultados[e["id"]] = (int(gl), int(gv))
             ranking = api.ranking(penca_id)
-            n_rivales = max(len(ranking), 1)
+            propias = sum(r.numero_participacion in mis_numeros for r in ranking)
+            n_rivales = max(len(ranking) - propias, 1)
             jugados = len(resultados)
-            exact_rate = observed_exact_rate_from_ranking(ranking, jugados)
+            exact_rate = observed_exact_rate_from_ranking(ranking, jugados, mis_numeros)
     except Exception as e:  # red caída: seguimos con defaults
         log.warning("penca-api no disponible (%s) — sigo con defaults", e)
 
@@ -349,32 +379,51 @@ def run(
         odds = []
     odds_by_evento = match_odds(eventos, odds)
 
-    grids, fuentes = build_season_grids(eventos, ratings, odds_by_evento, resultados)
+    grids, fuentes, pred_grids = build_season_grids(eventos, ratings, odds_by_evento, resultados)
 
+    # calibración del pool: SIEMPRE con las grillas predictivas de los jugados —
+    # sobre la delta el exacto esperado es ≈1 para cualquier temperatura y el
+    # calibrador elige un extremo arbitrario del grid.
     pool_cfg = PoolConfig()
     if exact_rate is not None:
-        jugables = [g for g, ev in zip(grids, eventos) if ev["evento_id"] in resultados]
+        jugables = [g for g, ev in zip(pred_grids, eventos)
+                    if ev["evento_id"] in resultados]
         if jugables:
             pool_cfg = calibrate_from_exact_rate(jugables, exact_rate, pool_cfg)
             log.info("pool calibrado: temperatura=%.2f (exact_rate=%.3f)",
                      pool_cfg.temperature, exact_rate)
 
-    frozen, mask = load_frozen(eventos, target_fecha, n_participaciones)
+    # partidos de la fecha objetivo que ya no se pueden cambiar (jugados o cerrados):
+    # se congelan con SUS picks guardados, no se regeneran
+    now = datetime.now(timezone.utc)
+    cerrados = {
+        ev["evento_id"] for ev in eventos
+        if ev["fecha_n"] == target_fecha
+        and (ev["evento_id"] in resultados
+             or datetime.fromisoformat(ev["cierre_pronostico_utc"]) <= now)
+    }
+    frozen, mask = load_frozen(eventos, target_fecha, n_participaciones, cerrados)
     # los partidos ya jugados también quedan fijos (su pick ya no se puede cambiar)
     for i, ev in enumerate(eventos):
         if ev["evento_id"] in resultados and not mask[i]:
-            mask[i] = True  # sin picks guardados: quedan en 0-0; no afecta el futuro
+            mask[i] = True
+            log.warning("partido jugado sin picks guardados (%s vs %s) — queda como "
+                        "0-0 en el simulador; los puntos propios de esa fecha van a "
+                        "estar mal hasta registrar lo cargado",
+                        ev["local"], ev["visitante"])
 
     # ---------- pool: prior + Q empírica del snapshot (si el campeonato ya inició) ----------
+    # Q y γ también van sobre las grillas predictivas: la Q de un partido jugado es
+    # "qué jugó el pool ANTES del partido", no una delta con el resultado.
     from src.clausura.pool import pool_distribution
     from src.clausura.pool_snapshot import (
         blended_q, empirical_campeon_counts, empirical_counts, load_latest_snapshot,
     )
-    pool_qs = [pool_distribution(g, pool_cfg) for g in grids]
+    pool_qs = [pool_distribution(g, pool_cfg) for g in pred_grids]
     snapshot = load_latest_snapshot(max_age_hours=48)
     campeon_counts = None
     if snapshot:
-        counts = empirical_counts(snapshot)
+        counts = empirical_counts(snapshot, mis_numeros)
         observados = 0
         for i, ev in enumerate(eventos):
             c = counts.get(ev["evento_id"])
@@ -406,7 +455,8 @@ def run(
             log.warning("CLAUSURA_POOL_CAMPEON_LEAN inválido (%r) — ignorado", lean_raw)
     pool_q_campeon = pool_campeon_distribution(p_champ_prior, equipo_nombres, lean=lean)
     if campeon_counts is not None:
-        c = empirical_campeon_counts(campeon_counts, equipo_idx, len(equipo_nombres))
+        c = empirical_campeon_counts(campeon_counts, equipo_idx, len(equipo_nombres),
+                                     mis_numeros)
         pool_q_campeon = blended_q(pool_q_campeon, c)
 
     # ---------- rivales empíricos por participación (standings reales + estilo) ----------
@@ -540,11 +590,16 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--fecha", default="auto",
                     help="número de fecha (1-15) o 'auto' = próxima con partidos pendientes")
-    ap.add_argument("--participaciones", type=int, default=5)
+    ap.add_argument("--participaciones", type=int, default=None,
+                    help="default: cantidad de CLAUSURA_MIS_PARTICIPACIONES (5 sin env)")
     ap.add_argument("--telegram", action="store_true", help="mandar la planilla al bot")
     ap.add_argument("--sims", type=int, default=800)
     args = ap.parse_args()
-    run(resolve_fecha(args.fecha), args.participaciones, args.telegram, args.sims)
+    n_part = args.participaciones
+    if n_part is None:
+        from src.clausura.rivals import mis_numeros_env
+        n_part = len(mis_numeros_env()) or 5
+    run(resolve_fecha(args.fecha), n_part, args.telegram, args.sims)
 
 
 if __name__ == "__main__":

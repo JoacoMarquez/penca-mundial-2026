@@ -120,14 +120,22 @@ def calibrate_from_exact_rate(
     return best
 
 
-def observed_exact_rate_from_ranking(rows, partidos_jugados: int) -> float | None:
+def observed_exact_rate_from_ranking(
+    rows, partidos_jugados: int, mis_numeros: set[int] | None = None,
+) -> float | None:
     """Tasa media de exactos del pool desde el ranking público.
 
     `rows` son RankingRow de src.clausura.api. Devuelve None si todavía no se jugó nada.
+    `mis_numeros` excluye nuestras propias participaciones: el observable calibra a
+    los RIVALES, y nuestras 12 planillas diversificadas sesgarían la tasa.
     """
     if partidos_jugados <= 0 or not rows:
         return None
-    exactos = [r.cant_resultados_exactos for r in rows]
+    mis = mis_numeros or set()
+    exactos = [r.cant_resultados_exactos for r in rows
+               if getattr(r, "numero_participacion", None) not in mis]
+    if not exactos:
+        return None
     return float(np.mean(exactos)) / partidos_jugados
 
 

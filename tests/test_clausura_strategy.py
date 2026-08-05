@@ -85,6 +85,18 @@ def test_observed_exact_rate_desde_ranking():
     assert observed_exact_rate_from_ranking([], 24) is None
 
 
+def test_observed_exact_rate_excluye_mis_numeros():
+    """El observable calibra a los rivales: nuestras filas del ranking no cuentan."""
+    class Row:
+        def __init__(self, numero, e):
+            self.numero_participacion = numero
+            self.cant_resultados_exactos = e
+    rows = [Row(100, 10), Row(200, 2), Row(300, 4)]
+    assert observed_exact_rate_from_ranking(rows, 24, mis_numeros={100}) \
+        == pytest.approx(3 / 24)
+    assert observed_exact_rate_from_ranking(rows, 24, mis_numeros={100, 200, 300}) is None
+
+
 def test_top_pool_picks_ordenado(grid):
     top = top_pool_picks(grid, k=4)
     assert len(top) == 4
@@ -212,6 +224,27 @@ def test_participacion_0_es_el_ancla_ev(escenario):
                            sim=SimConfig(n_sims=200, n_rivales=30, seed=5), max_passes=1)
     esperado = baseline_ev(grids, pref, 1)[0]
     assert np.array_equal(port.picks[0], esperado)
+
+
+def test_resultado_reportado_es_out_of_sample(escenario):
+    """El E[premio] del portfolio se evalúa con semilla fresca: no puede coincidir
+    con el valor in-sample del optimizador (winner's curse), y sigue determinístico."""
+    grids, fechas, pref = escenario
+    sim = SimConfig(n_sims=300, n_rivales=40, seed=11)
+    port = build_portfolio(grids, fechas, pref, n_participaciones=3,
+                           sim=sim, max_passes=1)
+
+    # valor in-sample: mismo simulador/semilla que usó el optimizador
+    pool_qs = [pool_distribution(g) for g in grids]
+    s = SeasonSimulator(grids, fechas, pref, pool_qs, PrizeConfig(), sim)
+    s.load_picks(port.picks)
+    in_sample = s.e_premio_total()
+    assert port.resultado.e_premio_total != pytest.approx(in_sample, abs=1e-9)
+
+    # determinismo: misma llamada → mismo reporte
+    port2 = build_portfolio(grids, fechas, pref, n_participaciones=3,
+                            sim=sim, max_passes=1)
+    assert port2.resultado.e_premio_total == port.resultado.e_premio_total
 
 
 def test_baselines_son_uniformes(escenario):
