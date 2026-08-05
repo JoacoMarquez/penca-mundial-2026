@@ -1,0 +1,18 @@
+[Unit]
+Description=Penca Clausura — postmortem automático al completarse una fecha
+After=network-online.target
+Wants=network-online.target
+OnFailure=penca-failure-notify@%n.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/penca/env
+Environment="PYTHONPATH=/opt/penca"
+WorkingDirectory=/opt/penca
+# snapshot fresco del pool: los picks quedan lockeados al cierre, así el postmortem
+# compara contra el pool completo y no contra el snapshot del mediodía
+ExecStartPre=/opt/penca/.venv/bin/python -m src.clausura.pool_snapshot --if-started
+ExecStart=/opt/penca/.venv/bin/python -m src.clausura.postmortem
+StandardOutput=append:/var/lib/penca/logs/clausura-postmortem.log
+StandardError=append:/var/lib/penca/logs/clausura-postmortem.err
+User=root

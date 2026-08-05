@@ -1,0 +1,13 @@
+[Unit]
+Description=Timer del postmortem del Clausura — madrugada, tras el último partido del día
+
+# Los partidos terminan a más tardar ~00:30 UTC. A las 03:20 UTC (00:20 UY) el
+# resultado ya está en el API. Idempotente: si la última fecha completa ya tiene
+# postmortem (o hay fecha en curso), sale en silencio.
+
+[Timer]
+OnCalendar=*-*-* 03:20:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target
