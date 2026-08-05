@@ -134,6 +134,156 @@ def especiales_esperados(mis_numeros: list[int]) -> dict[int, tuple[str | None, 
     return {}
 
 
+# -------------------- penca GRATUITA (1 participación, columna 1) --------------------
+
+def gratuita_esperada(eventos: list[dict]) -> dict[int, tuple[int, int]]:
+    """evento_id → pick de la COLUMNA 1 (ancla EV) de la última planilla de cada fecha.
+
+    La gratuita se juega con EV puro: premio indivisible con desempate por exactos,
+    así que empatar no diluye y diferenciarse no paga (análisis 2026-08-05).
+    """
+    from src.clausura.picks import fecha_dir
+    from src.utils.versions import latest_version
+
+    out: dict[int, tuple[int, int]] = {}
+    for f in sorted({ev["fecha_n"] for ev in eventos}):
+        d = fecha_dir(f)
+        latest = latest_version(d.glob("v*_*.json")) if d.exists() else None
+        if latest is None:
+            continue
+        data = json.loads(latest.read_text(encoding="utf-8"))
+        for row in data.get("picks", []):
+            scores = row.get("scores") or []
+            if scores:
+                out[int(row["evento_id"])] = (int(scores[0][0]), int(scores[0][1]))
+    return out
+
+
+def buscar_por_picks(
+    penca_id: int,
+    esperado: dict[int, tuple[int, int]],
+    min_coincidencias: int = 4,
+) -> list[tuple[int, int, int]]:
+    """Escanea el ranking buscando qué participación tiene los picks esperados.
+
+    Devuelve [(numero, coincidencias, comparables)] ordenado por coincidencias desc,
+    solo las que llegan a `min_coincidencias`. Es la detección que pedimos para el
+    caso "el número configurado no matchea": con 8 marcadores la combinación es
+    prácticamente única, así que si otra participación calza, ESA es la nuestra.
+
+    Caro (1 request por participación), así que solo se llama cuando hace falta.
+    """
+    import time
+    with PencaApiClient() as api:
+        ranking = api.ranking(penca_id)
+    out: list[tuple[int, int, int]] = []
+    with httpx.Client(base_url=BASE, timeout=20.0, headers=HEADERS) as c:
+        for r in ranking:
+            resp = c.get(f"/front/pencas/{r.participacion_id}/pronosticosEventos")
+            if resp.status_code == 400 and GATE_MSG in resp.text:
+                raise CampeonatoNoIniciado(resp.text[:120])
+            if resp.status_code != 200:
+                continue
+            hits = comparables = 0
+            for p in resp.json().get("data", []):
+                eid = p.get("encuentroId")
+                gl, gv = p.get("golesEquipoLocal"), p.get("golesEquipoVisitante")
+                if eid is None or gl is None or gv is None:
+                    continue
+                esp = esperado.get(int(eid))
+                if esp is not None:
+                    comparables += 1
+                    hits += (int(gl), int(gv)) == esp
+            if hits >= min_coincidencias:
+                out.append((r.numero_participacion, hits, comparables))
+            time.sleep(0.12)
+    return sorted(out, key=lambda t: -t[1])
+
+
+def auditar_gratuita(eventos: list[dict], cfg: dict, now: datetime) -> list[Discrepancia]:
+    """Audita la participación de la penca gratuita contra la columna 1.
+
+    Si el número configurado no matchea, escanea el ranking por picks para
+    detectar cuál es realmente nuestra (o avisar que no hay ninguna).
+    """
+    import os
+
+    penca = (cfg.get("pencas") or {}).get("gratuita") or {}
+    penca_id = penca.get("id")
+    raw = os.environ.get("CLAUSURA_MI_PARTICIPACION_GRATUITA", "").strip()
+    if penca_id is None or not raw.isdigit():
+        return []
+    numero = int(raw)
+
+    esperado = gratuita_esperada(eventos)
+    if not esperado:
+        return []
+
+    cargados = fetch_cargados(penca_id, {numero})
+    if not cargados:
+        return [Discrepancia("gratuita", numero,
+                             f"la participación {numero} no aparece en el ranking de "
+                             f"la penca gratuita (id {penca_id})",
+                             f"gratuita:ausente:{numero}")]
+
+    c = cargados[0]
+    ev_by_id = {ev["evento_id"]: ev for ev in eventos}
+    out: list[Discrepancia] = []
+    hits = comparables = 0
+    for eid, esp in esperado.items():
+        ev = ev_by_id.get(eid)
+        if ev is None:
+            continue
+        real = c.picks.get(eid)
+        cerrado = datetime.fromisoformat(ev["cierre_pronostico_utc"]) <= now
+        if real is None:
+            if cerrado:
+                out.append(Discrepancia(
+                    "gratuita", numero,
+                    f"gratuita · {ev['local']} vs {ev['visitante']}: sin cargar y "
+                    f"el cierre ya pasó (0 puntos)",
+                    f"gratuita:sincargar:{eid}:{numero}"))
+            continue
+        comparables += 1
+        if real == esp:
+            hits += 1
+        else:
+            estado = "cerrado, puntos comprometidos" if cerrado else "AÚN CORREGIBLE"
+            out.append(Discrepancia(
+                "gratuita", numero,
+                f"gratuita · {ev['local']} vs {ev['visitante']}: cargado "
+                f"{real[0]}-{real[1]} pero la planilla dice {esp[0]}-{esp[1]} ({estado})",
+                f"gratuita:distinto:{eid}:{numero}:{real[0]}-{real[1]}"))
+
+    # ninguna coincidencia sobre varios partidos ⇒ probablemente el número está mal:
+    # buscamos por picks cuál es la nuestra de verdad
+    if comparables >= 4 and hits == 0:
+        log.warning("gratuita: 0/%d picks coinciden — escaneando el ranking por picks",
+                    comparables)
+        try:
+            candidatas = buscar_por_picks(penca_id, esperado)
+        except Exception as e:
+            log.warning("escaneo por picks falló (%s)", e)
+            candidatas = []
+        if candidatas:
+            n, h, tot = candidatas[0]
+            out.append(Discrepancia(
+                "gratuita", numero,
+                f"gratuita · NINGÚN pick de {numero} coincide, pero la participación "
+                f"<b>{n}</b> tiene {h}/{tot} iguales a la columna 1 → revisá "
+                f"CLAUSURA_MI_PARTICIPACION_GRATUITA (¿es {n}?)",
+                f"gratuita:numero_sospechoso:{numero}:{n}"))
+        else:
+            out.append(Discrepancia(
+                "gratuita", numero,
+                f"gratuita · ningún pick de {numero} coincide con la columna 1 y "
+                f"ninguna otra participación calza — ¿se cargó la gratuita?",
+                f"gratuita:sin_match:{numero}"))
+    elif comparables and not out:
+        log.info("gratuita OK: %d/%d picks coinciden con la columna 1", hits, comparables)
+    return out
+
+
 # -------------------- estado real (API) --------------------
 
 def fetch_cargados(penca_id: int, mis_numeros: set[int]) -> list[Cargado]:
@@ -265,7 +415,8 @@ def formatear_reporte(discrepancias: list[Discrepancia]) -> str:
         lines.append(f"\n<b>Participación {numero}</b>")
         for d in por_numero[numero]:
             icono = {"distinto": "❌", "sin_cargar_cerrado": "🕳️",
-                     "sin_planilla": "❓", "especial": "⭐"}[d.tipo]
+                     "sin_planilla": "❓", "especial": "⭐",
+                     "gratuita": "🎁"}.get(d.tipo, "•")
             lines.append(f"  {icono} {d.detalle}")
     lines.append("\nEl optimizador congela lo que dice la PLANILLA — si la web quedó "
                  "distinta, corregí la web o regenerá la planilla.")
@@ -377,6 +528,14 @@ def run(dry_run: bool = False, now: datetime | None = None) -> list[Discrepancia
 
     discrepancias = (diff_picks(eventos, esperado, cargados, now)
                      + diff_especiales(especiales_esperados(mis_numeros), cargados))
+
+    # penca gratuita: 1 participación contra la columna 1 (no rompe el audit de la paga)
+    try:
+        discrepancias += auditar_gratuita(eventos, cfg, now)
+    except CampeonatoNoIniciado:
+        raise
+    except Exception as e:
+        log.warning("auditoría de la gratuita falló (%s)", e)
 
     avisadas = load_state()
     nuevas = [d for d in discrepancias if d.clave not in avisadas]

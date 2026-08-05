@@ -1,5 +1,6 @@
 """Tests de la auditoría anti-drift (src.clausura.drift_audit)."""
 
+import json
 from datetime import datetime, timedelta, timezone
 
 from src.clausura.drift_audit import (
@@ -128,3 +129,93 @@ def test_reporte_agrupa_por_participacion():
     txt = formatear_reporte(diff_picks(evs, esp, cargados, NOW))
     assert f"Participación {NUMS[0]}" in txt and f"Participación {NUMS[1]}" in txt
     assert "❌" in txt and "🕳️" in txt
+
+
+# -------------------- penca gratuita (columna 1 + detección por picks) --------------------
+
+def _eventos_gratuita():
+    return [
+        {"evento_id": 10, "local": "Liverpool", "visitante": "Albion", "fecha_n": 1,
+         "cierre_pronostico_utc": "2026-08-07T21:45:00+00:00"},
+        {"evento_id": 20, "local": "Defensor", "visitante": "Wanderers", "fecha_n": 1,
+         "cierre_pronostico_utc": "2026-08-08T22:45:00+00:00"},
+    ]
+
+
+def _cfg_gratuita():
+    return {"pencas": {"paga": {"id": 46}, "gratuita": {"id": 47}}}
+
+
+AHORA = datetime(2026, 8, 9, 12, 0, tzinfo=timezone.utc)   # ambos cierres pasados
+
+
+def test_gratuita_esperada_toma_la_columna_1(tmp_path, monkeypatch):
+    import src.clausura.picks as picks_mod
+    from src.clausura.drift_audit import gratuita_esperada
+    monkeypatch.setattr(picks_mod, "PRED_DIR", tmp_path)
+    d = tmp_path / "fecha_01"
+    d.mkdir()
+    (d / "v1_20260806T120000Z.json").write_text(json.dumps({"picks": [
+        {"evento_id": 10, "scores": [[1, 0], [0, 0], [2, 1]]},
+        {"evento_id": 20, "scores": [[2, 1], [1, 1], [0, 0]]},
+    ]}), encoding="utf-8")
+
+    esp = gratuita_esperada(_eventos_gratuita())
+    assert esp == {10: (1, 0), 20: (2, 1)}     # columna 1, no las otras
+
+
+def test_gratuita_sin_env_no_audita(monkeypatch):
+    from src.clausura.drift_audit import auditar_gratuita
+    monkeypatch.delenv("CLAUSURA_MI_PARTICIPACION_GRATUITA", raising=False)
+    assert auditar_gratuita(_eventos_gratuita(), _cfg_gratuita(), AHORA) == []
+
+
+def test_gratuita_detecta_pick_distinto(monkeypatch):
+    import src.clausura.drift_audit as da
+    monkeypatch.setenv("CLAUSURA_MI_PARTICIPACION_GRATUITA", "899258816")
+    monkeypatch.setattr(da, "gratuita_esperada", lambda ev: {10: (1, 0), 20: (2, 1)})
+    monkeypatch.setattr(da, "fetch_cargados", lambda pid, nums: [
+        da.Cargado(numero=899258816, picks={10: (1, 0), 20: (3, 3)})])
+
+    ds = da.auditar_gratuita(_eventos_gratuita(), _cfg_gratuita(), AHORA)
+    assert len(ds) == 1
+    assert ds[0].tipo == "gratuita" and "3-3" in ds[0].detalle and "2-1" in ds[0].detalle
+
+
+def test_gratuita_todo_ok_no_reporta(monkeypatch):
+    import src.clausura.drift_audit as da
+    monkeypatch.setenv("CLAUSURA_MI_PARTICIPACION_GRATUITA", "899258816")
+    monkeypatch.setattr(da, "gratuita_esperada", lambda ev: {10: (1, 0), 20: (2, 1)})
+    monkeypatch.setattr(da, "fetch_cargados", lambda pid, nums: [
+        da.Cargado(numero=899258816, picks={10: (1, 0), 20: (2, 1)})])
+    assert da.auditar_gratuita(_eventos_gratuita(), _cfg_gratuita(), AHORA) == []
+
+
+def test_gratuita_cero_coincidencias_dispara_deteccion_por_picks(monkeypatch):
+    """Si ningún pick coincide, escanea el ranking y sugiere el número correcto."""
+    import src.clausura.drift_audit as da
+    eventos = _eventos_gratuita() + [
+        {"evento_id": 30, "local": "Nacional", "visitante": "Cerro", "fecha_n": 1,
+         "cierre_pronostico_utc": "2026-08-09T18:45:00+00:00"},
+        {"evento_id": 40, "local": "Danubio", "visitante": "Racing", "fecha_n": 1,
+         "cierre_pronostico_utc": "2026-08-09T18:45:00+00:00"},
+    ]
+    esperado = {10: (1, 0), 20: (2, 1), 30: (1, 1), 40: (0, 0)}
+    monkeypatch.setenv("CLAUSURA_MI_PARTICIPACION_GRATUITA", "899258816")
+    monkeypatch.setattr(da, "gratuita_esperada", lambda ev: esperado)
+    monkeypatch.setattr(da, "fetch_cargados", lambda pid, nums: [
+        da.Cargado(numero=899258816,
+                   picks={10: (3, 3), 20: (3, 3), 30: (3, 3), 40: (3, 3)})])
+    monkeypatch.setattr(da, "buscar_por_picks",
+                        lambda pid, esp, **kw: [(899259999, 4, 4)])
+
+    ds = da.auditar_gratuita(eventos, _cfg_gratuita(), AHORA)
+    sospecha = [d for d in ds if "numero_sospechoso" in d.clave]
+    assert len(sospecha) == 1
+    assert "899259999" in sospecha[0].detalle
+
+
+def test_formatear_reporte_soporta_el_tipo_gratuita():
+    from src.clausura.drift_audit import Discrepancia, formatear_reporte
+    txt = formatear_reporte([Discrepancia("gratuita", 899258816, "algo pasó", "k")])
+    assert "🎁" in txt and "899258816" in txt
