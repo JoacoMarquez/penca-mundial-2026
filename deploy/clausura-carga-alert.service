@@ -2,6 +2,7 @@
 Description=Penca Clausura — alerta si faltan cargar picks cerca del cierre
 After=network-online.target
 Wants=network-online.target
+OnFailure=penca-failure-notify@%n.service
 
 [Service]
 Type=oneshot

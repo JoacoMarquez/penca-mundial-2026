@@ -1,0 +1,16 @@
+[Unit]
+Description=Timer de auditoría anti-drift del Clausura — 3 veces al día
+
+# 13:20 UTC: después de la planilla de las 12:00 y de la carga de la mañana.
+# 18:20 UTC: antes de los primeros cierres (17:45+) — drift aún corregible.
+# 23:50 UTC: post-cierres del día — registra faltantes/drift definitivos.
+# Pre-inicio del campeonato el script sale 0 en silencio (--if-started).
+
+[Timer]
+OnCalendar=*-*-* 13:20:00 UTC
+OnCalendar=*-*-* 18:20:00 UTC
+OnCalendar=*-*-* 23:50:00 UTC
+Persistent=false
+
+[Install]
+WantedBy=timers.target

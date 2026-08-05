@@ -2,6 +2,7 @@
 Description=Penca Clausura 2026 — pipeline de picks (fecha auto) + planilla por Telegram
 After=network-online.target
 Wants=network-online.target
+OnFailure=penca-failure-notify@%n.service
 
 [Service]
 Type=oneshot
