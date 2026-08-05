@@ -108,7 +108,7 @@ def fechas_guardadas() -> list[int]:
     return out
 
 
-def _fetch_ranking(penca_id: int) -> dict:
+def _fetch_ranking(penca_id: int, mios: frozenset[int] | None = None) -> dict:
     from src.clausura.api import PencaApiClient
     try:
         with PencaApiClient(timeout=10.0) as api:
@@ -117,8 +117,9 @@ def _fetch_ranking(penca_id: int) -> dict:
         log.warning("ranking no disponible: %s", e)
         return {"ok": False, "error": str(e), "rows": [], "total": None}
 
-    mios_raw = os.environ.get("CLAUSURA_MIS_PARTICIPACIONES", "")
-    mios = {int(x) for x in mios_raw.split(",") if x.strip().isdigit()}
+    if mios is None:
+        mios_raw = os.environ.get("CLAUSURA_MIS_PARTICIPACIONES", "")
+        mios = frozenset(int(x) for x in mios_raw.split(",") if x.strip().isdigit())
 
     rows.sort(key=lambda r: (-r.puntos_totales, -r.cant_resultados_exactos))
     out_rows = []
@@ -144,8 +145,65 @@ def _fetch_ranking(penca_id: int) -> dict:
     }
 
 
-def load_ranking(penca_id: int) -> dict:
-    return _cached(f"ranking:{penca_id}", RANKING_TTL, lambda: _fetch_ranking(penca_id))
+def load_ranking(penca_id: int, mios: frozenset[int] | None = None) -> dict:
+    clave = f"ranking:{penca_id}:{sorted(mios) if mios is not None else '-'}"
+    return _cached(clave, RANKING_TTL, lambda: _fetch_ranking(penca_id, mios))
+
+
+def _mi_numero_gratuita() -> int | None:
+    raw = os.environ.get("CLAUSURA_MI_PARTICIPACION_GRATUITA", "").strip()
+    return int(raw) if raw.isdigit() else None
+
+
+def build_gratuita(planilla: dict | None, cfg: dict) -> dict:
+    """Tarjeta de la penca GRATUITA (id 47): 1 participación, premio PlayStation 5.
+
+    El premio es INDIVISIBLE con desempate por exactos → empatar no diluye, así que
+    el óptimo es EV puro = la columna 1 de la planilla (el ancla que el optimizador
+    nunca perturba). Los ESPECIALES, en cambio, sí se diversifican en todas las
+    columnas incluida la 1: acá va el argmax de P(campeón), no el de la fila 1.
+    """
+    penca = (cfg.get("pencas") or {}).get("gratuita") or {}
+    penca_id = penca.get("id")
+    out: dict = {
+        "ok": penca_id is not None,
+        "penca_id": penca_id,
+        "mi_numero": _mi_numero_gratuita(),
+        "supermatch_url": (f"https://www.supermatch.com.uy/pencas/1/{penca_id}/penca"
+                           if penca_id else None),
+        "picks": [],
+        "campeon": None,
+        "goleador": None,
+    }
+    if not out["ok"]:
+        return out
+
+    if planilla:
+        for row in planilla.get("picks", []):
+            scores = row.get("scores") or []
+            if not scores:
+                continue
+            gl, gv = scores[0]                       # columna 1 = ancla EV
+            out["picks"].append({
+                "partido": row.get("partido", ""),
+                "score": f"{gl}-{gv}",
+                "preferencial": row.get("preferencial", False),
+                "cierre_uy": row.get("cierre_uy", ""),
+                "cerrado": row.get("cerrado", False),
+            })
+        esp = planilla.get("especiales") or {}
+        p_campeon = esp.get("p_campeon") or {}
+        if p_campeon:
+            equipo, p = max(p_campeon.items(), key=lambda kv: kv[1])
+            out["campeon"] = {"equipo": equipo, "p": p}
+        por_part = esp.get("por_participacion") or []
+        if por_part and por_part[0].get("goleador"):
+            out["goleador"] = por_part[0]["goleador"]
+
+    mio = out["mi_numero"]
+    out["ranking"] = load_ranking(
+        penca_id, frozenset({mio}) if mio is not None else frozenset())
+    return out
 
 
 def load_clausura_page(fecha_q: int | None = None) -> dict:
@@ -179,6 +237,7 @@ def load_clausura_page(fecha_q: int | None = None) -> dict:
         "penca_id": penca_id,
         "precio": cfg["pencas"]["paga"].get("precio", 400),
         "mis_numeros": mis_numeros,
+        "gratuita": build_gratuita(planilla, cfg),
         # Deep link a la penca en la web (la ruta lleva un cache-buster numérico,
         # mismo patrón que usa el propio front de Supermatch)
         "supermatch_url": f"https://www.supermatch.com.uy/pencas/1/{penca_id}/penca",
