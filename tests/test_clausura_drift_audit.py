@@ -83,6 +83,13 @@ def test_diff_especiales_ignora_lo_no_definido():
     assert any("goleador" in d.detalle and "sin cargar" in d.detalle for d in dis)
 
 
+def test_diff_especiales_gate_cerrado_no_es_drift():
+    esperados = {NUMS[0]: ("Peñarol", "J. Pérez")}
+    cargados = [Cargado(NUMS[0], {}, campeon=None, goleador=None,
+                        especiales_visibles=False)]
+    assert diff_especiales(esperados, cargados) == []
+
+
 def test_reporte_agrupa_por_participacion():
     evs = [_ev(1, NOW - timedelta(hours=1))]
     esp = _esperado(1, [(1, 0), (2, 1)])

@@ -61,6 +61,9 @@ class Cargado:
     picks: dict[int, tuple[int, int]]      # evento_id → (gl, gv)
     campeon: str | None = None
     goleador: str | None = None
+    # pre-inicio el endpoint de especiales devuelve 400 (gate): no se puede saber
+    # si están cargados — False evita el falso positivo "sin cargar"
+    especiales_visibles: bool = True
 
 
 @dataclass(frozen=True)
@@ -151,14 +154,22 @@ def fetch_cargados(penca_id: int, mis_numeros: set[int]) -> list[Cargado]:
                 log.warning("pronosticosEventos %d → %d", r.participacion_id, resp.status_code)
 
             campeon = goleador = None
+            visibles = True
             resp = c.get(f"/front/pencas/{r.participacion_id}/pronosticoCampeonGoleador")
             if resp.status_code == 200:
                 d = resp.json()
                 campeon = (d.get("equipoCampeon") or {}).get("nombre")
                 goleador = (d.get("opcionGoleador") or {}).get("goleador")
+            elif resp.status_code == 400 and GATE_MSG in resp.text:
+                visibles = False
+            else:
+                log.warning("pronosticoCampeonGoleador %d → %d",
+                            r.participacion_id, resp.status_code)
+                visibles = False
 
             out.append(Cargado(numero=r.numero_participacion, picks=picks,
-                               campeon=campeon, goleador=goleador))
+                               campeon=campeon, goleador=goleador,
+                               especiales_visibles=visibles))
     return out
 
 
@@ -216,6 +227,8 @@ def diff_especiales(
 ) -> list[Discrepancia]:
     out: list[Discrepancia] = []
     for c in cargados:
+        if not c.especiales_visibles:
+            continue        # gate cerrado (pre-inicio): no verificable, no es drift
         esp = esperados.get(c.numero)
         if esp is None:
             continue
