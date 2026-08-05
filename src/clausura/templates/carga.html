@@ -69,7 +69,10 @@
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-2 text-sm">
       {% for esp in data.planilla.especiales.por_participacion %}
       <div class="bg-slate-700/60 rounded-lg px-3 py-2">
-        <span class="text-slate-400">{{ loop.index }}:</span>
+        <span class="text-slate-400">
+          {%- if data.mis_numeros and loop.index0 < data.mis_numeros | length -%}
+            N° …{{ data.mis_numeros[loop.index0] % 1000 }}
+          {%- else -%}{{ loop.index }}{%- endif -%}:</span>
         <span class="font-semibold">{{ esp.campeon }}</span>
         {% if esp.goleador %}<div class="text-xs text-slate-400">{{ esp.goleador }}</div>{% endif %}
       </div>
