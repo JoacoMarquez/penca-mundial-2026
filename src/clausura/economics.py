@@ -20,9 +20,12 @@ Diferencia estructural con la penca JMLM del Mundial:
 3. **Múltiples participaciones propias** (Art. 1), o sea portfolio real.
 
 El simulador es Monte Carlo con **estado incremental**: sortea una vez los resultados
-y los picks de los rivales, y después permite cambiar un pick propio y reliquidar en
-O(n_sims) en vez de re-simular la temporada. Eso es lo que hace viable el ascenso por
-coordenadas de src/clausura/strategy.py.
+(common random numbers) y los picks de los rivales POR SIMULACIÓN (los futuros no
+observados se re-sortean en cada sim: condicionar a una sola realización del pool
+dejaba que el optimizador explotara huecos muestrales inexistentes en expectativa),
+y después permite cambiar un pick propio y reliquidar en O(n_sims) en vez de
+re-simular la temporada. Eso es lo que hace viable el ascenso por coordenadas de
+src/clausura/strategy.py.
 """
 
 from __future__ import annotations
@@ -110,9 +113,9 @@ class SimResult:
 class SeasonSimulator:
     """Monte Carlo de la temporada con estado incremental.
 
-    Sortea una sola vez los resultados de los partidos y los picks de los rivales
-    (common random numbers), y mantiene los acumulados propios para poder cambiar
-    un pick y reliquidar barato.
+    Sortea una sola vez los resultados de los partidos (common random numbers) y
+    los picks de los rivales por simulación, y mantiene los acumulados propios
+    para poder cambiar un pick y reliquidar barato.
     """
 
     def __init__(
@@ -150,22 +153,22 @@ class SeasonSimulator:
             rng.choice(N_SCORES, size=S, p=flatten_grid(g)) for g in grids
         ])
 
-        # picks de los rivales: (n_matches, R) → acumulados fijos
+        # picks de los rivales, POR SIMULACIÓN: (R, S) por partido → acumulados
         self.rivals_total = np.zeros((R, S), dtype=np.int32)
         self.rivals_fecha = np.zeros((self.n_fechas, R, S), dtype=np.int32)
         if rivals is not None:
-            rp_all, show_all = rivals.sample_picks(pool_q, rng)
             for m in range(self.n_matches):
-                pts = self.pm[m][rp_all[m][:, None], self.actual[m][None, :]]
-                pts = pts * show_all[m][:, None]   # no cargó → 0 puntos
+                rp, show = rivals.sample_picks_match(m, pool_q[m], rng, S)
+                pts = self.pm[m][rp, self.actual[m][None, :]]
+                pts = pts * show   # no cargó → 0 puntos
                 self.rivals_total += pts
                 self.rivals_fecha[self.match_fecha[m]] += pts
             # ancla a la tabla real: puntos del ranking − puntos implicados
             self.rivals_total += rivals.residuo.astype(np.int32)[:, None]
         else:
             for m in range(self.n_matches):
-                rp = rng.choice(N_SCORES, size=R, p=pool_q[m])
-                pts = self.pm[m][rp[:, None], self.actual[m][None, :]]
+                rp = rng.choice(N_SCORES, size=(R, S), p=pool_q[m])
+                pts = self.pm[m][rp, self.actual[m][None, :]]
                 self.rivals_total += pts
                 self.rivals_fecha[self.match_fecha[m]] += pts
 
@@ -207,13 +210,13 @@ class SeasonSimulator:
             self.actual, local_de, visita_de, n_teams, self._rng_especiales
         )
         rival_picks = self._rng_especiales.choice(
-            n_teams, size=self.n_rivales, p=pool_q_campeon
+            n_teams, size=(self.n_rivales, self.cfg.n_sims), p=pool_q_campeon
         )
         # con modelo empírico, el campeón OBSERVADO de cada rival pisa al sorteado
         if self.rival_model is not None and self.rival_model.campeon_idx is not None:
             known = self.rival_model.campeon_idx
-            rival_picks = np.where(known >= 0, known, rival_picks)
-        self.rivals_total += puntos * (rival_picks[:, None] == self.champ_sim[None, :])
+            rival_picks = np.where(known[:, None] >= 0, known[:, None], rival_picks)
+        self.rivals_total += puntos * (rival_picks == self.champ_sim[None, :])
         self.campeon_picks = None  # nuestras elecciones arrancan vacías (0 puntos)
 
     def enable_goleador(self, p_goleador: np.ndarray, pool_q_goleador: np.ndarray,
@@ -228,9 +231,9 @@ class SeasonSimulator:
         n_op = len(p_goleador)
         self.gol_sim = self._rng_especiales.choice(n_op, size=self.cfg.n_sims, p=p_goleador)
         rival_picks = self._rng_especiales.choice(
-            n_op, size=self.n_rivales, p=pool_q_goleador
+            n_op, size=(self.n_rivales, self.cfg.n_sims), p=pool_q_goleador
         )
-        self.rivals_total += puntos * (rival_picks[:, None] == self.gol_sim[None, :])
+        self.rivals_total += puntos * (rival_picks == self.gol_sim[None, :])
         self.goleador_picks = None
 
     def set_campeon_pick(self, i: int, team: int) -> None:

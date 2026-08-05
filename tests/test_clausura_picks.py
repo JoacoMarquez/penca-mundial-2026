@@ -8,6 +8,7 @@ import pytest
 from src.clausura.economics import score_index
 from src.clausura.odds import EventOdds
 from src.clausura.picks import (
+    build_season_grids,
     delta_grid,
     fecha_dir,
     load_frozen,
@@ -66,6 +67,26 @@ def test_delta_grid_trunca_goleadas():
     assert g[5, 0] == 1.0  # 6+ se truncan a la grilla de trabajo
 
 
+class _RatingsStub:
+    def lambdas(self, local, visitante):
+        return 1.3, 1.1
+
+
+def test_build_season_grids_separa_liquidacion_de_predictivas():
+    """Jugados: grilla de liquidación = delta, pero la predictiva sigue siendo la
+    del modelo (calibración/Q/γ no pueden ver el resultado)."""
+    eventos = [_evento(10, "A", "B"), _evento(20, "C", "D")]
+    grids, fuentes, pred = build_season_grids(
+        eventos, _RatingsStub(), odds_by_evento={}, resultados={10: (2, 1)})
+
+    assert grids[0][2, 1] == 1.0 and fuentes[0] == "final 2-1"   # delta
+    assert pred[0].max() < 0.5                                    # predictiva, no delta
+    assert pred[0].sum() == pytest.approx(1.0)
+    # futuros: liquidación y predictiva son la misma grilla
+    assert grids[1] is pred[1]
+    assert fuentes[1] == "ratings"
+
+
 # -------------------- versionado en disco --------------------
 
 def test_save_version_no_sobreescribe(tmp_path, monkeypatch):
@@ -94,6 +115,47 @@ def test_load_frozen_desde_archivo(tmp_path, monkeypatch):
     assert frozen[0, 0] == score_index(1, 0)
     assert frozen[1, 0] == score_index(2, 1)
     assert frozen[2, 0] == score_index(0, 0)
+
+
+def test_load_frozen_congela_cerrados_de_la_fecha_objetivo(tmp_path, monkeypatch):
+    """Regeneración intra-fecha: el partido del viernes ya jugado conserva SU pick
+    guardado; el del sábado (abierto) queda libre. Antes quedaba en 0-0 fantasma."""
+    import src.clausura.picks as picks_mod
+    monkeypatch.setattr(picks_mod, "PRED_DIR", tmp_path)
+
+    eventos = [_evento(10, "A", "B", fecha_n=1), _evento(20, "C", "D", fecha_n=1)]
+    save_version(1, {"picks": [
+        {"evento_id": 10, "scores": [[1, 0], [0, 0]]},
+        {"evento_id": 20, "scores": [[2, 1], [1, 1]]},
+    ]})
+
+    frozen, mask = load_frozen(eventos, target_fecha=1, n_participaciones=2,
+                               cerrados={10})
+    assert mask.tolist() == [True, False]
+    assert frozen[0, 0] == score_index(1, 0)
+    assert frozen[1, 0] == score_index(0, 0)
+
+
+def test_load_frozen_sin_cerrados_no_congela_la_fecha_objetivo(tmp_path, monkeypatch):
+    import src.clausura.picks as picks_mod
+    monkeypatch.setattr(picks_mod, "PRED_DIR", tmp_path)
+    eventos = [_evento(10, "A", "B", fecha_n=1)]
+    save_version(1, {"picks": [{"evento_id": 10, "scores": [[1, 0]]}]})
+    _, mask = load_frozen(eventos, target_fecha=1, n_participaciones=1)
+    assert not mask.any()
+
+
+def test_load_frozen_avisa_si_faltan_participaciones(tmp_path, monkeypatch, caplog):
+    """Archivo con menos columnas que las pedidas: las filas extra quedan en 0-0,
+    pero ahora con warning (antes era silencioso)."""
+    import src.clausura.picks as picks_mod
+    monkeypatch.setattr(picks_mod, "PRED_DIR", tmp_path)
+    eventos = [_evento(10, "A", "B", fecha_n=1), _evento(20, "C", "D", fecha_n=2)]
+    save_version(1, {"picks": [{"evento_id": 10, "scores": [[1, 0], [2, 1]]}]})
+    with caplog.at_level("WARNING"):
+        frozen, mask = load_frozen(eventos, target_fecha=2, n_participaciones=4)
+    assert "participaciones" in caplog.text
+    assert frozen[3, 0] == score_index(0, 0)
 
 
 def test_load_frozen_fecha_sin_archivo_avisa_pero_no_rompe(tmp_path, monkeypatch, caplog):

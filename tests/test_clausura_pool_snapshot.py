@@ -55,10 +55,24 @@ def test_empirical_counts_trunca_goleadas():
     assert counts[2080][score_index(5, 0)] == 1  # 6+ va al borde de la grilla
 
 
+def test_empirical_counts_excluye_mis_numeros():
+    """La Q empírica modela a los RIVALES: nuestras participaciones no cuentan."""
+    counts = empirical_counts(_snapshot_dict(), mis_numeros={100})
+    assert set(counts) == {2080}          # el 2085 solo lo tenía el 100 (nuestro)
+    assert counts[2080].sum() == 2
+    assert counts[2080][score_index(1, 0)] == 1
+
+
 def test_empirical_campeon_counts():
     idx = {"Peñarol": 0, "Nacional": 1, "Cerro": 2}
     c = empirical_campeon_counts(_snapshot_dict(), idx, 3)
     assert c.tolist() == [2, 1, 0]
+
+
+def test_empirical_campeon_counts_excluye_mis_numeros():
+    idx = {"Peñarol": 0, "Nacional": 1, "Cerro": 2}
+    c = empirical_campeon_counts(_snapshot_dict(), idx, 3, mis_numeros={102})
+    assert c.tolist() == [1, 1, 0]
 
 
 # -------------------- blending Dirichlet --------------------

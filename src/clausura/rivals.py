@@ -25,7 +25,7 @@ se suma al total del rival: garantiza que los standings del simulador coincidan 
 la tabla real aunque el kernel o el snapshot tengan alguna diferencia menor.
 
 `SeasonSimulator` recibe este objeto por duck-typing (usa .n_rivales, .residuo,
-.campeon_idx y .sample_picks()) — economics.py no importa este módulo.
+.campeon_idx y .sample_picks_match()) — economics.py no importa este módulo.
 """
 
 from __future__ import annotations
@@ -78,28 +78,28 @@ class RivalModel:
     def n_rivales(self) -> int:
         return self.known_picks.shape[0]
 
-    def sample_picks(self, pool_qs: list[np.ndarray], rng: np.random.Generator,
-                     ) -> tuple[np.ndarray, np.ndarray]:
-        """(picks, show), ambos (n_matches, n_rivales).
+    def sample_picks_match(self, m: int, pool_q: np.ndarray, rng: np.random.Generator,
+                           n_sims: int) -> tuple[np.ndarray, np.ndarray]:
+        """(picks, show) del partido m, ambos (n_rivales, n_sims).
 
-        Observado → su pick tal cual. Pasado no observado → no cargó (show=False).
-        Futuro no observado → Bernoulli(p_show) + categórica ∝ Q^γ (un sorteo por
-        rival, igual que el camino i.i.d.: la incertidumbre entre simulaciones viene
-        de los resultados; la del pool, de tener R rivales).
+        Observado → su pick tal cual (constante entre sims). Pasado no observado →
+        no cargó (show=False). Futuro no observado → Bernoulli(p_show) + categórica
+        ∝ Q^γ, re-sorteados POR SIMULACIÓN: E[premio] integra la incertidumbre de
+        los picks del pool en vez de condicionar a una única realización (que el
+        ascenso por coordenadas podía explotar como huecos muestrales inexistentes).
         """
-        R, n_matches = self.known_picks.shape
-        picks = np.zeros((n_matches, R), dtype=np.int64)
-        show = np.zeros((n_matches, R), dtype=bool)
-        for m in range(n_matches):
-            known = self.known_picks[:, m]
-            has = known >= 0
-            picks[m, has] = known[has]
-            show[m, has] = True
-            if self.played_mask[m] or bool(has.all()):
-                continue
-            libre = ~has
-            picks[m, libre] = _tilted_sample(pool_qs[m], self.gamma[libre], rng)
-            show[m, libre] = rng.random(int(libre.sum())) < self.p_show[libre]
+        R = self.n_rivales
+        picks = np.zeros((R, n_sims), dtype=np.int64)
+        show = np.zeros((R, n_sims), dtype=bool)
+        known = self.known_picks[:, m]
+        has = known >= 0
+        picks[has] = known[has, None]
+        show[has] = True
+        if self.played_mask[m] or bool(has.all()):
+            return picks, show
+        libre = ~has
+        picks[libre] = _tilted_sample(pool_q, self.gamma[libre], rng, size=n_sims)
+        show[libre] = rng.random((int(libre.sum()), n_sims)) < self.p_show[libre, None]
         return picks, show
 
     def resumen(self) -> str:
@@ -111,13 +111,22 @@ class RivalModel:
                 f"(máx |{np.abs(self.residuo).max()}|)")
 
 
-def _tilted_sample(q: np.ndarray, gamma: np.ndarray, rng: np.random.Generator) -> np.ndarray:
-    """Un pick por rival de la categórica ∝ q^γ_r. Vectorizado por inverse-CDF."""
+def _tilted_sample(q: np.ndarray, gamma: np.ndarray, rng: np.random.Generator,
+                   size: int | None = None) -> np.ndarray:
+    """Picks de la categórica ∝ q^γ_r, vectorizado por inverse-CDF.
+
+    Sin `size`: un pick por rival, shape (R,). Con `size`: sorteos independientes
+    por simulación, shape (R, size).
+    """
     logq = np.log(q + 1e-12)
     w = np.exp(gamma[:, None] * logq[None, :])
     w /= w.sum(axis=1, keepdims=True)
-    u = rng.random(len(gamma))
-    return (u[:, None] > np.cumsum(w, axis=1)).sum(axis=1).clip(0, N_SCORES - 1)
+    cdf = np.cumsum(w, axis=1)
+    if size is None:
+        u = rng.random(len(gamma))
+        return (u[:, None] > cdf).sum(axis=1).clip(0, N_SCORES - 1)
+    u = rng.random((len(gamma), size))
+    return (u[:, :, None] > cdf[:, None, :]).sum(axis=2).clip(0, N_SCORES - 1)
 
 
 def fit_gamma(obs_idx: np.ndarray, logqs: np.ndarray) -> float:

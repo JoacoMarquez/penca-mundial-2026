@@ -149,10 +149,20 @@ def load_latest_snapshot(max_age_hours: float | None = None) -> dict | None:
 
 # -------------------- Q empírica --------------------
 
-def empirical_counts(snapshot: dict) -> dict[int, np.ndarray]:
-    """evento_id → conteos de picks sobre los N_SCORES índices."""
+def empirical_counts(
+    snapshot: dict, mis_numeros: set[int] | None = None,
+) -> dict[int, np.ndarray]:
+    """evento_id → conteos de picks sobre los N_SCORES índices.
+
+    `mis_numeros` excluye nuestras participaciones: la Q empírica modela a los
+    RIVALES; contarnos (12 planillas anti-chalk sobre ~150) infla justo los
+    marcadores diferenciados y hace desaparecer el hueco que explotamos.
+    """
+    mis = mis_numeros or set()
     counts: dict[int, np.ndarray] = {}
     for r in snapshot.get("participaciones", []):
+        if int(r.get("numero", -1)) in mis:
+            continue
         for eid_str, (gl, gv) in r.get("picks", {}).items():
             eid = int(eid_str)
             if eid not in counts:
@@ -173,10 +183,19 @@ def blended_q(prior_q: np.ndarray, counts: np.ndarray | None, strength: float = 
     return q / q.sum()
 
 
-def empirical_campeon_counts(snapshot: dict, equipo_idx: dict[str, int], n_teams: int) -> np.ndarray:
-    """Conteos de picks de campeón por equipo (índices del optimizador)."""
+def empirical_campeon_counts(
+    snapshot: dict, equipo_idx: dict[str, int], n_teams: int,
+    mis_numeros: set[int] | None = None,
+) -> np.ndarray:
+    """Conteos de picks de campeón por equipo (índices del optimizador).
+
+    `mis_numeros` excluye nuestras participaciones, igual que en empirical_counts.
+    """
+    mis = mis_numeros or set()
     counts = np.zeros(n_teams)
     for r in snapshot.get("participaciones", []):
+        if int(r.get("numero", -1)) in mis:
+            continue
         nombre = r.get("campeon")
         if nombre and nombre in equipo_idx:
             counts[equipo_idx[nombre]] += 1
