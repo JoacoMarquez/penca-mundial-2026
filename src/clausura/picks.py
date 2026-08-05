@@ -80,7 +80,11 @@ def flat_eventos(cfg: dict) -> list[dict]:
 
 
 def ensure_ratings() -> TeamRatings:
-    """Ratings con todo lo jugado: 5 temporadas previas + lo que haya del Clausura."""
+    """Ratings con todo lo jugado: 5 temporadas previas + Intermedio 2026 + Clausura.
+
+    El Intermedio no está en el penca-api; se ingiere aparte desde Wikipedia
+    (src.clausura.intermedio) y load_dataset_completo lo suma si existe.
+    """
     path = DATA_DIR / "primera_uy_historico.json"
     if not path.exists():
         log.info("histórico ausente — descargando del penca-api…")
@@ -91,7 +95,8 @@ def ensure_ratings() -> TeamRatings:
             hist_main()
         finally:
             sys.argv = argv
-    return fit_ratings(load_dataset())
+    from src.clausura.intermedio import load_dataset_completo
+    return fit_ratings(load_dataset_completo())
 
 
 def match_odds(eventos: list[dict], odds: list[EventOdds]) -> dict[int, EventOdds]:
