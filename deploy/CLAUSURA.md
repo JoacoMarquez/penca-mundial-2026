@@ -13,6 +13,7 @@ Qué corre en el droplet:
 | `clausura-drift-audit.timer` | 13:20 / 18:20 / 23:50 UTC: compara lo cargado en la web vs la planilla guardada y avisa discrepancias (pre-inicio sale en silencio) |
 | `clausura-postmortem.timer` | 03:20 UTC diario: si una fecha quedó completa, snapshot fresco del pool + postmortem por Telegram (puntos reales vs esperados, pool, exactos) |
 | `clausura-rerun-cierre.timer` | ~2h antes del primer cierre del día: re-corre el pipeline (odds+pool frescos) y avisa SOLO si algún pick abierto cambió vs la planilla de la mañana |
+| `clausura-goleador-watch.timer` | cada hora: cuando el admin publique los menús de Campeón/Goleador (hoy 500), avisa qué cargar por participación; con goleador regenera la planilla para asignarlo |
 | `penca-failure-notify@.service` | template `OnFailure=`: si un service del Clausura falla, aviso por Telegram con el nombre del unit |
 
 La carga de picks en supermatch.com.uy sigue siendo **manual** (decisión 2026-08-04).
