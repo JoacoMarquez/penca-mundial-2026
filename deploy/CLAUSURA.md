@@ -11,6 +11,7 @@ Qué corre en el droplet:
 | `clausura-picks.timer` | jue-dom 12:00 UTC (09:00 UY): re-sync del fixture + pipeline de picks (`--fecha auto`) + **planilla por Telegram** |
 | `clausura-carga-alert.timer` | cada hora 11-23 UTC: aviso por Telegram si faltan cargar picks a 6h/2h del cierre |
 | `clausura-drift-audit.timer` | 13:20 / 18:20 / 23:50 UTC: compara lo cargado en la web vs la planilla guardada y avisa discrepancias (pre-inicio sale en silencio) |
+| `clausura-postmortem.timer` | 03:20 UTC diario: si una fecha quedó completa, snapshot fresco del pool + postmortem por Telegram (puntos reales vs esperados, pool, exactos) |
 | `penca-failure-notify@.service` | template `OnFailure=`: si un service del Clausura falla, aviso por Telegram con el nombre del unit |
 
 La carga de picks en supermatch.com.uy sigue siendo **manual** (decisión 2026-08-04).

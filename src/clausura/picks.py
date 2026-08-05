@@ -46,6 +46,7 @@ from src.clausura.especiales import (
     pool_goleador_distribution,
 )
 from src.clausura.ratings import TeamRatings, fit_ratings
+from src.clausura.scoring import expected_points_grid
 from src.clausura.strategy import EspecialesInput, PortfolioClausura, build_portfolio
 from src.model.market_probs import devig
 from src.model.poisson import MarketConstraints, fit_params, score_grid
@@ -486,6 +487,12 @@ def run(
                 "fuente_modelo": fuentes[idx_of[ev["evento_id"]]],
                 "scores": [list(index_score(int(port.picks[k, idx_of[ev["evento_id"]]])))
                            for k in range(n_participaciones)],
+                # E[pts] de cada pick bajo la grilla del modelo al momento de generar
+                # (insumo del postmortem: esperado vs real)
+                "e_pts": [round(expected_points_grid(
+                              index_score(int(port.picks[k, idx_of[ev["evento_id"]]])),
+                              grids[idx_of[ev["evento_id"]]], ev["preferencial"]), 2)
+                          for k in range(n_participaciones)],
             }
             for ev in eventos_fecha
         ],
