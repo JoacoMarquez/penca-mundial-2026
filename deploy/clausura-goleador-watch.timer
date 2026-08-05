@@ -1,0 +1,12 @@
+[Unit]
+Description=Timer del watcher de especiales — cada hora hasta que aparezcan los menús
+
+# Los endpoints hoy dan 500 (menús no configurados por el admin). El chequeo son
+# 2 GETs; cuando ambos menús ya fueron avisados el script sale en el acto.
+
+[Timer]
+OnCalendar=*-*-* *:05:00 UTC
+Persistent=false
+
+[Install]
+WantedBy=timers.target
