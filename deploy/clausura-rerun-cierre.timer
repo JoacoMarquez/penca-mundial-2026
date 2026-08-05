@@ -1,0 +1,13 @@
+[Unit]
+Description=Timer de la corrida T-2h del Clausura — horario en la ventana previa a los cierres
+
+# Cierres reales: 17:45-22:45 UTC. El script solo dispara si el primer cierre de
+# HOY está a ≤2.5h y aún no corrió hoy — el resto de las pasadas salen en silencio.
+# (ej.: cierre 17:45 → dispara a las 15:35; cierre 20:45 → a las 18:35)
+
+[Timer]
+OnCalendar=*-*-* 13..21:35:00 UTC
+Persistent=false
+
+[Install]
+WantedBy=timers.target
