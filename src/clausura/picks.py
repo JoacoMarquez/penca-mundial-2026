@@ -318,6 +318,46 @@ def format_especiales(port: PortfolioClausura, equipo_nombres: list[str],
     return "\n".join(lines)
 
 
+def format_gratuita(
+    eventos_fecha: list[dict],
+    port: PortfolioClausura,
+    idx_of: dict[int, int],
+    equipo_nombres: list[str],
+    opciones_goleador,
+) -> str:
+    """Sección lista para copiar en la penca GRATUITA (1 sola participación).
+
+    El premio de la gratuita es una PlayStation 5 — INDIVISIBLE, con desempate por
+    exactos y después sorteo. A diferencia de la paga (plata repartida entre
+    empatados), empatar no diluye: da derecho al desempate. Sin la penalidad por
+    converger, y con una sola planilla, el óptimo es EV puro — que es exactamente
+    la participación 1 (el ancla que el optimizador nunca perturba).
+
+    Verificado por simulación 2026-08-05 (245 rivales, evaluación out-of-sample):
+    EV duplica a chalk en P(ganar), y optimizar P(ganar) directamente EMPEORA
+    fuera de muestra (winner's curse).
+
+    Salvedad: los especiales SÍ se diversifican en todas las participaciones,
+    incluida la 1 — así que acá va el argmax de P(campeón), no el de la fila 1.
+    """
+    lines = ["", "<b>🎁 Penca GRATUITA (1 participación — PlayStation 5)</b>",
+             "<i>Óptimo = EV puro: premio indivisible con desempate por exactos, "
+             "diferenciarse no paga.</i>"]
+    for ev in eventos_fecha:
+        i = idx_of[ev["evento_id"]]
+        gl, gv = index_score(int(port.picks[0, i]))
+        estrella = " ⭐x2" if ev["preferencial"] else ""
+        lines.append(f"  {ev['local']} vs {ev['visitante']}{estrella}: <b>{gl}-{gv}</b>")
+    if port.p_campeon is not None:
+        mejor = int(np.argmax(port.p_campeon))
+        lines.append(f"  campeón: <b>{equipo_nombres[mejor]}</b> "
+                     f"({port.p_campeon[mejor]:.0%} — el más probable, "
+                     f"NO el de la participación 1)")
+    if port.goleador is not None and opciones_goleador:
+        lines.append(f"  goleador: <b>{opciones_goleador[int(port.goleador[0])].nombre}</b>")
+    return "\n".join(lines)
+
+
 def save_version(target_fecha: int, payload: dict) -> Path:
     """Escribe v<N>_<ts>.json sin sobreescribir (regla de trabajo #2)."""
     d = fecha_dir(target_fecha)
@@ -555,6 +595,8 @@ def run(
     eventos_fecha = [ev for ev in eventos if ev["fecha_n"] == target_fecha]
     planilla = format_planilla(eventos_fecha, port, idx_of, fuentes, n_rivales)
     planilla += "\n" + format_especiales(port, equipo_nombres, opciones_goleador)
+    planilla += "\n" + format_gratuita(eventos_fecha, port, idx_of, equipo_nombres,
+                                       opciones_goleador)
 
     payload = {
         "generado_utc": datetime.now(timezone.utc).isoformat(),
