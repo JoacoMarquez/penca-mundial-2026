@@ -9,6 +9,9 @@ Qué corre en el droplet:
 |---|---|
 | `clausura-dashboard.service` | uvicorn `src.clausura.webapp` en `:8000` — el dashboard con token en la URL, accesible desde el celular |
 | `clausura-picks.timer` | jue-dom 12:00 UTC (09:00 UY): re-sync del fixture + pipeline de picks (`--fecha auto`) + **planilla por Telegram** |
+| `clausura-carga-alert.timer` | cada hora 11-23 UTC: aviso por Telegram si faltan cargar picks a 6h/2h del cierre |
+| `clausura-drift-audit.timer` | 13:20 / 18:20 / 23:50 UTC: compara lo cargado en la web vs la planilla guardada y avisa discrepancias (pre-inicio sale en silencio) |
+| `penca-failure-notify@.service` | template `OnFailure=`: si un service del Clausura falla, aviso por Telegram con el nombre del unit |
 
 La carga de picks en supermatch.com.uy sigue siendo **manual** (decisión 2026-08-04).
 
