@@ -81,7 +81,29 @@
   </div>
   {% endif %}
 
+  <div id="version-watch" class="hidden fixed bottom-3 inset-x-3 bg-amber-600 text-white
+       rounded-xl px-4 py-3 text-sm font-semibold shadow-lg z-50">
+    ⚠️ Hay una versión más nueva de la planilla —
+    <a href="" class="underline">recargar</a> antes de seguir cargando.
+  </div>
+
   <script>
+    // Vigía de versión: si el timer/rerun escribe una planilla nueva mientras esta
+    // pestaña está abierta, avisamos — una pestaña vieja es el único camino para
+    // cargar picks desactualizados sin enterarse.
+    const versionActual = {{ (data.planilla.version_file if data.planilla else '') | tojson }};
+    if (versionActual) {
+      setInterval(async () => {
+        try {
+          const r = await fetch('../api/data?fecha={{ data.fecha_n }}', {cache: 'no-store'});
+          const d = await r.json();
+          if (d.planilla && d.planilla.version_file !== versionActual) {
+            document.getElementById('version-watch').classList.remove('hidden');
+          }
+        } catch (e) { /* sin red: no molestar */ }
+      }, 60_000);
+    }
+
     // Progreso de carga persistido en el teléfono (localStorage), por versión de
     // planilla: si se regenera la planilla, los checks se resetean solos.
     const cards = document.querySelectorAll('.carga-card');

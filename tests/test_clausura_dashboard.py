@@ -223,3 +223,30 @@ def test_diff_versiones_marca_cerrados(tmp_path, monkeypatch):
     _version(tmp_path, 2, 6, [_row(10, [[2, 2]], cierre=viejo)])
     d = diff_versiones(1, [1])
     assert d["cambios"][0]["cerrado"] is True
+
+
+def test_modo_carga_incluye_el_vigia_de_version(monkeypatch):
+    """La pestaña abierta es el único camino a cargar picks viejos: el modo carga
+    tiene que traer el watcher que avisa si apareció una versión más nueva."""
+    import os
+    os.environ["DASHBOARD_TOKEN"] = "t"
+    from fastapi.testclient import TestClient
+    import src.clausura.dashboard_loader as dl
+    import src.clausura.webapp as webapp
+
+    monkeypatch.setattr(dl, "load_planilla", lambda n: {
+        "picks": [{"partido": "A vs B", "preferencial": False, "cierre_uy": "x",
+                   "cerrado": False, "scores": [[1, 0]], "scores_fmt": ["1-0"],
+                   "evento_id": 1, "cierre_pronostico_utc": "2026-12-01T00:00:00+00:00"}],
+        "resultado_sim": {"e_premio_total": 1.0, "e_premio_penca": 1.0,
+                          "e_premio_fechas": 0.0, "p_gana_penca": 0.1},
+        "pool": {"n_rivales": 1, "temperatura": 1.0},
+        "n_participaciones": 1, "version_file": "v8_x.json",
+        "generado_uy": "x", "n_fechas_guardadas": 1,
+    })
+    monkeypatch.setattr(dl, "load_ranking", lambda pid, mios=None: {"ok": False, "rows": []})
+
+    html = TestClient(webapp.app).get("/dash/t/carga/").text
+    assert "version-watch" in html
+    assert '"v8_x.json"' in html          # la versión actual queda embebida para comparar
+    assert "api/data?fecha=" in html      # y el poll apunta al endpoint de datos
