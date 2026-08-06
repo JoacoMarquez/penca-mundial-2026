@@ -59,28 +59,31 @@
   <div class="grid lg:grid-cols-3 gap-4">
 
     {# ---------- PLANILLA ---------- #}
-    <div class="lg:col-span-2 bg-slate-800 rounded-xl p-4">
-      <div class="flex items-center justify-between mb-3">
-        <h2 class="font-bold">📋 Planilla — Fecha {{ data.fecha_n }}</h2>
+    {# min-w-0: sin esto el hijo de grid hereda min-width:auto y la tabla ancha
+       estira la tarjeta entera más allá del viewport en el teléfono #}
+    <div class="lg:col-span-2 bg-slate-800 rounded-xl p-4 min-w-0">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <h2 class="font-bold whitespace-nowrap">📋 Planilla — Fecha {{ data.fecha_n }}</h2>
         <div class="flex items-center gap-2">
           <a href="{{ data.supermatch_url }}" target="_blank" rel="noopener"
-             class="text-sm bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg font-medium">
+             class="text-sm bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg font-medium whitespace-nowrap">
             Abrir penca ↗
           </a>
           {% if data.planilla %}
           <a href="/dash/{{ token }}/carga/?fecha={{ data.fecha_n }}"
-             class="text-sm bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg font-medium">
+             class="text-sm bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg font-medium whitespace-nowrap">
             📲 Modo carga
           </a>
           {% endif %}
         </div>
       </div>
       {% if data.planilla %}
+        <div class="text-xs text-slate-500 mb-1 lg:hidden">deslizá la tabla → para ver las 12 participaciones</div>
         <div class="overflow-x-auto">
           <table class="w-full text-sm">
             <thead class="text-xs text-slate-400 border-b border-slate-700">
               <tr>
-                <th class="text-left py-2 pr-2">Partido</th>
+                <th class="text-left py-2 pr-2 sticky left-0 bg-slate-800 z-10">Partido</th>
                 {# encabezado = últimos 3 dígitos del N° de participación real #}
                 {% for i in range(data.planilla.n_participaciones) %}
                   <th class="text-center px-1 whitespace-nowrap">
@@ -95,7 +98,8 @@
             <tbody>
               {% for row in data.planilla.picks %}
               <tr class="border-b border-slate-700/50 {% if row.cerrado %}opacity-50{% endif %}">
-                <td class="py-2 pr-2">
+                <td class="py-2 pr-2 sticky left-0 bg-slate-800 z-10 max-w-[10rem] lg:max-w-none
+                           shadow-[6px_0_8px_-6px_rgba(0,0,0,0.6)]">
                   <span class="font-medium">{{ row.partido }}</span>
                   {% if row.preferencial %}<span class="text-amber-300 text-xs ml-1">⭐x2</span>{% endif %}
                   <div class="text-[11px] text-slate-500">{{ row.fuente_modelo }}</div>
@@ -235,7 +239,7 @@
     {% endif %}
 
     {# ---------- RANKING ---------- #}
-    <div class="bg-slate-800 rounded-xl p-4">
+    <div class="bg-slate-800 rounded-xl p-4 min-w-0">
       <h2 class="font-bold mb-3">🏆 Ranking en vivo</h2>
       {% if data.ranking.ok %}
         <div class="text-xs text-slate-400 mb-2">
