@@ -1,0 +1,11 @@
+[Unit]
+Description=Heartbeat Clausura — diario 11:00 UTC (08:00 UY, después de la pasada de picks)
+Requires=clausura-heartbeat.service
+
+[Timer]
+OnCalendar=*-*-* 11:00:00 UTC
+Persistent=true
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target
