@@ -28,6 +28,7 @@ import argparse
 import json
 import logging
 import os
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -100,16 +101,35 @@ def ensure_ratings() -> TeamRatings:
     return fit_ratings(load_dataset_completo())
 
 
+_STOP_TOKENS = {"de", "del", "la", "las", "los", "el", "club", "fc", "uru"}
+
+
+def _team_tokens(name: str) -> frozenset[str]:
+    """Tokens significativos del nombre: sin puntuación ("M.C."), paréntesis
+    ("Liverpool (URU)"), iniciales sueltas ni conectores ("Juventud de Las Piedras")."""
+    clean = re.sub(r"[^a-z0-9 ]", " ", _norm(name))
+    return frozenset(t for t in clean.split() if len(t) > 1 and t not in _STOP_TOKENS)
+
+
 def match_odds(eventos: list[dict], odds: list[EventOdds]) -> dict[int, EventOdds]:
     """evento_id → EventOdds, matcheando por nombres normalizados de ambos equipos.
 
-    Los nombres del penca-api y del Elasticsearch pueden diferir en detalles
-    ("Montevideo City Torque" vs "Montevideo City"); matcheamos por inclusión de
-    tokens normalizados en ambas direcciones.
+    Los nombres del penca-api y del Elasticsearch difieren en detalles
+    ("Montevideo City Torque" vs "M.C. Torque", "Liverpool" vs "Liverpool (URU)",
+    "Juventud" vs "Juventud de Las Piedras"): además del substring, matcheamos por
+    tokens significativos, aceptando abreviaturas por prefijo ("Sp." → "Sporting").
+    El guardia real contra cruces (Cerro vs Cerro Largo) es exigir que matcheen
+    los DOS equipos del partido.
     """
+    def covers(small: frozenset[str], big: frozenset[str]) -> bool:
+        return all(any(bt.startswith(st) for bt in big) for st in small)
+
     def similar(a: str, b: str) -> bool:
         na, nb = _norm(a), _norm(b)
-        return na == nb or na in nb or nb in na
+        if na == nb or na in nb or nb in na:
+            return True
+        ta, tb = _team_tokens(a), _team_tokens(b)
+        return bool(ta) and bool(tb) and (covers(ta, tb) or covers(tb, ta))
 
     out = {}
     for ev in eventos:
@@ -117,6 +137,10 @@ def match_odds(eventos: list[dict], odds: list[EventOdds]) -> dict[int, EventOdd
             if similar(ev["local"], o.home) and similar(ev["visitante"], o.away):
                 out[ev["evento_id"]] = o
                 break
+    sin_match = [o for o in odds if o.event_id not in {m.event_id for m in out.values()}]
+    if sin_match:
+        log.info("odds sin evento matcheado (posible drift de nombres): %s",
+                 ["%s vs %s" % (o.home, o.away) for o in sin_match])
     return out
 
 

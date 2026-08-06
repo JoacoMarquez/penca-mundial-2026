@@ -55,6 +55,32 @@ def test_match_odds_no_cruza_partidos():
     assert m.keys() == {2}
 
 
+def test_match_odds_nombres_reales_del_es():
+    """Nombres reales del Elasticsearch de Supermatch (2026-08-06). El caso
+    'M.C. Torque' es el bug de la v9: ningún substring, solo tokens."""
+    evs = [
+        _evento(1, "Montevideo City Torque", "Peñarol"),
+        _evento(2, "Liverpool", "Juventud"),
+    ]
+    m = match_odds(evs, [
+        _odds("M.C. Torque", "Peñarol"),
+        _odds("Liverpool (URU)", "Juventud de Las Piedras"),
+    ])
+    assert m.keys() == {1, 2}
+
+
+def test_match_odds_abreviatura_por_prefijo():
+    evs = [_evento(1, "Defensor Sporting", "Racing")]
+    m = match_odds(evs, [_odds("Defensor Sp.", "Racing Club de Montevideo")])
+    assert 1 in m
+
+
+def test_match_odds_tokens_distintos_no_matchean():
+    evs = [_evento(1, "Nacional", "Cerro")]
+    m = match_odds(evs, [_odds("Central Español", "Cerro")])
+    assert not m
+
+
 # -------------------- grillas --------------------
 
 def test_delta_grid_concentra_la_masa():
