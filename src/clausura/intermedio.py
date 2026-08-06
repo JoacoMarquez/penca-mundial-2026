@@ -156,12 +156,22 @@ def parse_partidos(
 
 
 def load_dataset_completo() -> list[PartidoHistorico]:
-    """Histórico del penca-api + Intermedio 2026 (si fue ingerido)."""
+    """Histórico del penca-api + Intermedio 2026 (si fue ingerido).
+
+    Sin el Intermedio los ratings corren con datos hasta mayo y P(campeón) se
+    invierte (Nacional arriba de Peñarol) — pasó en un preview el 5/8. El archivo
+    está gitignored y el ExecStartPre que lo regenera ignora fallos, así que el
+    fallback tiene que ser RUIDOSO, no silencioso.
+    """
     base = load_dataset()
     if OUT_PATH.exists():
         extra = [PartidoHistorico(**d)
                  for d in json.loads(OUT_PATH.read_text(encoding="utf-8"))]
         base = base + extra
+    else:
+        log.warning("⚠️ %s AUSENTE — los ratings corren SIN el Torneo Intermedio "
+                    "2026 (datos hasta mayo; P(campeón) se invierte). Correr "
+                    "`python -m src.clausura.intermedio`", OUT_PATH.name)
     return base
 
 
