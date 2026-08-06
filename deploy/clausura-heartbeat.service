@@ -1,0 +1,13 @@
+[Unit]
+Description=Penca Clausura — heartbeat diario por Telegram
+After=network-online.target
+Wants=network-online.target
+OnFailure=penca-failure-notify@%n.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/penca/env
+Environment="PYTHONPATH=/opt/penca"
+WorkingDirectory=/opt/penca
+ExecStart=/opt/penca/.venv/bin/python -m src.clausura.heartbeat
+User=root
