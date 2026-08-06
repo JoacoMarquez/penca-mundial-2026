@@ -11,7 +11,9 @@ Environment="PYTHONPATH=/opt/penca"
 WorkingDirectory=/opt/penca
 ExecStartPre=/opt/penca/.venv/bin/python -m src.clausura.sync
 ExecStartPre=/opt/penca/.venv/bin/python -m src.clausura.pool_snapshot --if-started
-ExecStart=/opt/penca/.venv/bin/python -m src.clausura.rerun_cierre --participaciones 12
+# 1600 sims (~80 min en 1 vCPU): más que esto y el rerun de T-2h no llega al
+# cierre; menos y re-optimiza peor que la pasada principal de 2400 (backtest 6/8)
+ExecStart=/opt/penca/.venv/bin/python -m src.clausura.rerun_cierre --participaciones 12 --sims 1600
 StandardOutput=append:/var/lib/penca/logs/clausura-rerun-cierre.log
 StandardError=append:/var/lib/penca/logs/clausura-rerun-cierre.err
 User=root
