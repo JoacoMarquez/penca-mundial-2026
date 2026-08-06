@@ -82,3 +82,16 @@ def test_fechas_se_asignan_del_contexto():
     assert torque.inicio_utc.startswith("2026-05-15")
     assert torque.fecha_nombre == "Fecha 1"
     assert torque.campeonato == "Torneo Intermedio 2026"
+
+
+def test_load_dataset_completo_avisa_ruidoso_si_falta_el_intermedio(tmp_path, monkeypatch, caplog):
+    """El archivo está gitignored y el ExecStartPre ignora fallos: si falta, los
+    ratings corren con datos hasta mayo y P(campeón) se invierte. El fallback
+    tiene que avisar fuerte, no callar."""
+    import src.clausura.intermedio as im
+    monkeypatch.setattr(im, "OUT_PATH", tmp_path / "no_existe.json")
+    monkeypatch.setattr(im, "load_dataset", lambda: [])
+    with caplog.at_level("WARNING"):
+        out = im.load_dataset_completo()
+    assert out == []
+    assert "AUSENTE" in caplog.text and "Intermedio" in caplog.text
