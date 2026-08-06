@@ -1,9 +1,13 @@
 [Unit]
-Description=Heartbeat Clausura — diario 11:00 UTC (08:00 UY, después de la pasada de picks)
+Description=Heartbeat Clausura — diario 12:30 UTC (09:30 UY)
 Requires=clausura-heartbeat.service
 
+# 12:30 UTC: DESPUÉS de la pasada de picks (11:00 + ~15 min) para que pueda
+# confirmar que la planilla del día se generó. Si corriera a la misma hora,
+# reportaría la planilla de ayer y el chequeo perdería sentido.
+
 [Timer]
-OnCalendar=*-*-* 11:00:00 UTC
+OnCalendar=*-*-* 12:30:00 UTC
 Persistent=true
 AccuracySec=1min
 
