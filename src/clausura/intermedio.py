@@ -155,8 +155,46 @@ def parse_partidos(
     return out
 
 
+EXTRA_PATH = DATA_DIR.parents[1] / "config" / "partidos_extra.yaml"
+
+
+def _clave(p) -> tuple:
+    """Identidad de un partido para deduplicar entre fuentes."""
+    get = p.get if isinstance(p, dict) else lambda k: getattr(p, k)
+    return (get("campeonato"), _norm(get("local")), _norm(get("visitante")),
+            str(get("inicio_utc"))[:10])
+
+
+def load_partidos_extra(ya_cargados: set[tuple]) -> list[PartidoHistorico]:
+    """Partidos verificados a mano (config/partidos_extra.yaml) que ninguna fuente
+    automática cubre — p.ej. la final del Intermedio 2026 (Peñarol 5-1 Wanderers,
+    5/8), que Wikipedia nunca listó. Se descartan solos si la fuente automática
+    los agrega después (dedup por campeonato+equipos+día)."""
+    if not EXTRA_PATH.exists():
+        return []
+    import yaml
+    data = yaml.safe_load(EXTRA_PATH.read_text(encoding="utf-8")) or {}
+    out = []
+    for i, p in enumerate(data.get("partidos", [])):
+        if _clave(p) in ya_cargados:
+            log.info("partido extra ya presente en la fuente automática, se "
+                     "descarta: %s vs %s", p["local"], p["visitante"])
+            continue
+        out.append(PartidoHistorico(
+            campeonato_id=CAMPEONATO_ID, campeonato=p["campeonato"],
+            fecha_nombre=p.get("fecha_nombre", "Extra"), fecha_id=-100 - i,
+            evento_id=-100 - i, local=p["local"], visitante=p["visitante"],
+            goles_local=int(p["goles_local"]), goles_visitante=int(p["goles_visitante"]),
+            preferencial=False, inicio_utc=str(p["inicio_utc"]),
+        ))
+    if out:
+        log.info("partidos extra verificados a mano: %d (config/partidos_extra.yaml)",
+                 len(out))
+    return out
+
+
 def load_dataset_completo() -> list[PartidoHistorico]:
-    """Histórico del penca-api + Intermedio 2026 (si fue ingerido).
+    """Histórico del penca-api + Intermedio 2026 (si fue ingerido) + extras a mano.
 
     Sin el Intermedio los ratings corren con datos hasta mayo y P(campeón) se
     invierte (Nacional arriba de Peñarol) — pasó en un preview el 5/8. El archivo
@@ -172,6 +210,7 @@ def load_dataset_completo() -> list[PartidoHistorico]:
         log.warning("⚠️ %s AUSENTE — los ratings corren SIN el Torneo Intermedio "
                     "2026 (datos hasta mayo; P(campeón) se invierte). Correr "
                     "`python -m src.clausura.intermedio`", OUT_PATH.name)
+    base = base + load_partidos_extra({_clave(p) for p in base})
     return base
 
 

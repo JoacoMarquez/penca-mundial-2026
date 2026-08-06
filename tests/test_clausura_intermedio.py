@@ -90,8 +90,52 @@ def test_load_dataset_completo_avisa_ruidoso_si_falta_el_intermedio(tmp_path, mo
     tiene que avisar fuerte, no callar."""
     import src.clausura.intermedio as im
     monkeypatch.setattr(im, "OUT_PATH", tmp_path / "no_existe.json")
+    monkeypatch.setattr(im, "EXTRA_PATH", tmp_path / "tampoco.yaml")
     monkeypatch.setattr(im, "load_dataset", lambda: [])
     with caplog.at_level("WARNING"):
         out = im.load_dataset_completo()
     assert out == []
     assert "AUSENTE" in caplog.text and "Intermedio" in caplog.text
+
+
+def test_partidos_extra_entran_y_se_deduplican(tmp_path, monkeypatch):
+    """La final del Intermedio (Wikipedia no la lista) entra desde el yaml; si la
+    fuente automática la agrega después, el extra se descarta solo."""
+    import src.clausura.intermedio as im
+
+    yml = tmp_path / "partidos_extra.yaml"
+    yml.write_text("""
+partidos:
+  - campeonato: "Torneo Intermedio 2026"
+    fecha_nombre: "Final"
+    local: "Peñarol"
+    visitante: "Wanderers"
+    goles_local: 5
+    goles_visitante: 1
+    inicio_utc: "2026-08-05T22:30:00+00:00"
+""", encoding="utf-8")
+    monkeypatch.setattr(im, "EXTRA_PATH", yml)
+
+    extras = im.load_partidos_extra(set())
+    assert len(extras) == 1
+    p = extras[0]
+    assert (p.local, p.goles_local, p.goles_visitante) == ("Peñarol", 5, 1)
+    assert p.campeonato == "Torneo Intermedio 2026"
+
+    # dedup: si ya está en la fuente automática, no entra dos veces
+    assert im.load_partidos_extra({im._clave(p)}) == []
+
+
+def test_partidos_extra_sin_archivo_devuelve_vacio(tmp_path, monkeypatch):
+    import src.clausura.intermedio as im
+    monkeypatch.setattr(im, "EXTRA_PATH", tmp_path / "no_existe.yaml")
+    assert im.load_partidos_extra(set()) == []
+
+
+def test_el_yaml_real_del_repo_carga_y_tiene_la_final():
+    """El archivo commiteado tiene que parsear y contener la final 5-1."""
+    from src.clausura.intermedio import load_partidos_extra
+    extras = load_partidos_extra(set())
+    finales = [p for p in extras if p.fecha_nombre == "Final"]
+    assert len(finales) == 1
+    assert (finales[0].goles_local, finales[0].goles_visitante) == (5, 1)

@@ -1,0 +1,20 @@
+# Partidos reales que ninguna fuente automática cubre (ni el penca-api ni las
+# tablas por fecha de Wikipedia). Entran a los ratings vía load_dataset_completo,
+# con guarda anti-duplicado: si la fuente automática después los agrega (p.ej.
+# Wikipedia suma la tabla 'Final'), el extra se descarta solo.
+#
+# Regla: SOLO resultados verificados con fuente. Nada de estimaciones.
+
+partidos:
+  # Final del Torneo Intermedio 2026, Estadio Centenario, mié 2026-08-05.
+  # Goles: Espinosa 14', Arezo 23', Abel Hernández 31', Jaime 45', Remedi 90' /
+  # Cosentino 19'. Fuente: El Observador / Subrayado (2026-08-05/06).
+  # Wikipedia no listó la tabla de la final; sin esto, la señal más fresca de
+  # Peñarol (5-1 a dos días del Clausura) queda afuera del modelo.
+  - campeonato: "Torneo Intermedio 2026"
+    fecha_nombre: "Final"
+    local: "Peñarol"
+    visitante: "Wanderers"
+    goles_local: 5
+    goles_visitante: 1
+    inicio_utc: "2026-08-05T22:30:00+00:00"
