@@ -10,49 +10,49 @@
   </div>
 {% else %}
 
-  <div class="flex items-center justify-between mb-3">
-    <div>
-      <h1 class="text-lg font-bold">📲 Modo carga — Fecha {{ data.fecha_n }}</h1>
-      <div class="text-xs text-slate-400">
-        {{ data.planilla.version_file.split('_')[0] }} · {{ data.planilla.generado_uy }} UY ·
-        una tarjeta por participación, en el orden de la web
-      </div>
-    </div>
-    <div class="flex items-center gap-3 shrink-0">
-      <a href="{{ data.supermatch_url }}" target="_blank" rel="noopener"
-         class="text-sm bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg font-medium">
-        Abrir penca ↗
-      </a>
-      <a href="/dash/{{ token }}/?fecha={{ data.fecha_n }}"
-         class="text-sm text-indigo-300 hover:text-indigo-200">← planilla</a>
-    </div>
+  <div class="flex flex-wrap items-center gap-x-3 gap-y-2 mb-1">
+    <h1 class="text-lg font-bold whitespace-nowrap">📲 Modo carga — Fecha {{ data.fecha_n }}</h1>
+    <a href="{{ data.supermatch_url }}" target="_blank" rel="noopener"
+       class="text-sm bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg font-medium whitespace-nowrap">
+      Abrir penca ↗
+    </a>
+    <a href="/dash/{{ token }}/?fecha={{ data.fecha_n }}"
+       class="text-sm text-indigo-300 hover:text-indigo-200 whitespace-nowrap">← planilla</a>
+  </div>
+  <div class="text-xs text-slate-400 mb-3">
+    {{ data.planilla.version_file.split('_')[0] }} · {{ data.planilla.generado_uy }} UY ·
+    tocá una fila al copiarla para no perderte
   </div>
 
-  <div class="text-xs text-slate-400 mb-4" id="progreso"></div>
+  <div class="text-sm text-slate-300 mb-4 sticky top-[3.3rem] z-20 bg-slate-900/95 backdrop-blur
+       py-1.5 rounded-lg px-1 font-medium" id="progreso"></div>
 
   <div class="grid gap-3 lg:grid-cols-2">
     {% for i in range(data.planilla.n_participaciones) %}
     {% set key = data.planilla.version_file ~ ':' ~ data.fecha_n ~ ':' ~ i %}
     <div class="bg-slate-800 rounded-xl p-4 carga-card" data-key="{{ key }}">
-      <div class="flex items-center justify-between mb-2">
-        <span class="font-bold">Participación {{ i + 1 }}
+      <div class="flex items-center justify-between gap-2 mb-2">
+        <span class="font-bold whitespace-nowrap min-w-0">
+          <span class="text-slate-400 text-sm">{{ i + 1 }}·</span>
+          <span class="font-mono text-emerald-300">…{{ data.mis_numeros[i] % 1000 if data.mis_numeros and i < data.mis_numeros | length else i + 1 }}-1</span>
           {% if data.mis_numeros and i < data.mis_numeros | length %}
-            <span class="font-mono text-sm text-emerald-300">N° {{ data.mis_numeros[i] }}-1</span>
+            <span class="font-mono text-[10px] text-slate-500 hidden sm:inline">({{ data.mis_numeros[i] }})</span>
           {% endif %}
-          {% if i == 0 %}<span class="text-indigo-300 text-xs font-medium">(ancla EV)</span>{% endif %}
+          {% if i == 0 %}<span class="text-indigo-300 text-xs font-medium">ancla EV</span>{% endif %}
         </span>
-        <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer select-none">
-          <input type="checkbox" class="cargada w-5 h-5 accent-emerald-500">
+        <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer select-none shrink-0">
+          <input type="checkbox" class="cargada w-6 h-6 accent-emerald-500">
           cargada
         </label>
       </div>
       <table class="w-full text-sm">
         {% for row in data.planilla.picks %}
-        <tr class="border-b border-slate-700/40 {% if row.cerrado %}opacity-40{% endif %}">
-          <td class="py-1.5 pr-2 text-slate-300">
+        <tr class="copiable border-b border-slate-700/40 cursor-pointer active:bg-slate-700/40
+                   {% if row.cerrado %}opacity-40{% endif %}" data-row="{{ loop.index0 }}">
+          <td class="py-2 pr-2 text-slate-300">
             {{ row.partido }}{% if row.preferencial %} <span class="text-amber-300">⭐</span>{% endif %}
           </td>
-          <td class="text-right font-mono text-xl font-bold whitespace-nowrap
+          <td class="text-right font-mono text-2xl font-bold whitespace-nowrap
                      {% if i == 0 %}text-indigo-300{% else %}text-slate-100{% endif %}">
             {{ row.scores_fmt[i] }}
           </td>
@@ -121,6 +121,23 @@
         localStorage.setItem(key, box.checked ? '1' : '0');
         card.classList.toggle('opacity-50', box.checked);
         update();
+      });
+
+      // Filas tacheables: tocás la fila al copiarla en la web y queda marcada —
+      // para no perderte transcribiendo 8 marcadores × 12 participaciones.
+      // Mismo keying por versión que los checks: planilla nueva ⇒ marcas limpias.
+      card.querySelectorAll('.copiable').forEach(tr => {
+        const rkey = key + ':r' + tr.dataset.row;
+        const marcar = on => {
+          tr.classList.toggle('opacity-40', on);
+          tr.classList.toggle('line-through', on);
+        };
+        marcar(localStorage.getItem(rkey) === '1');
+        tr.addEventListener('click', () => {
+          const on = !(localStorage.getItem(rkey) === '1');
+          localStorage.setItem(rkey, on ? '1' : '0');
+          marcar(on);
+        });
       });
     });
     update();
