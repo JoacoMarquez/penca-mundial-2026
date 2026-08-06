@@ -277,28 +277,63 @@ def load_frozen_especiales(
 
     Los especiales se eligen una vez (idealmente antes de la Fecha 1); si un archivo
     previo los tiene, se asumen cargados en la web y quedan fijos.
+
+    Campeón y goleador se buscan POR SEPARADO, cada uno en la última planilla que
+    lo tenga asignado: una corrida sin menú de goleadores (API 500) escribe
+    goleador_idx=-1, y si eso pisara el freeze, la próxima corrida CON menú
+    reasignaría goleadores que ya están cargados en la web (pasó con la v8 del
+    5/8, que tiró los de la v7).
     """
+    def _extraer(campo: str) -> np.ndarray | None:
+        for rows in _especiales_hacia_atras(target_fecha):
+            if any(row.get(campo, -1) >= 0 for row in rows):
+                out = np.full(n_participaciones, -1, dtype=np.int64)
+                for i, row in enumerate(rows[:n_participaciones]):
+                    out[i] = row.get(campo, -1)
+                return out
+        return None
+
+    return _extraer("campeon_idx"), _extraer("goleador_idx")
+
+
+def _especiales_hacia_atras(target_fecha: int):
+    """Filas de especiales de TODAS las planillas guardadas, de la más nueva a la
+    más vieja — versiones dentro de cada fecha incluidas (el caso real es v8 sin
+    goleadores pisando a v7 que sí los tenía, misma fecha)."""
+    from src.utils.versions import version_num
     for f in range(target_fecha, 0, -1):
         d = fecha_dir(f)
-        latest = latest_version(d.glob("v*_*.json")) if d.exists() else None
-        if latest is None:
+        if not d.exists():
             continue
-        data = json.loads(latest.read_text(encoding="utf-8"))
-        esp = data.get("especiales")
-        if not esp:
-            continue
-        campeon = np.full(n_participaciones, -1, dtype=np.int64)
-        goleador = np.full(n_participaciones, -1, dtype=np.int64)
-        for i, row in enumerate(esp.get("por_participacion", [])[:n_participaciones]):
-            campeon[i] = row.get("campeon_idx", -1)
-            goleador[i] = row.get("goleador_idx", -1)
-        return campeon, goleador
-    return None, None
+        for path in sorted(d.glob("v*_*.json"), key=version_num, reverse=True):
+            rows = (json.loads(path.read_text(encoding="utf-8"))
+                    .get("especiales", {}) or {}).get("por_participacion", [])
+            if rows:
+                yield rows
+
+
+def goleadores_previos(target_fecha: int, n_participaciones: int) -> list[dict] | None:
+    """[{goleador_idx, goleador}] de la última planilla que los tenga, o None.
+
+    Es el arrastre para cuando el menú de la API sigue en 500: los goleadores ya
+    cargados en la web son la verdad y tienen que sobrevivir en cada planilla
+    nueva (dashboard, drift audit y freeze dependen de eso).
+    """
+    for rows in _especiales_hacia_atras(target_fecha):
+        if any(row.get("goleador") for row in rows):
+            return [{"goleador_idx": row.get("goleador_idx", -1),
+                     "goleador": row.get("goleador")}
+                    for row in rows[:n_participaciones]]
+    return None
 
 
 def format_especiales(port: PortfolioClausura, equipo_nombres: list[str],
-                      opciones_goleador) -> str:
-    """Sección de la planilla con Campeón/Goleador por participación."""
+                      opciones_goleador, gol_previos: list[dict] | None = None) -> str:
+    """Sección de la planilla con Campeón/Goleador por participación.
+
+    `gol_previos` es el arrastre cuando el menú de la API sigue en 500 pero los
+    goleadores ya fueron elegidos y cargados en la web (planillas anteriores).
+    """
     if port.campeon is None:
         return ""
     lines = ["<b>⭐ Especiales (25 pts c/u — pestaña Especial)</b>"]
@@ -311,8 +346,10 @@ def format_especiales(port: PortfolioClausura, equipo_nombres: list[str],
         gol = ""
         if port.goleador is not None and opciones_goleador:
             gol = f" · goleador: {opciones_goleador[int(port.goleador[i])].nombre}"
+        elif gol_previos and i < len(gol_previos) and gol_previos[i].get("goleador"):
+            gol = f" · goleador: {gol_previos[i]['goleador']}"
         lines.append(f"  {i + 1}: campeón <b>{campeon}</b>{gol}")
-    if port.goleador is None:
+    if port.goleador is None and not gol_previos:
         lines.append("  <i>goleador: menú aún no publicado por Supermatch — "
                      "recomiendo cargarlo apenas aparezca</i>")
     return "\n".join(lines)
@@ -324,6 +361,7 @@ def format_gratuita(
     idx_of: dict[int, int],
     equipo_nombres: list[str],
     opciones_goleador,
+    gol_previos: list[dict] | None = None,
 ) -> str:
     """Sección lista para copiar en la penca GRATUITA (1 sola participación).
 
@@ -355,6 +393,8 @@ def format_gratuita(
                      f"NO el de la participación 1)")
     if port.goleador is not None and opciones_goleador:
         lines.append(f"  goleador: <b>{opciones_goleador[int(port.goleador[0])].nombre}</b>")
+    elif gol_previos and gol_previos[0].get("goleador"):
+        lines.append(f"  goleador: <b>{gol_previos[0]['goleador']}</b>")
     return "\n".join(lines)
 
 
@@ -566,6 +606,8 @@ def run(
                  "solo se recomienda Campeón por ahora")
 
     frozen_campeon, frozen_goleador = load_frozen_especiales(target_fecha, n_participaciones)
+    gol_previos = (goleadores_previos(target_fecha, n_participaciones)
+                   if not opciones_goleador else None)
 
     especiales = EspecialesInput(
         local_de=local_de,
@@ -594,9 +636,10 @@ def run(
 
     eventos_fecha = [ev for ev in eventos if ev["fecha_n"] == target_fecha]
     planilla = format_planilla(eventos_fecha, port, idx_of, fuentes, n_rivales)
-    planilla += "\n" + format_especiales(port, equipo_nombres, opciones_goleador)
+    planilla += "\n" + format_especiales(port, equipo_nombres, opciones_goleador,
+                                         gol_previos)
     planilla += "\n" + format_gratuita(eventos_fecha, port, idx_of, equipo_nombres,
-                                       opciones_goleador)
+                                       opciones_goleador, gol_previos)
 
     payload = {
         "generado_utc": datetime.now(timezone.utc).isoformat(),
@@ -619,9 +662,15 @@ def run(
                 {
                     "campeon_idx": int(port.campeon[i]),
                     "campeon": equipo_nombres[int(port.campeon[i])],
-                    "goleador_idx": int(port.goleador[i]) if port.goleador is not None else -1,
-                    "goleador": (opciones_goleador[int(port.goleador[i])].nombre
-                                 if port.goleador is not None and opciones_goleador else None),
+                    # sin menú (API 500) el optimizador no asigna goleador: se
+                    # ARRASTRAN los de la última planilla que los tenga — los ya
+                    # cargados en la web son la verdad y no pueden perderse
+                    **({"goleador_idx": int(port.goleador[i]),
+                        "goleador": (opciones_goleador[int(port.goleador[i])].nombre
+                                     if opciones_goleador else None)}
+                       if port.goleador is not None
+                       else (gol_previos[i] if gol_previos and i < len(gol_previos)
+                             else {"goleador_idx": -1, "goleador": None})),
                 }
                 for i in range(n_participaciones)
             ] if port.campeon is not None else [],

@@ -225,3 +225,62 @@ def test_format_gratuita_usa_la_participacion_1_y_el_campeon_mas_probable():
     assert "Peñarol" in txt                     # argmax P(campeón), no el de la fila 1
     assert "Defensor" not in txt
     assert "⭐x2" in txt                         # marca el partido estrella
+
+
+# -------------------- arrastre de goleadores (menú de la API en 500) --------------------
+
+def _planilla_esp(campeones, goleadores):
+    return {"picks": [], "especiales": {"por_participacion": [
+        {"campeon_idx": c, "campeon": f"eq{c}",
+         "goleador_idx": g[0], "goleador": g[1]}
+        for c, g in zip(campeones, goleadores)
+    ]}}
+
+
+def test_frozen_especiales_busca_campeon_y_goleador_por_separado(tmp_path, monkeypatch):
+    """Una corrida sin menú escribe goleador_idx=-1: el freeze del goleador tiene
+    que venir de la planilla ANTERIOR que sí los tenía (bug de la v8 del 5/8)."""
+    import src.clausura.picks as picks_mod
+    from src.clausura.picks import load_frozen_especiales
+    monkeypatch.setattr(picks_mod, "PRED_DIR", tmp_path)
+
+    save_version(1, _planilla_esp([9, 8], [(3, "Gómez"), (5, "Abel")]))     # v1: completa
+    save_version(1, _planilla_esp([9, 8], [(-1, None), (-1, None)]))        # v2: sin menú
+
+    campeon, goleador = load_frozen_especiales(target_fecha=1, n_participaciones=2)
+    assert campeon.tolist() == [9, 8]          # de la v2 (la última con campeón)
+    assert goleador.tolist() == [3, 5]         # de la v1 (la última con goleador)
+
+
+def test_goleadores_previos_saltea_planillas_sin_goleador(tmp_path, monkeypatch):
+    import src.clausura.picks as picks_mod
+    from src.clausura.picks import goleadores_previos
+    monkeypatch.setattr(picks_mod, "PRED_DIR", tmp_path)
+
+    save_version(1, _planilla_esp([9], [(3, "Maximiliano Gómez")]))
+    save_version(1, _planilla_esp([9], [(-1, None)]))
+
+    prev = goleadores_previos(target_fecha=1, n_participaciones=1)
+    assert prev == [{"goleador_idx": 3, "goleador": "Maximiliano Gómez"}]
+    assert goleadores_previos(target_fecha=1, n_participaciones=1) is not None
+
+
+def test_goleadores_previos_sin_historia_devuelve_none(tmp_path, monkeypatch):
+    import src.clausura.picks as picks_mod
+    from src.clausura.picks import goleadores_previos
+    monkeypatch.setattr(picks_mod, "PRED_DIR", tmp_path)
+    assert goleadores_previos(target_fecha=1, n_participaciones=2) is None
+
+
+def test_format_especiales_muestra_goleadores_arrastrados():
+    from src.clausura.picks import format_especiales
+    from src.clausura.strategy import PortfolioClausura
+
+    port = PortfolioClausura(picks=np.zeros((2, 1), dtype=np.int64), candidatos=[],
+                             resultado=None, campeon=np.array([0, 1]),
+                             p_campeon=np.array([0.6, 0.4]))
+    txt = format_especiales(port, ["Peñarol", "Nacional"], None,
+                            gol_previos=[{"goleador_idx": 3, "goleador": "Gómez"},
+                                         {"goleador_idx": 5, "goleador": "Abel"}])
+    assert "Gómez" in txt and "Abel" in txt
+    assert "menú aún no publicado" not in txt
