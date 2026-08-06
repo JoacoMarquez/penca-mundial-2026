@@ -1,12 +1,17 @@
 [Unit]
-Description=Timer del pipeline de picks del Clausura — jue a dom 12:00 UTC (09:00 UY)
+Description=Timer del pipeline de picks del Clausura — jue a lun 09:00 UTC (06:00 UY)
 
 # Jueves: primera pasada con odds recién publicadas (aparecen 24-48h antes).
-# Vie/sáb/dom: refresh la mañana de cada día de partido, con el mercado maduro.
+# Vie/sáb/dom/LUN: refresh la mañana de cada día de partido (la Fecha 1 tiene
+# partido el lunes; el fixture se reprogramó el 5/8).
+# 09:00 UTC porque el build con 2400 sims tarda ~100 min en el droplet de 1 vCPU
+# y hay cierres a las 13:45 UTC (10:45 UY): la planilla llega ~07:40 UY.
+# Backtest 2026-08-06: 2400 sims vs 800 = +$14k E[premio] (winner's curse en las
+# decisiones del ascenso por coordenadas; test pareado por semilla).
 # La planilla llega por Telegram; la carga en la web sigue siendo manual.
 
 [Timer]
-OnCalendar=Thu,Fri,Sat,Sun *-*-* 12:00:00 UTC
+OnCalendar=Thu,Fri,Sat,Sun,Mon *-*-* 09:00:00 UTC
 Persistent=true
 RandomizedDelaySec=300
 
