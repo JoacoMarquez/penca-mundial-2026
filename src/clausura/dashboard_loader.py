@@ -150,6 +150,61 @@ def load_ranking(penca_id: int, mios: frozenset[int] | None = None) -> dict:
     return _cached(clave, RANKING_TTL, lambda: _fetch_ranking(penca_id, mios))
 
 
+def diff_versiones(fecha_n: int, mis_numeros: list[int]) -> dict:
+    """Cambios entre las dos últimas corridas de la fecha (las 'pasadas' del Clausura).
+
+    Equivalente a los diffs T-24h/T-3h/T-30min del Mundial: acá cada corrida del
+    timer (o rerun-cierre) escribe v<N>.json, así que el cambio entre versiones ES
+    el cambio entre pasadas. Muestra pick por pick qué se movió, más especiales y
+    fuente del modelo (p.ej. 'ratings' → 'mercado+ratings' cuando aparecen cuotas).
+    """
+    d = fecha_dir(fecha_n)
+    versiones = sorted(d.glob("v*_*.json")) if d.exists() else []
+    out = {"n_versiones": len(versiones), "cambios": [], "fuentes": [],
+           "especiales": [], "prev": None, "cur": None}
+    if len(versiones) < 2:
+        return out
+
+    from src.utils.versions import latest_version, version_num
+    versiones.sort(key=version_num)
+    prev = json.loads(versiones[-2].read_text(encoding="utf-8"))
+    cur = json.loads(versiones[-1].read_text(encoding="utf-8"))
+    out["prev"] = {"file": versiones[-2].name, "generado_uy": _to_uy(prev.get("generado_utc", ""))}
+    out["cur"] = {"file": versiones[-1].name, "generado_uy": _to_uy(cur.get("generado_utc", ""))}
+
+    prev_by_ev = {r["evento_id"]: r for r in prev.get("picks", [])}
+    now = datetime.now(timezone.utc)
+    for row in cur.get("picks", []):
+        p = prev_by_ev.get(row["evento_id"])
+        if p is None:
+            continue
+        cerrado = datetime.fromisoformat(row["cierre_pronostico_utc"]) <= now
+        if p.get("fuente_modelo") != row.get("fuente_modelo"):
+            out["fuentes"].append({
+                "partido": row["partido"],
+                "antes": p.get("fuente_modelo"), "despues": row.get("fuente_modelo"),
+            })
+        for k, (a, b) in enumerate(zip(p.get("scores", []), row.get("scores", []))):
+            if list(a) != list(b):
+                out["cambios"].append({
+                    "partido": row["partido"],
+                    "numero": mis_numeros[k] if k < len(mis_numeros) else k + 1,
+                    "antes": f"{a[0]}-{a[1]}", "despues": f"{b[0]}-{b[1]}",
+                    "cerrado": cerrado,
+                })
+
+    pe = (prev.get("especiales") or {}).get("por_participacion") or []
+    ce = (cur.get("especiales") or {}).get("por_participacion") or []
+    for k, (a, b) in enumerate(zip(pe, ce)):
+        for campo in ("campeon", "goleador"):
+            if a.get(campo) != b.get(campo):
+                out["especiales"].append({
+                    "numero": mis_numeros[k] if k < len(mis_numeros) else k + 1,
+                    "campo": campo, "antes": a.get(campo), "despues": b.get(campo),
+                })
+    return out
+
+
 def _mi_numero_gratuita() -> int | None:
     raw = os.environ.get("CLAUSURA_MI_PARTICIPACION_GRATUITA", "").strip()
     return int(raw) if raw.isdigit() else None
@@ -238,6 +293,7 @@ def load_clausura_page(fecha_q: int | None = None) -> dict:
         "precio": cfg["pencas"]["paga"].get("precio", 400),
         "mis_numeros": mis_numeros,
         "gratuita": build_gratuita(planilla, cfg),
+        "cambios": diff_versiones(fecha_n, mis_numeros),
         # Deep link a la penca en la web (la ruta lleva un cache-buster numérico,
         # mismo patrón que usa el propio front de Supermatch)
         "supermatch_url": f"https://www.supermatch.com.uy/pencas/1/{penca_id}/penca",
