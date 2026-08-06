@@ -158,3 +158,68 @@ def test_gratuita_sin_config_de_penca_queda_apagada(monkeypatch):
     import src.clausura.dashboard_loader as dl
     g = dl.build_gratuita(_planilla_stub(), {"pencas": {"paga": {"id": 46}}})
     assert g["ok"] is False
+
+
+# -------------------- diff entre corridas (las "pasadas") --------------------
+
+def _version(tmp_path, n, ts, picks, especiales=None):
+    import json as _json
+    d = tmp_path / "fecha_01"
+    d.mkdir(exist_ok=True)
+    payload = {"generado_utc": f"2026-08-0{ts}T12:00:00+00:00", "picks": picks}
+    if especiales:
+        payload["especiales"] = {"por_participacion": especiales}
+    (d / f"v{n}_2026080{ts}T120000Z.json").write_text(_json.dumps(payload), encoding="utf-8")
+
+
+def _row(eid, scores, fuente="mercado+ratings", cierre="2026-12-31T23:45:00+00:00"):
+    return {"evento_id": eid, "partido": f"Partido {eid}", "fuente_modelo": fuente,
+            "cierre_pronostico_utc": cierre, "scores": scores}
+
+
+def test_diff_versiones_detecta_cambios_de_pick_fuente_y_especial(tmp_path, monkeypatch):
+    import src.clausura.picks as picks_mod
+    from src.clausura.dashboard_loader import diff_versiones
+    monkeypatch.setattr(picks_mod, "PRED_DIR", tmp_path)
+
+    _version(tmp_path, 1, 5, [_row(10, [[1, 0], [2, 1]], fuente="ratings")],
+             especiales=[{"campeon": "Nacional"}, {"campeon": "Nacional"}])
+    _version(tmp_path, 2, 6, [_row(10, [[1, 0], [0, 0]], fuente="mercado+ratings")],
+             especiales=[{"campeon": "Nacional"}, {"campeon": "Peñarol"}])
+
+    d = diff_versiones(1, mis_numeros=[899258848, 899258854])
+    assert d["n_versiones"] == 2
+    assert d["cambios"] == [{"partido": "Partido 10", "numero": 899258854,
+                             "antes": "2-1", "despues": "0-0", "cerrado": False}]
+    assert d["fuentes"][0]["despues"] == "mercado+ratings"
+    assert d["especiales"] == [{"numero": 899258854, "campo": "campeon",
+                                "antes": "Nacional", "despues": "Peñarol"}]
+
+
+def test_diff_versiones_sin_cambios_ni_versiones(tmp_path, monkeypatch):
+    import src.clausura.picks as picks_mod
+    from src.clausura.dashboard_loader import diff_versiones
+    monkeypatch.setattr(picks_mod, "PRED_DIR", tmp_path)
+
+    assert diff_versiones(1, [1])["n_versiones"] == 0     # sin archivos no rompe
+
+    _version(tmp_path, 1, 5, [_row(10, [[1, 0]])])
+    assert diff_versiones(1, [1])["n_versiones"] == 1     # una sola: sin diff
+
+    _version(tmp_path, 2, 6, [_row(10, [[1, 0]])])
+    d = diff_versiones(1, [1])
+    assert d["n_versiones"] == 2
+    assert d["cambios"] == [] and d["especiales"] == [] and d["fuentes"] == []
+
+
+def test_diff_versiones_marca_cerrados(tmp_path, monkeypatch):
+    """Un cambio en un partido ya cerrado se muestra pero marcado (no accionable)."""
+    import src.clausura.picks as picks_mod
+    from src.clausura.dashboard_loader import diff_versiones
+    monkeypatch.setattr(picks_mod, "PRED_DIR", tmp_path)
+
+    viejo = "2020-01-01T00:00:00+00:00"
+    _version(tmp_path, 1, 5, [_row(10, [[1, 0]], cierre=viejo)])
+    _version(tmp_path, 2, 6, [_row(10, [[2, 2]], cierre=viejo)])
+    d = diff_versiones(1, [1])
+    assert d["cambios"][0]["cerrado"] is True
