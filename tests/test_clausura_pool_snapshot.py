@@ -175,6 +175,134 @@ def test_snapshot_summary():
     assert "3 con campeón" in s
 
 
+# -------------------- pacing, backoff y reuso de especiales --------------------
+
+def _ranking_falso(n):
+    from src.clausura.api import RankingRow
+    return [RankingRow(participacion_id=100 + i, numero_participacion=900 + i,
+                       puntos_totales=0, puntos_por_fecha=0, posicion_general=i + 1,
+                       cant_resultados_exactos=0) for i in range(n)]
+
+
+def _mock_api(monkeypatch, handler, n_rivales=2):
+    """Parchea el ranking y enruta los GET del snapshot a `handler`."""
+    import httpx
+    import src.clausura.pool_snapshot as ps
+    monkeypatch.setattr(ps, "_ranking_pacing", lambda *a, **k: _ranking_falso(n_rivales))
+    monkeypatch.setattr(ps.time, "sleep", lambda s: None)   # sin esperas reales
+    transport = httpx.MockTransport(handler)
+    orig = httpx.Client
+
+    def cliente(*a, **kw):
+        kw["transport"] = transport
+        return orig(*a, **kw)
+
+    monkeypatch.setattr(ps.httpx, "Client", cliente)
+
+
+def test_especiales_conocidos_ignora_filas_sin_campeon():
+    from src.clausura.pool_snapshot import especiales_conocidos
+    conocidos = especiales_conocidos(_snapshot_dict())
+    assert set(conocidos) == {1, 2, 3}
+    assert conocidos[1]["campeon"] == "Peñarol"
+    assert conocidos[1]["goleador"] == "X"
+
+    sin_campeon = _snapshot_dict()
+    sin_campeon["participaciones"][0]["campeon"] = None
+    assert 1 not in especiales_conocidos(sin_campeon)   # se vuelve a pedir
+
+
+def test_especiales_conocidos_rechaza_snapshot_pre_lock():
+    """Un snapshot anterior al lock NO sirve de base: hasta ese instante cualquiera
+    (nosotros incluidos) podía cambiar campeón/goleador."""
+    from datetime import datetime, timezone
+    from src.clausura.pool_snapshot import especiales_conocidos
+
+    lock = datetime(2026, 8, 7, 21, 45, tzinfo=timezone.utc)
+    pre = _snapshot_dict()
+    pre["generado_utc"] = "2026-08-07T14:13:30+00:00"
+    assert especiales_conocidos(pre, lock_utc=lock) == {}
+
+    post = _snapshot_dict()
+    post["generado_utc"] = "2026-08-07T23:10:00+00:00"
+    assert set(especiales_conocidos(post, lock_utc=lock)) == {1, 2, 3}
+
+
+def test_lock_especiales_sale_del_primer_cierre_del_fixture():
+    """Art. 4: los especiales se cierran 15' antes del primer partido = el cierre
+    de pronóstico del primer evento del fixture."""
+    from src.clausura.pool_snapshot import lock_especiales_utc
+    lock = lock_especiales_utc()
+    assert lock is not None and lock.isoformat() == "2026-08-07T21:45:00+00:00"
+
+
+def test_fetch_snapshot_reusa_especiales_y_no_los_pide(monkeypatch):
+    """Post-lock los especiales no cambian: reusarlos ahorra la MITAD de los
+    requests. Los pids desconocidos SÍ se piden (participación comprada después)."""
+    import httpx
+    from src.clausura.pool_snapshot import fetch_snapshot
+
+    pedidos = []
+
+    def handler(request):
+        pedidos.append(request.url.path)
+        if "pronosticosEventos" in request.url.path:
+            return httpx.Response(200, json={"data": [
+                {"encuentroId": 2086, "golesEquipoLocal": 1, "golesEquipoVisitante": 0}]})
+        return httpx.Response(200, json={
+            "equipoCampeon": {"nombre": "Nacional", "id": 79},
+            "opcionGoleador": {"goleador": "Arezo", "id": 700}})
+
+    _mock_api(monkeypatch, handler, n_rivales=2)
+    previos = {100: {"campeon": "Peñarol", "campeon_id": 80,
+                     "goleador": "Gómez", "goleador_id": 622}}
+    out = fetch_snapshot(46, pause_s=0, especiales_previos=previos)
+
+    assert [p.campeon for p in out] == ["Peñarol", "Nacional"]   # 100 reusado, 101 pedido
+    assert out[0].goleador == "Gómez" and out[0].goleador_id == 622
+    assert out[0].picks == {2086: (1, 0)}                        # marcadores SIEMPRE se piden
+    esp = [p for p in pedidos if "CampeonGoleador" in p]
+    assert len(esp) == 1 and esp[0].endswith("/101/pronosticoCampeonGoleador")
+
+
+def test_fetch_snapshot_reintenta_ante_429_en_vez_de_dejar_la_fila_vacia(monkeypatch):
+    """El 7/8 un 429 tratado como fallo guardó 683 filas con 97 datos. Ahora se
+    espera y se reintenta la misma request."""
+    import httpx
+    from src.clausura.pool_snapshot import fetch_snapshot
+
+    estado = {"golpes": 0}
+
+    def handler(request):
+        if "pronosticosEventos" in request.url.path and estado["golpes"] < 2:
+            estado["golpes"] += 1
+            return httpx.Response(429, text="Too Many Requests")
+        if "pronosticosEventos" in request.url.path:
+            return httpx.Response(200, json={"data": [
+                {"encuentroId": 2086, "golesEquipoLocal": 2, "golesEquipoVisitante": 1}]})
+        return httpx.Response(200, json={"equipoCampeon": {"nombre": "Cerro", "id": 5},
+                                         "opcionGoleador": {}})
+
+    _mock_api(monkeypatch, handler, n_rivales=1)
+    out = fetch_snapshot(46, pause_s=0)
+
+    assert estado["golpes"] == 2                  # aguantó los dos 429…
+    assert out[0].picks == {2086: (2, 1)}         # …y la fila quedó COMPLETA
+
+
+def test_fetch_snapshot_429_persistente_no_inventa_datos(monkeypatch):
+    """Agotados los reintentos la fila queda vacía, pero explícitamente: nunca se
+    fabrica un pick que el API no dio."""
+    import httpx
+    from src.clausura.pool_snapshot import fetch_snapshot
+
+    _mock_api(monkeypatch, lambda r: httpx.Response(429, text="Too Many Requests"),
+              n_rivales=1)
+    out = fetch_snapshot(46, pause_s=0)
+
+    assert out[0].picks == {} and out[0].campeon is None
+
+
 # -------------------- integración con el optimizador --------------------
 
 def test_build_portfolio_acepta_pool_qs_externo():
