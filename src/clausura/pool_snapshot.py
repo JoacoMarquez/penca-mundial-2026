@@ -202,6 +202,29 @@ def empirical_campeon_counts(
     return counts
 
 
+def empirical_goleador_counts(
+    snapshot: dict, opciones: list, mis_numeros: set[int] | None = None,
+) -> np.ndarray:
+    """Conteos de picks de goleador por opción del menú (mismo orden que `opciones`).
+
+    `opciones` son las OpcionGoleador de especiales.fetch_opciones. Matchea por id
+    de opción y cae a nombre exacto (el snapshot guarda ambos).
+    """
+    mis = mis_numeros or set()
+    idx_por_id = {o.id: i for i, o in enumerate(opciones)}
+    idx_por_nombre = {o.nombre: i for i, o in enumerate(opciones)}
+    counts = np.zeros(len(opciones))
+    for r in snapshot.get("participaciones", []):
+        if int(r.get("numero", -1)) in mis:
+            continue
+        i = idx_por_id.get(r.get("goleador_id"))
+        if i is None:
+            i = idx_por_nombre.get(r.get("goleador"))
+        if i is not None:
+            counts[i] += 1
+    return counts
+
+
 def snapshot_summary(snapshot: dict) -> str:
     """Resumen humano para el log/Telegram."""
     n = snapshot.get("n_participaciones", 0)

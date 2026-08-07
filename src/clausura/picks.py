@@ -477,6 +477,7 @@ def run(
     n_participaciones: int = 5,
     telegram: bool = False,
     n_sims: int = 800,
+    liberar_especiales: bool = False,
 ) -> Path:
     cfg = load_config()
     eventos = flat_eventos(cfg)
@@ -560,7 +561,8 @@ def run(
     # "qué jugó el pool ANTES del partido", no una delta con el resultado.
     from src.clausura.pool import pool_distribution
     from src.clausura.pool_snapshot import (
-        blended_q, empirical_campeon_counts, empirical_counts, load_latest_snapshot,
+        blended_q, empirical_campeon_counts, empirical_counts,
+        empirical_goleador_counts, load_latest_snapshot,
     )
     pool_qs = [pool_distribution(g, pool_cfg) for g in pred_grids]
     snapshot = load_latest_snapshot(max_age_hours=48)
@@ -625,11 +627,27 @@ def run(
             opciones_goleador, equipo_nombres, equipo_id_por_nombre, ratings.ataque
         )
         pool_q_gol = pool_goleador_distribution(p_gol)
+        # los especiales de los rivales son públicos incluso ANTES del inicio del
+        # campeonato (verificado 2026-08-07): si hay snapshot, la Q modelada del
+        # goleador se corrige con lo realmente cargado, igual que la del campeón
+        if snapshot:
+            g_counts = empirical_goleador_counts(snapshot, opciones_goleador, mis_numeros)
+            if g_counts.sum() > 0:
+                pool_q_gol = blended_q(pool_q_gol, g_counts)
+                log.info("pool goleador empírico: %d picks observados", int(g_counts.sum()))
     else:
         log.info("goleador: Supermatch aún no publicó el menú de opciones (500) — "
                  "solo se recomienda Campeón por ahora")
 
-    frozen_campeon, frozen_goleador = load_frozen_especiales(target_fecha, n_participaciones)
+    if liberar_especiales:
+        # Solo tiene sentido MIENTRAS los especiales se pueden editar en la web
+        # (hasta 15 min antes del primer partido del campeonato, Art. 4). Después
+        # del lock, correr con esto desalinearía la planilla de lo cargado.
+        frozen_campeon, frozen_goleador = None, None
+        log.warning("especiales LIBERADOS por flag: campeón/goleador se re-optimizan "
+                    "desde cero — cargar a mano en la web lo que cambie, ANTES del lock")
+    else:
+        frozen_campeon, frozen_goleador = load_frozen_especiales(target_fecha, n_participaciones)
     gol_previos = (goleadores_previos(target_fecha, n_participaciones)
                    if not opciones_goleador else None)
 
@@ -752,12 +770,16 @@ def main() -> None:
                     help="default: cantidad de CLAUSURA_MIS_PARTICIPACIONES (5 sin env)")
     ap.add_argument("--telegram", action="store_true", help="mandar la planilla al bot")
     ap.add_argument("--sims", type=int, default=800)
+    ap.add_argument("--liberar-especiales", action="store_true",
+                    help="ignorar el freeze de campeón/goleador y re-optimizarlos "
+                         "(solo mientras los especiales siguen editables en la web)")
     args = ap.parse_args()
     n_part = args.participaciones
     if n_part is None:
         from src.clausura.rivals import mis_numeros_env
         n_part = len(mis_numeros_env()) or 5
-    run(resolve_fecha(args.fecha), n_part, args.telegram, args.sims)
+    run(resolve_fecha(args.fecha), n_part, args.telegram, args.sims,
+        liberar_especiales=args.liberar_especiales)
 
 
 if __name__ == "__main__":
