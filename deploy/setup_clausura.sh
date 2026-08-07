@@ -25,6 +25,7 @@ UNITS=(clausura-dashboard.service clausura-picks.service clausura-picks.timer
        clausura-postmortem.service clausura-postmortem.timer
        clausura-rerun-cierre.service clausura-rerun-cierre.timer
        clausura-goleador-watch.service clausura-goleador-watch.timer
+       clausura-gate-watch.service clausura-gate-watch.timer
        clausura-heartbeat.service clausura-heartbeat.timer
        penca-failure-notify@.service)
 
@@ -51,6 +52,7 @@ systemctl enable --now clausura-drift-audit.timer
 systemctl enable --now clausura-postmortem.timer
 systemctl enable --now clausura-rerun-cierre.timer
 systemctl enable --now clausura-goleador-watch.timer
+systemctl enable --now clausura-gate-watch.timer
 systemctl enable --now clausura-heartbeat.timer
 
 echo "==> Estado"

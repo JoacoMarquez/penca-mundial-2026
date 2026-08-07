@@ -65,9 +65,18 @@ class CampeonatoNoIniciado(RuntimeError):
 
 # -------------------- fetch --------------------
 
-def fetch_snapshot(penca_id: int, pause_s: float = REQUEST_PAUSE_S) -> list[RivalPicks]:
+def fetch_snapshot(
+    penca_id: int,
+    pause_s: float = REQUEST_PAUSE_S,
+    strict_gate: bool = True,
+) -> list[RivalPicks]:
     """Baja los picks de todas las participaciones del ranking. Lanza
-    CampeonatoNoIniciado si el gate del API sigue cerrado."""
+    CampeonatoNoIniciado si el gate del API sigue cerrado.
+
+    `strict_gate=False` NO aborta ante el 400 del gate: guarda lo que el API sí
+    entregue (los gates de marcadores y especiales cambian por separado — el 7/8
+    hubo una ventana con especiales abiertos y marcadores cerrados; el vigía
+    captura ventanas parciales)."""
     with PencaApiClient() as api:
         ranking = api.ranking(penca_id)
     log.info("snapshot: %d participaciones en el ranking", len(ranking))
@@ -84,7 +93,7 @@ def fetch_snapshot(penca_id: int, pause_s: float = REQUEST_PAUSE_S) -> list[Riva
             )
 
             r = c.get(f"/front/pencas/{pid}/pronosticosEventos")
-            if r.status_code == 400 and GATE_MSG in r.text:
+            if r.status_code == 400 and GATE_MSG in r.text and strict_gate:
                 raise CampeonatoNoIniciado(r.text[:120])
             if r.status_code == 200:
                 for p in r.json().get("data", []):
@@ -96,7 +105,7 @@ def fetch_snapshot(penca_id: int, pause_s: float = REQUEST_PAUSE_S) -> list[Riva
                 log.warning("pronosticosEventos %d → %d", pid, r.status_code)
 
             r = c.get(f"/front/pencas/{pid}/pronosticoCampeonGoleador")
-            if r.status_code == 400 and GATE_MSG in r.text:
+            if r.status_code == 400 and GATE_MSG in r.text and strict_gate:
                 raise CampeonatoNoIniciado(r.text[:120])
             if r.status_code == 200:
                 d = r.json()

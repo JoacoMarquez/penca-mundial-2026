@@ -1,4 +1,4 @@
-generado_utc: '2026-08-04T15:26:06.483778+00:00'
+generado_utc: '2026-08-07T14:11:19.846351+00:00'
 campeonato:
   id: 44
   nombre: Torneo Clausura 2026
@@ -39,24 +39,34 @@ fechas:
   Fecha 1:
     fecha_id: 280
     eventos:
+    - evento_id: 2086
+      local: Cerro Largo
+      visitante: Juventud
+      local_id: 71
+      visitante_id: 169
+      inicio_utc: '2026-08-07T22:00:00+00:00'
+      cierre_pronostico_utc: '2026-08-07T21:45:00+00:00'
+      estadio: Antonio Ubilla
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2083
+      local: Central Español
+      visitante: Progreso
+      local_id: 222
+      visitante_id: 103
+      inicio_utc: '2026-08-08T14:00:00+00:00'
+      cierre_pronostico_utc: '2026-08-08T13:45:00+00:00'
+      estadio: Parque Palermo
+      preferencial: false
+      estado: PENDIENTE
     - evento_id: 2080
       local: Liverpool
       visitante: Albion
       local_id: 76
       visitante_id: 221
-      inicio_utc: '2026-08-07T22:00:00+00:00'
-      cierre_pronostico_utc: '2026-08-07T21:45:00+00:00'
-      estadio: Alfredo Victor Viera
-      preferencial: false
-      estado: PENDIENTE
-    - evento_id: 2085
-      local: Deportivo Maldonado
-      visitante: Racing
-      local_id: 72
-      visitante_id: 82
       inicio_utc: '2026-08-08T18:00:00+00:00'
       cierre_pronostico_utc: '2026-08-08T17:45:00+00:00'
-      estadio: Domingo Burgueño Miguel
+      estadio: Alfredo Victor Viera
       preferencial: false
       estado: PENDIENTE
     - evento_id: 2082
@@ -64,39 +74,9 @@ fechas:
       visitante: Peñarol
       local_id: 77
       visitante_id: 80
-      inicio_utc: '2026-08-08T19:00:00+00:00'
-      cierre_pronostico_utc: '2026-08-08T18:45:00+00:00'
+      inicio_utc: '2026-08-08T21:30:00+00:00'
+      cierre_pronostico_utc: '2026-08-08T21:15:00+00:00'
       estadio: Estadio Charrua
-      preferencial: false
-      estado: PENDIENTE
-    - evento_id: 2081
-      local: Defensor Sporting
-      visitante: Wanderers
-      local_id: 74
-      visitante_id: 84
-      inicio_utc: '2026-08-08T23:00:00+00:00'
-      cierre_pronostico_utc: '2026-08-08T22:45:00+00:00'
-      estadio: Luis Franzini
-      preferencial: true
-      estado: PENDIENTE
-    - evento_id: 2083
-      local: Central Español
-      visitante: Progreso
-      local_id: 222
-      visitante_id: 103
-      inicio_utc: '2026-08-09T18:00:00+00:00'
-      cierre_pronostico_utc: '2026-08-09T17:45:00+00:00'
-      estadio: Parque Palermo
-      preferencial: false
-      estado: PENDIENTE
-    - evento_id: 2086
-      local: Cerro Largo
-      visitante: Juventud
-      local_id: 71
-      visitante_id: 169
-      inicio_utc: '2026-08-09T18:00:00+00:00'
-      cierre_pronostico_utc: '2026-08-09T17:45:00+00:00'
-      estadio: Antonio Ubilla
       preferencial: false
       estado: PENDIENTE
     - evento_id: 2087
@@ -104,19 +84,39 @@ fechas:
       visitante: Cerro
       local_id: 73
       visitante_id: 70
-      inicio_utc: '2026-08-09T19:00:00+00:00'
-      cierre_pronostico_utc: '2026-08-09T18:45:00+00:00'
+      inicio_utc: '2026-08-09T14:00:00+00:00'
+      cierre_pronostico_utc: '2026-08-09T13:45:00+00:00'
       estadio: Jardines del Hipodromo
       preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2081
+      local: Defensor Sporting
+      visitante: Wanderers
+      local_id: 74
+      visitante_id: 84
+      inicio_utc: '2026-08-09T18:00:00+00:00'
+      cierre_pronostico_utc: '2026-08-09T17:45:00+00:00'
+      estadio: Luis Franzini
+      preferencial: true
       estado: PENDIENTE
     - evento_id: 2084
       local: Nacional
       visitante: Boston River
       local_id: 79
       visitante_id: 69
-      inicio_utc: '2026-08-09T22:00:00+00:00'
-      cierre_pronostico_utc: '2026-08-09T21:45:00+00:00'
+      inicio_utc: '2026-08-09T21:30:00+00:00'
+      cierre_pronostico_utc: '2026-08-09T21:15:00+00:00'
       estadio: Gran Parque Central
+      preferencial: false
+      estado: PENDIENTE
+    - evento_id: 2085
+      local: Deportivo Maldonado
+      visitante: Racing
+      local_id: 72
+      visitante_id: 82
+      inicio_utc: '2026-08-10T22:00:00+00:00'
+      cierre_pronostico_utc: '2026-08-10T21:45:00+00:00'
+      estadio: Domingo Burgueño Miguel
       preferencial: false
       estado: PENDIENTE
   Fecha 2:
