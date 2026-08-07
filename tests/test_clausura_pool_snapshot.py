@@ -11,6 +11,7 @@ from src.clausura.pool_snapshot import (
     blended_q,
     empirical_campeon_counts,
     empirical_counts,
+    empirical_goleador_counts,
     load_latest_snapshot,
     save_snapshot,
     snapshot_summary,
@@ -73,6 +74,29 @@ def test_empirical_campeon_counts_excluye_mis_numeros():
     idx = {"Peñarol": 0, "Nacional": 1, "Cerro": 2}
     c = empirical_campeon_counts(_snapshot_dict(), idx, 3, mis_numeros={102})
     assert c.tolist() == [1, 1, 0]
+
+
+class _Opcion:
+    """Duck-type de especiales.OpcionGoleador (id, nombre)."""
+    def __init__(self, id, nombre):
+        self.id, self.nombre = id, nombre
+
+
+def test_empirical_goleador_counts_matchea_por_id():
+    ops = [_Opcion(9, "X"), _Opcion(10, "Y")]
+    c = empirical_goleador_counts(_snapshot_dict(), ops)
+    assert c.tolist() == [1, 0]   # solo el rival 100 tiene goleador (id 9)
+
+
+def test_empirical_goleador_counts_fallback_por_nombre_y_exclusion():
+    snap = _snapshot_dict()
+    # rival 101: id que no está en el menú pero nombre sí → cuenta por nombre
+    snap["participaciones"][1]["goleador"] = "Y"
+    snap["participaciones"][1]["goleador_id"] = 999
+    ops = [_Opcion(9, "X"), _Opcion(10, "Y")]
+    assert empirical_goleador_counts(snap, ops).tolist() == [1, 1]
+    # excluyendo nuestra participación (100) desaparece su pick de X
+    assert empirical_goleador_counts(snap, ops, mis_numeros={100}).tolist() == [0, 1]
 
 
 # -------------------- blending Dirichlet --------------------
