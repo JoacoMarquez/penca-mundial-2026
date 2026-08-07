@@ -296,6 +296,7 @@ def load_frozen(
 def load_frozen_especiales(
     target_fecha: int,
     n_participaciones: int,
+    opciones_goleador: list | None = None,
 ) -> tuple[np.ndarray | None, np.ndarray | None]:
     """Campeón/Goleador ya guardados en cualquier corrida anterior (-1 = libre).
 
@@ -307,17 +308,41 @@ def load_frozen_especiales(
     goleador_idx=-1, y si eso pisara el freeze, la próxima corrida CON menú
     reasignaría goleadores que ya están cargados en la web (pasó con la v8 del
     5/8, que tiró los de la v7).
+
+    Una planilla puede traer el goleador solo por NOMBRE con goleador_idx=-1
+    (asignado a mano o arrastrado mientras el menú estaba en 500, caso v14 del
+    7/8): con `opciones_goleador` disponible, ese nombre se resuelve contra el
+    menú y congela igual — el nombre cargado en la web es la verdad, no el idx.
     """
-    def _extraer(campo: str) -> np.ndarray | None:
+    idx_por_nombre = ({o.nombre: i for i, o in enumerate(opciones_goleador)}
+                      if opciones_goleador else {})
+    idx_por_nombre_norm = {_norm(n): i for n, i in idx_por_nombre.items()}
+
+    def _valor_goleador(row: dict) -> int:
+        nombre = row.get("goleador")
+        if nombre and idx_por_nombre:
+            i = idx_por_nombre.get(nombre)
+            if i is None:
+                i = idx_por_nombre_norm.get(_norm(nombre))
+            if i is not None:
+                return i
+            log.warning("goleador %r ya cargado en la web no matchea el menú de "
+                        "Supermatch — queda LIBRE y el optimizador puede cambiarlo: "
+                        "verificar a mano contra la web", nombre)
+        return int(row.get("goleador_idx", -1))
+
+    def _extraer(campo: str, valor=None) -> np.ndarray | None:
+        valor = valor or (lambda row: int(row.get(campo, -1)))
         for rows in _especiales_hacia_atras(target_fecha):
-            if any(row.get(campo, -1) >= 0 for row in rows):
+            vals = [valor(row) for row in rows]
+            if any(v >= 0 for v in vals):
                 out = np.full(n_participaciones, -1, dtype=np.int64)
-                for i, row in enumerate(rows[:n_participaciones]):
-                    out[i] = row.get(campo, -1)
+                for i, v in enumerate(vals[:n_participaciones]):
+                    out[i] = v
                 return out
         return None
 
-    return _extraer("campeon_idx"), _extraer("goleador_idx")
+    return _extraer("campeon_idx"), _extraer("goleador_idx", _valor_goleador)
 
 
 def _especiales_hacia_atras(target_fecha: int):
@@ -647,7 +672,8 @@ def run(
         log.warning("especiales LIBERADOS por flag: campeón/goleador se re-optimizan "
                     "desde cero — cargar a mano en la web lo que cambie, ANTES del lock")
     else:
-        frozen_campeon, frozen_goleador = load_frozen_especiales(target_fecha, n_participaciones)
+        frozen_campeon, frozen_goleador = load_frozen_especiales(
+            target_fecha, n_participaciones, opciones_goleador)
     gol_previos = (goleadores_previos(target_fecha, n_participaciones)
                    if not opciones_goleador else None)
 

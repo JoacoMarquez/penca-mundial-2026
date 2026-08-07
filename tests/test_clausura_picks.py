@@ -278,6 +278,74 @@ def test_frozen_especiales_busca_campeon_y_goleador_por_separado(tmp_path, monke
     assert goleador.tolist() == [3, 5]         # de la v1 (la última con goleador)
 
 
+def _menu_goleador(nombres):
+    from src.clausura.especiales import OpcionGoleador
+    return [OpcionGoleador(id=100 + i, nombre=n, equipo_id=-1)
+            for i, n in enumerate(nombres)]
+
+
+def test_frozen_especiales_resuelve_goleador_por_nombre_contra_menu(tmp_path, monkeypatch):
+    """Planilla con goleador por NOMBRE y goleador_idx=-1 (menú en 500 al generarla,
+    caso v14 del 7/8): con el menú disponible, el nombre se resuelve y congela.
+    Los nombres de la planilla más nueva mandan sobre los idx de planillas viejas."""
+    import src.clausura.picks as picks_mod
+    from src.clausura.picks import load_frozen_especiales
+    monkeypatch.setattr(picks_mod, "PRED_DIR", tmp_path)
+
+    save_version(1, _planilla_esp([9, 8], [(0, "Abel Hernández"), (0, "Abel Hernández")]))
+    save_version(1, _planilla_esp([9, 8], [(-1, "Matías Arezo"), (-1, "Maximiliano Gómez")]))
+
+    menu = _menu_goleador(["Abel Hernández", "Maximiliano Gómez", "Matías Arezo"])
+    campeon, goleador = load_frozen_especiales(
+        target_fecha=1, n_participaciones=2, opciones_goleador=menu)
+    assert campeon.tolist() == [9, 8]
+    assert goleador.tolist() == [2, 1]   # v2 por nombre, NO los idx=0 de la v1
+
+
+def test_frozen_especiales_matchea_nombre_sin_tildes_ni_mayusculas(tmp_path, monkeypatch):
+    import src.clausura.picks as picks_mod
+    from src.clausura.picks import load_frozen_especiales
+    monkeypatch.setattr(picks_mod, "PRED_DIR", tmp_path)
+
+    save_version(1, _planilla_esp([9], [(-1, "maximiliano gomez")]))
+
+    menu = _menu_goleador(["Abel Hernández", "Maximiliano Gómez"])
+    _, goleador = load_frozen_especiales(
+        target_fecha=1, n_participaciones=1, opciones_goleador=menu)
+    assert goleador.tolist() == [1]
+
+
+def test_frozen_especiales_nombre_fuera_del_menu_queda_libre_y_avisa(tmp_path, monkeypatch, caplog):
+    """Si el nombre cargado no está en el menú no se inventa un idx: la fila queda
+    -1 (libre) con warning, y las que sí matchean se congelan igual."""
+    import src.clausura.picks as picks_mod
+    from src.clausura.picks import load_frozen_especiales
+    monkeypatch.setattr(picks_mod, "PRED_DIR", tmp_path)
+
+    save_version(1, _planilla_esp([9, 8], [(-1, "Jugador Fantasma"), (-1, "Matías Arezo")]))
+
+    menu = _menu_goleador(["Abel Hernández", "Matías Arezo"])
+    with caplog.at_level("WARNING"):
+        _, goleador = load_frozen_especiales(
+            target_fecha=1, n_participaciones=2, opciones_goleador=menu)
+    assert goleador.tolist() == [-1, 1]
+    assert any("Jugador Fantasma" in r.message for r in caplog.records)
+
+
+def test_frozen_especiales_sin_menu_conserva_comportamiento_viejo(tmp_path, monkeypatch):
+    """Sin opciones_goleador (menú aún en 500) los nombres no se pueden resolver:
+    el freeze del goleador sigue viniendo de la última planilla con idx>=0."""
+    import src.clausura.picks as picks_mod
+    from src.clausura.picks import load_frozen_especiales
+    monkeypatch.setattr(picks_mod, "PRED_DIR", tmp_path)
+
+    save_version(1, _planilla_esp([9], [(3, "Maximiliano Gómez")]))
+    save_version(1, _planilla_esp([9], [(-1, "Matías Arezo")]))
+
+    _, goleador = load_frozen_especiales(target_fecha=1, n_participaciones=1)
+    assert goleador.tolist() == [3]
+
+
 def test_goleadores_previos_saltea_planillas_sin_goleador(tmp_path, monkeypatch):
     import src.clausura.picks as picks_mod
     from src.clausura.picks import goleadores_previos
