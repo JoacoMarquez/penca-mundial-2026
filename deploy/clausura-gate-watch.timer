@@ -1,0 +1,12 @@
+[Unit]
+Description=Timer del vigía del gate — cada 10 minutos
+
+# La ventana del 7/8 duró ~20 min: con tick de 10 se agarra casi seguro.
+# El tick es barato (5 GETs); la captura completa solo corre si detecta apertura.
+
+[Timer]
+OnCalendar=*-*-* *:00/10:00 UTC
+Persistent=false
+
+[Install]
+WantedBy=timers.target
