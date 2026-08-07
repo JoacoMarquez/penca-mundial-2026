@@ -11,7 +11,9 @@ Environment="PYTHONPATH=/opt/penca"
 WorkingDirectory=/opt/penca
 # snapshot fresco del pool: los picks quedan lockeados al cierre, así el postmortem
 # compara contra el pool completo y no contra el snapshot del mediodía
-ExecStartPre=/opt/penca/.venv/bin/python -m src.clausura.pool_snapshot --if-started
+# 3h (no 6): a las 03:20 el postmortem necesita el pool DESPUÉS del último partido
+# del día, y el escaneo de la tarde ya quedó viejo.
+ExecStartPre=/opt/penca/.venv/bin/python -m src.clausura.pool_snapshot --if-started --reusar-especiales --max-edad-h 3
 ExecStart=/opt/penca/.venv/bin/python -m src.clausura.postmortem
 StandardOutput=append:/var/lib/penca/logs/clausura-postmortem.log
 StandardError=append:/var/lib/penca/logs/clausura-postmortem.err

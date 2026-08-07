@@ -10,7 +10,10 @@ EnvironmentFile=/etc/penca/env
 Environment="PYTHONPATH=/opt/penca"
 WorkingDirectory=/opt/penca
 ExecStartPre=/opt/penca/.venv/bin/python -m src.clausura.sync
-ExecStartPre=/opt/penca/.venv/bin/python -m src.clausura.pool_snapshot --if-started
+# Este timer dispara CADA HORA (12:35-21:35): sin --max-edad-h eran ~1.370 requests
+# por hora = 429 asegurado. Con 6h reusa el escaneo de la mañana y solo re-escanea
+# una vez a media tarde, que es cuando ya cerraron partidos nuevos.
+ExecStartPre=/opt/penca/.venv/bin/python -m src.clausura.pool_snapshot --if-started --reusar-especiales --max-edad-h 6
 # 1600 sims (~80 min en 1 vCPU): más que esto y el rerun de T-2h no llega al
 # cierre; menos y re-optimiza peor que la pasada principal de 2400 (backtest 6/8)
 ExecStart=/opt/penca/.venv/bin/python -m src.clausura.rerun_cierre --participaciones 12 --sims 1600

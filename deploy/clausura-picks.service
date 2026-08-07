@@ -12,7 +12,10 @@ WorkingDirectory=/opt/penca
 ExecStartPre=/opt/penca/.venv/bin/python -m src.clausura.sync
 # "-": si Wikipedia falla, el pipeline sigue con el intermedio ya guardado
 ExecStartPre=-/opt/penca/.venv/bin/python -m src.clausura.intermedio
-ExecStartPre=/opt/penca/.venv/bin/python -m src.clausura.pool_snapshot --if-started
+# Escaneo del pool de la mañana: es LA pasada del día (los timers de abajo reusan
+# esta vía --max-edad-h). --reusar-especiales evita re-pedir campeón/goleador, que
+# post-lock ya no cambian: la mitad de los ~1.370 requests.
+ExecStartPre=/opt/penca/.venv/bin/python -m src.clausura.pool_snapshot --if-started --reusar-especiales --max-edad-h 6
 ExecStart=/opt/penca/.venv/bin/python -m src.clausura.picks --fecha auto --telegram --participaciones 12 --sims 2400
 StandardOutput=append:/var/lib/penca/logs/clausura-picks.log
 StandardError=append:/var/lib/penca/logs/clausura-picks.err
