@@ -55,7 +55,11 @@ SNAP_DIR = Path(__file__).resolve().parents[2] / "data" / "pool_snapshots" / "cl
 # completo (683 participaciones) tarda ~8 min y no lo despierta.
 REQUEST_PAUSE_S = 0.35
 RATE_LIMIT_BACKOFF_S = 420
-RATE_LIMIT_REINTENTOS = 4
+# 2 y no más: un bloqueo que sobrevive dos backoffs (14 min) es duro y se despeja
+# en horas, no en minutos — seguir reintentando solo alimenta el contador y demora
+# al pipeline que espera este escaneo (medido el 7/8: los 429 transitorios se
+# despejaron con UN backoff; el duro aguantó los cuatro).
+RATE_LIMIT_REINTENTOS = 2
 GATE_MSG = "campeonato ya inicio"
 
 
@@ -77,6 +81,16 @@ class CampeonatoNoIniciado(RuntimeError):
     pass
 
 
+class RateLimited(RuntimeError):
+    """El API nos tiene bloqueados y el backoff no alcanzó.
+
+    Aborta el escaneo ENTERO a propósito. Seguir de largo produciría filas vacías
+    que se guardarían como snapshot válido — el pool fantasma que ya nos mordió el
+    7/8. Y reintentar rival por rival contra un bloqueo duro son 14 min de espera
+    POR PARTICIPACIÓN: el escaneo no termina nunca (medido: trabado en el mismo
+    rival 28 min). Mejor abortar sin guardar y reintentar dentro de unas horas."""
+
+
 # -------------------- fetch --------------------
 
 def _get_pacing(
@@ -91,19 +105,18 @@ def _get_pacing(
     Reintentar es obligatorio, no opcional: un 429 tratado como fallo deja la fila
     VACÍA y el snapshot truncado se guarda igual, envenenando la Capa 5 con un pool
     fantasma (pasó el 7/8: 683 filas, 97 con datos). Ante 429 se espera y se
-    reintenta la MISMA request."""
+    reintenta la MISMA request; si ni así, se aborta el escaneo (RateLimited)."""
     for intento in range(reintentos + 1):
         r = c.get(url)
         time.sleep(pause_s)
         if r.status_code != 429:
             return r
         if intento == reintentos:
-            log.error("429 persistente en %s tras %d reintentos", url, reintentos)
-            return r
+            raise RateLimited(f"429 persistente en {url} tras {reintentos} reintentos")
         log.warning("429 en %s — backoff %.0fs (intento %d/%d)",
                     url, backoff_s, intento + 1, reintentos)
         time.sleep(backoff_s)
-    return r
+    raise RateLimited(url)   # inalcanzable; mantiene el tipo de retorno honesto
 
 
 def _ranking_pacing(
@@ -118,8 +131,11 @@ def _ranking_pacing(
             with PencaApiClient() as api:
                 return api.ranking(penca_id)
         except httpx.HTTPStatusError as e:
-            if e.response.status_code != 429 or intento == reintentos:
+            if e.response.status_code != 429:
                 raise
+            if intento == reintentos:
+                raise RateLimited(f"429 persistente en el ranking tras {reintentos} "
+                                  "reintentos") from e
             log.warning("ranking → 429; backoff %.0fs (intento %d/%d)",
                         backoff_s, intento + 1, reintentos)
             time.sleep(backoff_s)
@@ -402,6 +418,13 @@ def main() -> None:
 
     try:
         rivales = fetch_snapshot(penca_id, pause_s=args.pausa, especiales_previos=previos)
+    except RateLimited as e:
+        # Sin guardar NADA: media lista es peor que ninguna. Los units lo invocan
+        # con "-" para que esto no bloquee al pipeline, que sigue con el snapshot
+        # previo (o con la Q modelada si no hay).
+        print(f"ERROR: el API nos está limitando ({e}) — escaneo abortado sin guardar",
+              file=sys.stderr)
+        sys.exit(1)
     except CampeonatoNoIniciado:
         if args.if_started:
             print("campeonato no iniciado — snapshot omitido")
