@@ -368,6 +368,67 @@ def run_experimento_rivales(
     return reps_out
 
 
+def run_experimento_menu(
+    partidos: list[PartidoHistorico],
+    ratings: TeamRatings | None,
+    n_participaciones: int = 12,
+    n_sims: int = 400,
+    n_rivales: int = 151,
+    seed_offset: int = 0,
+) -> dict[str, tuple[float, float, float, float]]:
+    """A/B del menú de candidatos: `legacy_hueco` vs `mispricing`.
+
+    Valida el cambio del 2026-08-08 en `strategy.build_candidates`. La rama de "hueco"
+    ordenaba por E[pts]/pool_q, que es un ranking de RAREZA: el menú se llenaba de
+    marcadores con P<0.7% (4-2, 1-4, 3-3, y hasta 0-5 en Torque–Peñarol) y dejaba
+    afuera al 2-3 y al 0-0, que el pool subjuega más. La métrica nueva ordena por
+    P real / P del pool — cuánto se equivoca el pool — que es la señal que la rama
+    quería capturar.
+
+    Los dos brazos comparten grids, pool, semilla de optimización y semilla de
+    evaluación (independiente de la de optimización), así que la diferencia es solo
+    calidad de decisión. Devuelve {brazo: (E[premio], puntos, exactos, premio_real)}.
+    """
+    import src.clausura.strategy as _strategy
+
+    grids = build_grids(partidos, ratings)
+    fechas = [p.fecha_id for p in partidos]
+    pref = [p.preferencial for p in partidos]
+    pool_cfg = PoolConfig()
+    pool_qs = [pool_distribution(g, pool_cfg) for g in grids]
+    prize = PrizeConfig()
+    # seed_offset da repeticiones pareadas: los dos brazos comparten la semilla de
+    # optimización de cada rep, así que la diferencia sigue siendo calidad de decisión
+    # y no ruido de sorteo. Con el óptimo plano documentado el 8/8, una sola rep no
+    # distingue el efecto del cambio del salto entre óptimos locales equivalentes.
+    base_seed = SimConfig().seed + seed_offset
+    sim = SimConfig(n_sims=n_sims, n_rivales=n_rivales, seed=base_seed)
+
+    from src.clausura.strategy import EVAL_SEED_OFFSET
+    eval_sim = SimConfig(n_sims=n_sims, n_rivales=n_rivales,
+                         seed=base_seed + EVAL_SEED_OFFSET)
+
+    out: dict[str, tuple[float, float, float, float]] = {}
+    previo = _strategy.HUECO_METRIC
+    try:
+        for brazo in ("legacy_hueco", "mispricing"):
+            _strategy.HUECO_METRIC = brazo
+            port = build_portfolio(
+                grids=grids, fecha_de_partido=fechas, preferencial=pref,
+                n_participaciones=n_participaciones, pool_cfg=pool_cfg,
+                prize=prize, sim=sim,
+            )
+            s = SeasonSimulator(grids, fechas, pref, pool_qs, prize, eval_sim)
+            s.load_picks(port.picks)
+            e_premio = s.e_premio_total()
+            real, pts, ex = realized_prizes(port.picks, partidos, grids, pool_qs,
+                                            prize, sim)
+            out[brazo] = (e_premio, pts, ex, real)
+    finally:
+        _strategy.HUECO_METRIC = previo
+    return out
+
+
 def main() -> None:
     logging.basicConfig(level=logging.WARNING, format="%(message)s")
     ap = argparse.ArgumentParser()
@@ -379,6 +440,8 @@ def main() -> None:
                     help="control: prior de liga plano, todos los partidos idénticos")
     ap.add_argument("--experimento-rivales", action="store_true",
                     help="A/B: pool i.i.d. (statu quo) vs RivalModel empírico")
+    ap.add_argument("--experimento-menu", action="store_true",
+                    help="A/B del menú de candidatos: hueco legacy vs mispricing")
     ap.add_argument("--obs-fechas", type=int, default=5,
                     help="fechas ya jugadas/observadas en el experimento (default 5)")
     ap.add_argument("--reps", type=int, default=3,
@@ -397,6 +460,7 @@ def main() -> None:
 
     costo = args.participaciones * PrizeConfig().costo_participacion
     resultados = []
+    menu_res: list[tuple[str, float, float, float, float]] = []
     for nombre in objetivo:
         partidos = temporadas[nombre]
         # Ratings ajustados SOLO con las temporadas anteriores a esta (sin look-ahead)
@@ -406,6 +470,17 @@ def main() -> None:
             ratings = fit_ratings(previas)
         if not args.sin_ratings and ratings is None:
             print(f"\n(salteada {nombre}: no hay temporadas previas para ajustar ratings)")
+            continue
+
+        if args.experimento_menu:
+            for rep in range(args.reps):
+                res = run_experimento_menu(partidos, ratings, args.participaciones,
+                                           args.sims, args.rivales, seed_offset=rep)
+                a, b = res["legacy_hueco"], res["mispricing"]
+                print(f"   {nombre[:28]:28s} rep{rep + 1}  "
+                      f"legacy ${a[0]:9,.0f} / nuevo ${b[0]:9,.0f}  "
+                      f"Δ{b[0] - a[0]:+9,.0f}  Δpts{b[1] - a[1]:+6.0f}")
+                menu_res.append((nombre, a[0], b[0], b[1] - a[1], b[2] - a[2]))
             continue
 
         if args.experimento_rivales:
@@ -436,6 +511,17 @@ def main() -> None:
         for k in r.premio:
             print(f"{k:>14s}  {r.puntos[k]:9.1f}  {r.exactos[k]:7.0f}  "
                   f"${r.premio[k]:11,.0f}  ${r.esperado[k]:10,.0f}")
+
+    if menu_res:
+        dif = [b - a for _, a, b, _, _ in menu_res]
+        se = float(np.std(dif, ddof=1) / np.sqrt(len(dif))) if len(dif) > 1 else 0.0
+        print(f"\n=== A/B del menú sobre {len(menu_res)} temporadas ===")
+        print(f"   Δ E[premio] medio {np.mean(dif):+,.0f} ± {se:,.0f} (se pareado), "
+              f"a favor del nuevo en {sum(1 for d in dif if d > 0)}/{len(dif)}")
+        print(f"   Δ puntos de la mejor participación: "
+              f"{np.mean([d for *_, d, _ in menu_res]):+.1f} · "
+              f"Δ exactos: {np.mean([d for *_, d in menu_res]):+.1f}")
+        return
 
     if not resultados:
         return

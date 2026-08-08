@@ -41,6 +41,12 @@ from src.clausura.scoring import expected_points_grid
 log = logging.getLogger(__name__)
 
 
+# Cómo se ordena la rama de "hueco" del menú de candidatos. `legacy_hueco` es la
+# VIGENTE y se queda: el A/B del 2026-08-08 midió `mispricing` peor por Δ E[premio]
+# −$9.486 ± 2.154 (12 reps pareadas, negativo en 10/12, t≈−4.4). Ver Candidato.hueco.
+HUECO_METRIC = "legacy_hueco"
+
+
 @dataclass(frozen=True)
 class Candidato:
     pick: tuple[int, int]
@@ -50,8 +56,34 @@ class Candidato:
 
     @property
     def hueco(self) -> float:
-        """E[pts] por unidad de popularidad del pool: 'valor no disputado'."""
+        """E[pts] por unidad de popularidad del pool: valor NO DISPUTADO. La vigente.
+
+        Sí, ordena casi por rareza —de 1-0 a 1-4 el E[pts] cae a la mitad (2.19 →
+        1.00) mientras el pool_q cae 50 veces (18.9% → 0.38%), así que el cociente es
+        casi 1/pool_q— y por eso el menú incluye marcadores con P<0.7% (4-2, 1-4, 3-3
+        en Liverpool–Albion) y deja afuera al 1-3 (2.28%). Parece un defecto y NO lo
+        es: en esta penca el premio se REPARTE entre empatados, así que lo que vale no
+        es que el pool se equivoque, es que nadie más lo tenga. Un 0-0 subjugado 2.2×
+        lo juega igual el 4.4% del pool (30 rivales con quienes repartir); un 1-4, el
+        0.38% (2.6 rivales). Dividir por pool_q compra exclusividad, y el E[pts] en el
+        numerador impide que sea rareza pura.
+
+        Se intentó reemplazarla por `mispricing` (P real / P del pool) el 2026-08-08 y
+        el backtest la rechazó: Δ E[premio] **−$9.486 ± 2.154** en 12 reps pareadas
+        (4 temporadas × 3 semillas, 600 sims), negativo en 10/12, t≈−4.4. Reproducir
+        con `python -m src.clausura.backtest --experimento-menu --reps 3 --sims 600`.
+        No volver a "arreglar" esto sin correr ese A/B."""
         return self.e_points / (self.pool_q + 1e-4)
+
+    @property
+    def mispricing(self) -> float:
+        """Cuánto se equivoca el pool: P real / P del pool. RECHAZADA por backtest.
+
+        Intuitivamente mejor que `hueco` —mide desajuste en vez de rareza, y numerador
+        y denominador tienden a cero juntos— pero mide PEOR (ver `hueco`), porque
+        ignora con cuántos habría que repartir el premio. Se conserva para el brazo B
+        del A/B y como registro del resultado negativo."""
+        return self.p_scoreline / (self.pool_q + 1e-4)
 
 
 def build_candidates(
@@ -61,8 +93,15 @@ def build_candidates(
     k_ev: int = 5,
     k_hueco: int = 3,
     min_prob: float = 0.005,
+    metrica: str | None = None,
 ) -> list[Candidato]:
-    """Menú de marcadores jugables: top por E[pts] ∪ top por hueco de pool."""
+    """Menú de marcadores jugables: top por E[pts] ∪ top por hueco de pool.
+
+    La segunda rama busca marcadores donde acertar NO obliga a repartir el premio, y
+    se ordena por `hueco` (E[pts]/pool_q). `metrica="mispricing"` es la alternativa
+    rechazada por el A/B del 8/8 y existe para reproducirlo.
+    """
+    metrica = metrica or HUECO_METRIC
     p = flatten_grid(grid)
     cands = [
         Candidato(
@@ -81,7 +120,13 @@ def build_candidates(
                           float(pool_q[idx]), float(p[idx]))]
 
     by_ev = sorted(cands, key=lambda c: -c.e_points)[:k_ev]
-    by_hueco = sorted(cands, key=lambda c: -c.hueco)[:k_hueco]
+    if metrica == "legacy_hueco":
+        by_hueco = sorted(cands, key=lambda c: -c.hueco)[:k_hueco]
+    else:
+        # Desempate por E[pts]: los marcadores "impopulares pero sin sesgo" quedan
+        # todos en un mismo escalón de mispricing (~1.5 en el caso medido), y dentro
+        # de ese escalón conviene el que más puntos rinde, no el más raro.
+        by_hueco = sorted(cands, key=lambda c: (-c.mispricing, -c.e_points))[:k_hueco]
 
     out, seen = [], set()
     for c in by_ev + by_hueco:
