@@ -108,18 +108,40 @@ def fechas_guardadas() -> list[int]:
     return out
 
 
-def _fetch_ranking(penca_id: int, mios: frozenset[int] | None = None) -> dict:
+def _fetch_ranking_rows(penca_id: int) -> dict:
+    """Las filas crudas del ranking. UNA request (size=1000) cada RANKING_TTL.
+
+    Todas las vistas —la tabla del home y la página del pool— derivan de este mismo
+    valor cacheado: pedir el ranking dos veces por render sería duplicar el tráfico
+    al pedo, y este API tira 429 con facilidad.
+    """
     from src.clausura.api import PencaApiClient
     try:
-        with PencaApiClient(timeout=10.0) as api:
-            rows = api.ranking(penca_id)
+        with PencaApiClient(timeout=15.0) as api:
+            return {"ok": True, "rows": api.ranking(penca_id)}
     except Exception as e:
         log.warning("ranking no disponible: %s", e)
-        return {"ok": False, "error": str(e), "rows": [], "total": None}
+        return {"ok": False, "error": str(e), "rows": []}
+
+
+def load_ranking_rows(penca_id: int) -> dict:
+    return _cached(f"ranking_rows:{penca_id}", RANKING_TTL,
+                   lambda: _fetch_ranking_rows(penca_id))
+
+
+def mis_numeros_env() -> frozenset[int]:
+    raw = os.environ.get("CLAUSURA_MIS_PARTICIPACIONES", "")
+    return frozenset(int(x) for x in raw.split(",") if x.strip().isdigit())
+
+
+def _fetch_ranking(penca_id: int, mios: frozenset[int] | None = None) -> dict:
+    crudo = load_ranking_rows(penca_id)
+    if not crudo["ok"]:
+        return {"ok": False, "error": crudo["error"], "rows": [], "total": None}
+    rows = list(crudo["rows"])
 
     if mios is None:
-        mios_raw = os.environ.get("CLAUSURA_MIS_PARTICIPACIONES", "")
-        mios = frozenset(int(x) for x in mios_raw.split(",") if x.strip().isdigit())
+        mios = mis_numeros_env()
 
     rows.sort(key=lambda r: (-r.puntos_totales, -r.cant_resultados_exactos))
     out_rows = []
@@ -135,13 +157,16 @@ def _fetch_ranking(penca_id: int, mios: frozenset[int] | None = None) -> dict:
                 "mia": es_mia,
             })
     exactos_pool = [r.cant_resultados_exactos for r in rows]
+    exactos_max = max(exactos_pool) if exactos_pool else 0
     return {
         "ok": True,
         "rows": out_rows,
         "total": len(rows),
         "mias_encontradas": sum(1 for r in rows if r.numero_participacion in mios),
-        "exactos_max": max(exactos_pool) if exactos_pool else 0,
+        "exactos_max": exactos_max,
         "exactos_media": (sum(exactos_pool) / len(exactos_pool)) if exactos_pool else 0.0,
+        # el contador de exactos lo liquida el API al cierre de la fecha, no en vivo
+        "exactos_sin_liquidar": exactos_max == 0 and any(r.puntos_totales > 0 for r in rows),
     }
 
 
@@ -259,6 +284,45 @@ def build_gratuita(planilla: dict | None, cfg: dict) -> dict:
     out["ranking"] = load_ranking(
         penca_id, frozenset({mio}) if mio is not None else frozenset())
     return out
+
+
+def load_pool_page() -> dict:
+    """Página del pool: dónde caen nuestras participaciones entre las ~700.
+
+    Costo en API: la MISMA request cacheada que usa el home (ranking completo en una
+    sola llamada). La trayectoria y el fecha-a-fecha salen de disco.
+    """
+    from src.clausura.pool_view import (
+        historia_por_fecha, leer_historia, registrar_historia, resumen_pool,
+    )
+
+    cfg = load_clausura_config()
+    if cfg is None:
+        return {"ok": False, "error": "config/clausura2026.yaml no existe — "
+                                       "correr `python -m src.clausura.sync`"}
+    penca_id = cfg["pencas"]["paga"]["id"]
+    premios = {p["tipo"]: p["monto"] for p in cfg.get("premios", [])}
+
+    crudo = load_ranking_rows(penca_id)
+    if not crudo["ok"]:
+        return {"ok": False, "error": f"ranking no disponible: {crudo['error']}",
+                "por_fecha": historia_por_fecha(), "trayectoria": leer_historia()}
+
+    mios = mis_numeros_env()
+    resumen = resumen_pool(
+        crudo["rows"], mios,
+        premio_penca=premios.get("PENCA", 350_000.0),
+        premio_fecha=premios.get("FECHA", 10_000.0),
+    )
+    registrar_historia(resumen)
+
+    resumen["fecha_actual"] = fecha_actual(cfg)
+    resumen["penca_id"] = penca_id
+    resumen["sin_env"] = not mios
+    resumen["trayectoria"] = leer_historia()[-20:]
+    resumen["por_fecha"] = historia_por_fecha()
+    resumen["supermatch_url"] = f"https://www.supermatch.com.uy/pencas/1/{penca_id}/penca"
+    return resumen
 
 
 def load_clausura_page(fecha_q: int | None = None) -> dict:

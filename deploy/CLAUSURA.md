@@ -48,6 +48,20 @@ ssh root@$IP "bash /opt/penca/deploy/setup_clausura.sh"
 
 En el celular: guardar `http://<IP>:8000/dash/<DASHBOARD_TOKEN>/` como acceso directo.
 
+Páginas:
+
+| Ruta | Qué muestra |
+|---|---|
+| `/dash/<TOKEN>/` | planilla de la fecha + ranking en vivo (top-15 + las nuestras) |
+| `/dash/<TOKEN>/carga/` | modo carga: una tarjeta por participación con checkbox |
+| `/dash/<TOKEN>/pool/` | el pool: líder y empatados en la cima, puesto real de cada participación nuestra, distribución de puntos, premio de la fecha y trayectoria |
+
+El pool sale de **una** request al penca-api (`ranking?size=1000` trae las ~700 filas
+enteras), cacheada 120 s y compartida con el home. El escaneo caro —2 requests por
+participación— es otra cosa: sirve para ver los PICKS ajenos (`pool_snapshot`), no
+la tabla. La trayectoria se alimenta sola de esas lecturas en
+`data/pool_history/clausura/ranking.jsonl` (no versionado).
+
 ## Nota de seguridad
 
 Igual que en el Mundial: HTTP plano con el token como secreto en la URL. Aceptable

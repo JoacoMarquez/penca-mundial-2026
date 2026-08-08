@@ -85,6 +85,33 @@ def test_observed_exact_rate_desde_ranking():
     assert observed_exact_rate_from_ranking([], 24) is None
 
 
+def test_observed_exact_rate_ignora_el_contador_sin_liquidar():
+    """El API manda 0 exactos hasta que liquida la fecha, aunque ya haya puntos.
+
+    Caso real del 2026-08-08: Cerro Largo 1-1 Juventud finalizado, 146 de 692 con 8
+    puntos (=marcador exacto en un partido normal) y el contador de exactos en 0
+    para todas. Creerle da tasa 0 → calibra al pool más DISPERSO cuando en realidad
+    estaba en el más concentrado. Sin dato es mejor que con dato al revés.
+    """
+    from src.clausura.api import RankingRow
+
+    def fila(numero, puntos, exactos):
+        return RankingRow(participacion_id=numero, numero_participacion=numero,
+                          puntos_totales=puntos, puntos_por_fecha=0,
+                          posicion_general=1, cant_resultados_exactos=exactos)
+
+    sin_liquidar = [fila(n, 8 if n < 146 else 1, 0) for n in range(692)]
+    assert observed_exact_rate_from_ranking(sin_liquidar, 1) is None
+
+    # pool genuinamente sin exactos y sin puntos (fecha recién arrancada): tasa 0 real
+    arranque = [fila(n, 0, 0) for n in range(10)]
+    assert observed_exact_rate_from_ranking(arranque, 1) == 0.0
+
+    # una vez liquidado, el canal vuelve a servir
+    liquidado = [fila(n, 8 if n < 146 else 1, 1 if n < 146 else 0) for n in range(692)]
+    assert observed_exact_rate_from_ranking(liquidado, 1) == pytest.approx(146 / 692)
+
+
 def test_observed_exact_rate_excluye_mis_numeros():
     """El observable calibra a los rivales: nuestras filas del ranking no cuentan."""
     class Row:
