@@ -16,9 +16,14 @@ ExecStartPre=/opt/penca/.venv/bin/python -m src.clausura.sync
 # "-": si el API nos limita, el escaneo aborta sin guardar y el pipeline
 # sigue con el snapshot previo — mejor eso que no emitir planilla.
 ExecStartPre=-/opt/penca/.venv/bin/python -m src.clausura.pool_snapshot --if-started --reusar-especiales --max-edad-h 6
-# 1600 sims (~80 min en 1 vCPU): más que esto y el rerun de T-2h no llega al
-# cierre; menos y re-optimiza peor que la pasada principal de 2400 (backtest 6/8)
-ExecStart=/opt/penca/.venv/bin/python -m src.clausura.rerun_cierre --participaciones 12 --sims 1600
+# SIN --sims a propósito: el rerun hereda las sims de la planilla contra la que
+# diffea. Correr con otro número no es "más rápido", es INVÁLIDO — el ascenso por
+# coordenadas cae en otro óptimo local y el diff deja de significar "se movieron
+# los insumos". Medido el 8/8 con 1600 acá y 2400 en la pasada principal: 56 de 96
+# picks reasignados con insumos idénticos, y E[premio] out-of-sample $238k → $221k.
+# Tiempos reales en el droplet (1 vCPU): 2400 sims = 33 min, 1600 = 22 min, contra
+# una ventana de ~70 min desde el disparo hasta el primer cierre. Entra.
+ExecStart=/opt/penca/.venv/bin/python -m src.clausura.rerun_cierre --participaciones 12
 StandardOutput=append:/var/lib/penca/logs/clausura-rerun-cierre.log
 StandardError=append:/var/lib/penca/logs/clausura-rerun-cierre.err
 User=root

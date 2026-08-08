@@ -718,6 +718,11 @@ def run(
         "generado_utc": datetime.now(timezone.utc).isoformat(),
         "fecha": target_fecha,
         "n_participaciones": n_participaciones,
+        # Queda registrado porque el diff entre dos planillas SOLO significa "se
+        # movieron los insumos" si ambas se optimizaron con el mismo número de
+        # sorteos: el ascenso por coordenadas cae en otro óptimo local si cambia
+        # n_sims, aun con la misma semilla. src.clausura.rerun_cierre lo hereda.
+        "n_sims": n_sims,
         "pool": {"n_rivales": n_rivales, "temperatura": pool_cfg.temperature,
                  "exact_rate_observada": exact_rate,
                  "rival_model": rival_model.resumen() if rival_model else None},
