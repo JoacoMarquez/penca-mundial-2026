@@ -157,6 +157,9 @@ class PortfolioClausura:
     campeon: np.ndarray | None = None   # (n_participaciones,) índice de equipo
     goleador: np.ndarray | None = None  # (n_participaciones,) índice de opción
     p_campeon: np.ndarray | None = None  # (n_teams,) P(campeón) del modelo
+    # Contexto para re-liquidar OTRAS matrices de picks con los mismos sorteos. Lo usa
+    # el rerun de cierre para avisar por valor en vez de por diferencia de picks.
+    evaluador: "EvaluadorPortfolio | None" = None
 
     def as_scores(self) -> list[list[tuple[int, int]]]:
         return [[index_score(int(i)) for i in fila] for fila in self.picks]
@@ -313,6 +316,14 @@ def build_portfolio(
         campeon=simulator.campeon_picks.copy() if simulator.campeon_picks is not None else None,
         goleador=simulator.goleador_picks.copy() if simulator.goleador_picks is not None else None,
         p_campeon=p_champ,
+        evaluador=EvaluadorPortfolio(
+            grids, fecha_de_partido, preferencial, pool_qs, prize, simulator.cfg,
+            especiales, rivals,
+            campeon_picks=(simulator.campeon_picks.copy()
+                           if simulator.campeon_picks is not None else None),
+            goleador_picks=(simulator.goleador_picks.copy()
+                            if simulator.goleador_picks is not None else None),
+        ),
     )
 
 
@@ -347,6 +358,89 @@ def _evaluate_fresh(
             for i in range(simulator.goleador_picks.shape[0]):
                 ev.set_goleador_pick(i, int(simulator.goleador_picks[i]))
     return ev.result()
+
+
+@dataclass
+class ComparacionPortfolios:
+    """Δ E[premio] entre dos planillas, con su error de Monte Carlo."""
+    delta: float
+    se: float
+    valor_a: float
+    valor_b: float
+    n_seeds: int
+
+    @property
+    def significativa(self) -> bool:
+        """Δ distinguible de cero con el ruido que tiene."""
+        return self.se > 0 and abs(self.delta) > 2.0 * self.se
+
+    def __str__(self) -> str:
+        return (f"Δ E[premio] {self.delta:+,.0f} ± {self.se:,.0f} "
+                f"({self.valor_a:,.0f} → {self.valor_b:,.0f}, {self.n_seeds} semillas)")
+
+
+class EvaluadorPortfolio:
+    """Compara dos matrices de picks bajo los MISMOS sorteos.
+
+    Existe para que el rerun de cierre pueda avisar por VALOR en vez de por
+    diferencia de picks. El 2026-08-08 quedó medido que el óptimo es plano: dos
+    corridas con insumos idénticos reasignan 43 de 96 picks sin que nada haya
+    cambiado, así que "los picks cambiaron" no dice nada sobre si conviene recargar.
+
+    Dos detalles que hacen que el Δ sea usable:
+
+      * **Sorteos comunes.** Las dos planillas se liquidan en la MISMA instancia del
+        simulador, así que comparten resultados y picks rivales. La varianza del Δ
+        queda muy por debajo de la de cada valor por separado — comparar dos números
+        de corridas distintas (que es lo que hacíamos a mano) mezcla la diferencia
+        real con el ruido de dos muestras independientes.
+      * **Semillas independientes de la optimización.** Evaluar sobre los sorteos que
+        el ascenso por coordenadas maximizó le daría ventaja espuria a la planilla
+        nueva (winner's curse), que es exactamente el sesgo que haría avisar de más.
+    """
+
+    def __init__(self, grids, fecha_de_partido, preferencial, pool_qs, prize,
+                 cfg: SimConfig, especiales=None, rivals=None,
+                 campeon_picks=None, goleador_picks=None):
+        self._args = (grids, fecha_de_partido, preferencial, pool_qs, prize)
+        self._cfg = cfg
+        self._especiales = especiales
+        self._rivals = rivals
+        self._campeon = campeon_picks
+        self._goleador = goleador_picks
+
+    def _simulador(self, seed: int) -> SeasonSimulator:
+        grids, fechas, pref, pool_qs, prize = self._args
+        cfg = SimConfig(n_sims=self._cfg.n_sims, n_rivales=self._cfg.n_rivales, seed=seed)
+        s = SeasonSimulator(grids, fechas, pref, pool_qs, prize, cfg, self._rivals)
+        esp = self._especiales
+        if esp is not None and self._campeon is not None:
+            s.enable_campeon(esp.local_de, esp.visita_de, esp.n_teams, esp.pool_q_campeon)
+            for i, op in enumerate(self._campeon):
+                s.set_campeon_pick(i, int(op))
+            if self._goleador is not None and esp.p_goleador is not None:
+                s.enable_goleador(esp.p_goleador, esp.pool_q_goleador)
+                for i, op in enumerate(self._goleador):
+                    s.set_goleador_pick(i, int(op))
+        return s
+
+    def comparar(self, picks_a, picks_b, n_seeds: int = 5) -> ComparacionPortfolios:
+        """Δ = valor(B) − valor(A), promediado sobre `n_seeds` evaluaciones pareadas."""
+        deltas, va, vb = [], [], []
+        for k in range(n_seeds):
+            s = self._simulador(self._cfg.seed + EVAL_SEED_OFFSET + k)
+            s.load_picks(picks_a)
+            a = s.e_premio_total()
+            s.load_picks(picks_b)
+            b = s.e_premio_total()
+            deltas.append(b - a)
+            va.append(a)
+            vb.append(b)
+        se = (float(np.std(deltas, ddof=1) / np.sqrt(len(deltas)))
+              if len(deltas) > 1 else 0.0)
+        return ComparacionPortfolios(delta=float(np.mean(deltas)), se=se,
+                                     valor_a=float(np.mean(va)),
+                                     valor_b=float(np.mean(vb)), n_seeds=n_seeds)
 
 
 def _optimize_especial(simulator, setter, current, i, n_opciones, actual) -> tuple[float, int]:

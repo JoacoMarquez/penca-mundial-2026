@@ -503,7 +503,15 @@ def run(
     telegram: bool = False,
     n_sims: int = 800,
     liberar_especiales: bool = False,
+    contexto: dict | None = None,
 ) -> Path:
+    """Corre el pipeline de una fecha y versiona la planilla.
+
+    `contexto` es un dict de salida opcional: si se pasa, se le cargan el portfolio,
+    el evaluador (para re-liquidar otras matrices de picks con los mismos sorteos) y
+    el mapa evento→columna. Lo usa src.clausura.rerun_cierre para decidir si el
+    cambio de planilla vale la pena en PLATA antes de pedir una recarga manual.
+    """
     cfg = load_config()
     eventos = flat_eventos(cfg)
     idx_of = {ev["evento_id"]: i for i, ev in enumerate(eventos)}
@@ -776,6 +784,10 @@ def run(
             for ev in eventos_fecha
         ],
     }
+    if contexto is not None:
+        contexto.update(portfolio=port, evaluador=port.evaluador,
+                        idx_of=idx_of, eventos=eventos)
+
     path = save_version(target_fecha, payload)
 
     print(planilla.replace("<b>", "").replace("</b>", "").replace("<i>", "").replace("</i>", ""))
