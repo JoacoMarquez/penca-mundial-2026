@@ -7,9 +7,16 @@ fecha. Este módulo re-corre el pipeline UNA vez por día de partidos, ~2h antes
 primer cierre del día, y notifica por Telegram SOLO si algún pick de un partido
 todavía abierto cambió respecto de la planilla vigente.
 
-El optimizador es determinístico (seeds fijos), así que un diff refleja cambios
-reales de inputs, no ruido de simulación. La corrida versiona una planilla nueva
-(v+1, regla de trabajo #2); si no hay cambios, no manda nada.
+El disparador del aviso es el VALOR, no el diff. Un diff de picks no significa nada:
+el óptimo es plano y dos corridas con insumos idénticos reasignan ~43 de 96 picks
+(medido el 2026-08-08, cuando este módulo pidió recargar 56 picks hacia una planilla
+PEOR: $238k → $221k de E[premio]). Así que después de re-optimizar se liquidan las
+dos planillas —la vigente y la nueva— en el MISMO simulador con sorteos comunes, y
+solo se notifica si el Δ E[premio] supera su propio error de Monte Carlo y un piso
+absoluto que justifique volver a cargar doce planillas a mano. El aviso lleva el
+número, para que la decisión de recargar sea informada.
+
+La corrida versiona una planilla nueva igual (v+1, regla de trabajo #2), avise o no.
 
 Uso:
     python -m src.clausura.rerun_cierre                    # corre si toca (timer)
@@ -34,6 +41,17 @@ STATE_PATH = ROOT / "data" / "state" / "rerun_cierre.json"
 
 # Disparo: el primer cierre del día está a menos de este umbral.
 TRIGGER_H = 2.5
+
+# Cuánto tiene que mejorar la planilla nueva para molestarte con una recarga manual.
+# El disparador NO puede ser "los picks cambiaron": el óptimo es plano y dos corridas
+# con insumos idénticos reasignan ~43 de 96 picks sin que nada haya pasado (medido el
+# 2026-08-08; ese día el rerun pidió 56 cambios hacia una planilla PEOR, $238k → $221k).
+# Entonces se avisa por VALOR: Δ E[premio] evaluado con sorteos comunes, y solo si
+# supera su propio error de Monte Carlo y un piso absoluto — recargar 12 planillas a
+# mano tiene un costo real (tiempo y riesgo de tipeo) que un Δ de $400 no paga.
+UMBRAL_SE = 2.0
+UMBRAL_ABS = 2_000.0
+EVAL_SEEDS = 5
 
 
 # -------------------- lógica de ventana (pura, testeable) --------------------
@@ -87,15 +105,72 @@ def diff_planillas(
     return out
 
 
+def vale_avisar(comp, umbral_se: float = UMBRAL_SE,
+                umbral_abs: float = UMBRAL_ABS) -> bool:
+    """¿La planilla nueva mejora lo suficiente para pedir una recarga manual?
+
+    Dos condiciones, las dos necesarias:
+      * el Δ tiene que ser POSITIVO y distinguible del ruido (> umbral_se × su se),
+        porque el óptimo es plano y el churn produce Δ de cualquier signo;
+      * y tiene que valer una plata que justifique volver a cargar a mano.
+    """
+    return comp.delta > umbral_abs and comp.delta > umbral_se * comp.se
+
+
+def picks_previos(prev: dict, contexto: dict, n_participaciones: int):
+    """Matriz de picks del portfolio nuevo con la fecha objetivo PISADA por la vieja.
+
+    Así las dos matrices difieren solo en lo accionable (los partidos de la fecha que
+    todavía se pueden cambiar) y comparten todo lo demás — pasado congelado y fechas
+    futuras—, que es la comparación que interesa.
+    """
+    import numpy as np
+    from src.clausura.economics import score_index
+
+    picks_nuevos = contexto["portfolio"].picks
+    idx_of = contexto["idx_of"]
+    matriz = np.array(picks_nuevos, dtype=np.int64).copy()
+    for row in prev.get("picks", []):
+        col = idx_of.get(int(row["evento_id"]))
+        if col is None:
+            continue
+        for k, (gl, gv) in enumerate(row.get("scores", [])[:n_participaciones]):
+            matriz[k, col] = score_index(int(gl), int(gv))
+    return matriz
+
+
+def valor_del_cambio(prev: dict, contexto: dict, n_participaciones: int):
+    """Δ E[premio] de la planilla nueva vs la vieja, con sorteos comunes.
+
+    None si el contexto no alcanza (por ejemplo si picks.run no lo llenó).
+    """
+    ev = contexto.get("evaluador")
+    if ev is None or contexto.get("portfolio") is None:
+        log.warning("sin evaluador en el contexto — no puedo medir el valor del cambio")
+        return None
+    try:
+        viejos = picks_previos(prev, contexto, n_participaciones)
+        comp = ev.comparar(viejos, contexto["portfolio"].picks, n_seeds=EVAL_SEEDS)
+        log.info("valor del cambio: %s", comp)
+        return comp
+    except Exception as e:                                    # noqa: BLE001
+        log.warning("no pude medir el valor del cambio (%s) — aviso igual", e)
+        return None
+
+
 def formatear_diff(
     cambios: list[tuple[dict, list[tuple[int, tuple[int, int], tuple[int, int]]]]],
     mis_numeros: list[int],
     now: datetime,
+    comp=None,
 ) -> str:
     """Aviso compacto: solo lo que cambió, con hora de cierre en UY."""
     n_picks = sum(len(c) for _, c in cambios)
-    lines = ["<b>🔄 Corrida T-2h — cambios vs la planilla de la mañana</b>",
-             f"{n_picks} pick(s) cambiaron en {len(cambios)} partido(s) aún abiertos:"]
+    lines = ["<b>🔄 Corrida T-2h — cambios vs la planilla de la mañana</b>"]
+    if comp is not None:
+        lines.append(f"Vale <b>{comp.delta:+,.0f}</b> ± {comp.se:,.0f} de E[premio] "
+                     f"(${comp.valor_a:,.0f} → ${comp.valor_b:,.0f}).")
+    lines.append(f"{n_picks} pick(s) cambiaron en {len(cambios)} partido(s) aún abiertos:")
     for row, cs in cambios:
         cierre = datetime.fromisoformat(row["cierre_pronostico_utc"])
         cierre_uy = cierre.astimezone(TZ_UY)
@@ -107,6 +182,9 @@ def formatear_diff(
             lines.append(f"  {numero}: {old[0]}-{old[1]} → <b>{new[0]}-{new[1]}</b>")
     lines.append("\nSi ya cargaste la planilla de la mañana, actualizá SOLO estos picks "
                  "en la web. La planilla nueva quedó versionada.")
+    if comp is not None and not comp.significativa:
+        lines.append("\n⚠️ El Δ no supera su propio ruido de simulación: el aviso sale "
+                     "por el piso absoluto, no porque la mejora esté confirmada.")
     return "\n".join(lines)
 
 
@@ -126,6 +204,7 @@ def save_state(corridos: set[str]) -> None:
 # -------------------- main --------------------
 
 DEFAULT_SIMS = 2400        # solo si la planilla previa no dice con cuántas corrió
+
 
 
 def sims_de(prev: dict, pedido: int | None = None) -> int:
@@ -179,18 +258,30 @@ def run(
         return None
     prev = json.loads(prev_path.read_text(encoding="utf-8"))
 
+    contexto: dict = {}
     sims = sims_de(prev, n_sims)
     log.info("re-corriendo pipeline de la fecha %d con %d sims (planilla previa: %s)",
              target_fecha, sims, prev_path.name)
     new_path = picks.run(target_fecha, n_participaciones=n_participaciones,
-                         telegram=False, n_sims=sims)
+                         telegram=False, n_sims=sims, contexto=contexto)
     nuevo = json.loads(new_path.read_text(encoding="utf-8"))
 
     cambios = diff_planillas(prev, nuevo, now)
     mis_numeros = sorted(mis_numeros_env())
 
+    comp = None
     if cambios:
-        msg = formatear_diff(cambios, mis_numeros, now)
+        comp = valor_del_cambio(prev, contexto, n_participaciones)
+        if comp is not None and not vale_avisar(comp):
+            log.info("la planilla nueva NO mejora lo suficiente (%s) — no aviso; "
+                     "%d picks distintos quedan versionados en %s",
+                     comp, sum(len(cs) for _, cs in cambios), new_path.name)
+            if not dry_run:
+                save_state(estado | {now.date().isoformat()})
+            return []
+
+    if cambios:
+        msg = formatear_diff(cambios, mis_numeros, now, comp)
         if prev.get("n_sims") and sims != prev["n_sims"]:
             msg = (f"⚠️ <b>Este diff no es confiable</b>: la planilla previa se optimizó "
                    f"con {prev['n_sims']} sorteos y ésta con {sims}. Con distinto "
