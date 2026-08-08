@@ -629,16 +629,8 @@ def run(
                                      mis_numeros)
         pool_q_campeon = blended_q(pool_q_campeon, c)
 
-    # ---------- rivales empíricos por participación (standings reales + estilo) ----------
-    rival_model = None
-    if snapshot:
-        from src.clausura.rivals import build_rival_model
-        rival_model = build_rival_model(
-            snapshot, eventos, pool_qs, resultados, equipo_idx=equipo_idx,
-        )
-        if rival_model is not None:
-            n_rivales = rival_model.n_rivales
-
+    # El menú se pide ANTES del modelo de rivales: sin él no se puede indexar el
+    # goleador observado de cada rival (el snapshot guarda el id de la opción).
     opciones_campeon, opciones_goleador = None, None
     try:
         opciones_campeon, opciones_goleador = fetch_opciones(penca_id)
@@ -663,6 +655,19 @@ def run(
     else:
         log.info("goleador: Supermatch aún no publicó el menú de opciones (500) — "
                  "solo se recomienda Campeón por ahora")
+
+    # ---------- rivales empíricos por participación (standings reales + estilo) ----------
+    rival_model = None
+    if snapshot:
+        from src.clausura.rivals import build_rival_model
+        goleador_op_idx = ({o.id: i for i, o in enumerate(opciones_goleador)}
+                           if opciones_goleador else None)
+        rival_model = build_rival_model(
+            snapshot, eventos, pool_qs, resultados, equipo_idx=equipo_idx,
+            goleador_op_idx=goleador_op_idx,
+        )
+        if rival_model is not None:
+            n_rivales = rival_model.n_rivales
 
     if liberar_especiales:
         # Solo tiene sentido MIENTRAS los especiales se pueden editar en la web

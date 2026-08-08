@@ -216,6 +216,7 @@ class SeasonSimulator:
         if self.rival_model is not None and self.rival_model.campeon_idx is not None:
             known = self.rival_model.campeon_idx
             rival_picks = np.where(known[:, None] >= 0, known[:, None], rival_picks)
+        rival_picks = self._silenciar(rival_picks, "sin_campeon")
         self.rivals_total += puntos * (rival_picks == self.champ_sim[None, :])
         self.campeon_picks = None  # nuestras elecciones arrancan vacías (0 puntos)
 
@@ -233,8 +234,26 @@ class SeasonSimulator:
         rival_picks = self._rng_especiales.choice(
             n_op, size=(self.n_rivales, self.cfg.n_sims), p=pool_q_goleador
         )
+        # igual que el campeón: el goleador OBSERVADO pisa al sorteado
+        if self.rival_model is not None and self.rival_model.goleador_idx is not None:
+            known = self.rival_model.goleador_idx
+            rival_picks = np.where(known[:, None] >= 0, known[:, None], rival_picks)
+        rival_picks = self._silenciar(rival_picks, "sin_goleador")
         self.rivals_total += puntos * (rival_picks == self.gol_sim[None, :])
         self.goleador_picks = None
+
+    def _silenciar(self, rival_picks: np.ndarray, campo: str) -> np.ndarray:
+        """-1 a los rivales que no cargaron ESE especial: nunca matchean el resultado.
+
+        Sin esto se les sortea un pick del pool y cobran como cualquiera. Con 217 de
+        690 en blanco (post-lock del Clausura 2026) eso repartía ~7 puntos de
+        esperanza fantasma a un tercio del pool, justo en la cola que define el
+        premio: inflaba el umbral para ganar y nos hacía ver más difícil el torneo
+        de lo que es."""
+        marca = getattr(self.rival_model, campo, None) if self.rival_model else None
+        if marca is None:
+            return rival_picks
+        return np.where(marca[:, None], -1, rival_picks)
 
     def set_campeon_pick(self, i: int, team: int) -> None:
         """Cambia el campeón de la participación i, con update incremental."""

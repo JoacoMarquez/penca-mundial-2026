@@ -217,3 +217,101 @@ def test_rivales_modelo_varian_entre_sims_con_resultado_fijo():
     sim = SeasonSimulator([d], [280], [False], [q], PrizeConfig(),
                           SimConfig(n_sims=100, seed=4), rivals=model)
     assert sim.rivals_total.std(axis=1).max() > 0
+
+
+# -------------------- rivales que no cargaron especiales --------------------
+
+POST_LOCK = "2026-08-08T01:08:00+00:00"    # escaneo real posterior al lock
+PRE_LOCK = "2026-08-07T14:13:30+00:00"     # ventana del gate, especiales aún editables
+
+
+def _snapshot_especiales(generado):
+    return {
+        "generado_utc": generado,
+        "participaciones": [
+            {"numero": 501, "puntos": 0, "picks": {"10": [1, 0]},
+             "campeon": "Nacional", "goleador": "Gómez", "goleador_id": 622},
+            {"numero": 502, "puntos": 0, "picks": {"10": [1, 0]}},   # NUNCA cargó
+        ],
+    }
+
+
+def test_marca_a_los_que_no_cargaron_especiales_post_lock():
+    eventos = [{"evento_id": 10, "preferencial": False}]
+    model = build_rival_model(
+        _snapshot_especiales(POST_LOCK), eventos, [_q()], resultados={},
+        mis_numeros={999}, equipo_idx={"Nacional": 3}, goleador_op_idx={622: 7},
+    )
+    assert model.sin_campeon.tolist() == [False, True]
+    assert model.sin_goleador.tolist() == [False, True]
+    assert model.campeon_idx.tolist() == [3, -1]
+    assert model.goleador_idx.tolist() == [7, -1]
+
+
+def test_pre_lock_no_marca_a_nadie():
+    """Antes del lock la ausencia solo significa 'el gate estaba cerrado' — marcarlos
+    ahí borraría especiales que todavía podían cargarse."""
+    eventos = [{"evento_id": 10, "preferencial": False}]
+    model = build_rival_model(
+        _snapshot_especiales(PRE_LOCK), eventos, [_q()], resultados={},
+        mis_numeros={999}, equipo_idx={"Nacional": 3},
+    )
+    assert model.sin_campeon is None
+
+
+def _puntos_campeon(sin_campeon, n_rivales=2, n_sims=400):
+    """Solo lo que el especial Campeón le SUMA a cada rival (aislado de los goles)."""
+    g = score_grid(1.3, 1.0, 0.0, max_goals=MAX_GOALS)
+    model = RivalModel(
+        known_picks=np.full((n_rivales, 1), -1, dtype=np.int64),
+        played_mask=np.zeros(1, dtype=bool),
+        gamma=np.ones(n_rivales),
+        p_show=np.ones(n_rivales),
+        residuo=np.zeros(n_rivales, dtype=np.int64),
+        campeon_idx=np.full(n_rivales, -1, dtype=np.int64),
+        sin_campeon=sin_campeon,
+    )
+    sim = SeasonSimulator(
+        grids=[g], fecha_de_partido=[1], preferencial=[False], pool_q=[_q()],
+        sim=SimConfig(n_sims=n_sims, n_rivales=n_rivales, seed=11), rivals=model,
+    )
+    antes = sim.rivals_total.copy()
+    sim.enable_campeon(np.array([0]), np.array([1]), n_teams=2,
+                       pool_q_campeon=np.array([0.5, 0.5]))
+    return sim.rivals_total - antes
+
+
+def test_el_que_no_cargo_campeon_no_cobra_esos_puntos():
+    """El bug: se les sorteaba un campeón del pool y cobraban 25 como cualquiera."""
+    todos = _puntos_campeon(None)
+    ninguno = _puntos_campeon(np.ones(2, dtype=bool))
+
+    assert todos.max() == 25        # sin marcar, alguno acierta y cobra
+    assert ninguno.max() == 0       # marcados, ninguno puede cobrar nunca
+    assert todos.mean() > 0         # el inflado es justo la cola que define el premio
+
+
+def test_mezcla_solo_silencia_a_los_marcados():
+    mixto = _puntos_campeon(np.array([False, True]))
+    assert mixto[1].max() == 0      # el marcado nunca cobra
+    assert mixto[0].max() == 25     # el que sí cargó, intacto
+
+
+def test_marca_por_especial_por_separado():
+    """Hay quien cargó goleador y no campeón (2 casos reales en el pool del 8/8):
+    no puede cobrar campeón, pero sí goleador — marcarlo entero le borraría puntos
+    que sí va a disputar."""
+    snap = {
+        "generado_utc": POST_LOCK,
+        "participaciones": [
+            {"numero": 601, "puntos": 0, "picks": {},
+             "goleador": "Gómez", "goleador_id": 622},          # goleador sí, campeón no
+        ],
+    }
+    model = build_rival_model(
+        snap, [{"evento_id": 10, "preferencial": False}], [_q()], resultados={},
+        mis_numeros={999}, equipo_idx={"Nacional": 3}, goleador_op_idx={622: 7},
+    )
+    assert model.sin_campeon.tolist() == [True]
+    assert model.sin_goleador.tolist() == [False]
+    assert model.goleador_idx.tolist() == [7]
