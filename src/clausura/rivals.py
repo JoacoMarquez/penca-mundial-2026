@@ -33,6 +33,7 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass, field
+from datetime import datetime
 
 import numpy as np
 
@@ -65,6 +66,13 @@ class RivalModel:
     played_mask[m]    = True si el partido ya se jugó (no observado ⇒ no cargó ⇒ 0 pts).
     residuo[r]        = puntos_ranking − puntos_implicados por los picks del pasado.
     campeon_idx[r]    = índice de equipo del especial Campeón, -1 = no observado.
+    goleador_idx[r]   = índice de opción del especial Goleador, -1 = no observado.
+    sin_campeon[r]    = True si el rival NO cargó campeón y ya no puede: nunca va a
+                        cobrar esos 25 puntos. Distinto de campeon_idx=-1, que solo
+                        dice "no observado" — confundirlos le regalaba a un tercio
+                        del pool 25 puntos de esperanza que no existen.
+    sin_goleador[r]   = ídem para el Goleador (se marcan por separado: hay quien
+                        cargó uno y no el otro).
     """
     known_picks: np.ndarray
     played_mask: np.ndarray
@@ -73,6 +81,9 @@ class RivalModel:
     residuo: np.ndarray
     numeros: np.ndarray = field(default_factory=lambda: np.zeros(0, dtype=np.int64))
     campeon_idx: np.ndarray | None = None
+    goleador_idx: np.ndarray | None = None
+    sin_campeon: np.ndarray | None = None
+    sin_goleador: np.ndarray | None = None
 
     @property
     def n_rivales(self) -> int:
@@ -157,6 +168,9 @@ def build_rival_model_from_arrays(
     puntos_ranking: np.ndarray,
     numeros: np.ndarray | None = None,
     campeon_idx: np.ndarray | None = None,
+    goleador_idx: np.ndarray | None = None,
+    sin_campeon: np.ndarray | None = None,
+    sin_goleador: np.ndarray | None = None,
 ) -> RivalModel:
     """Ajusta γ, p_show y residuo desde las matrices ya mapeadas a índices de partido.
 
@@ -202,6 +216,9 @@ def build_rival_model_from_arrays(
         residuo=residuo,
         numeros=numeros if numeros is not None else np.zeros(R, dtype=np.int64),
         campeon_idx=campeon_idx,
+        goleador_idx=goleador_idx,
+        sin_campeon=sin_campeon,
+        sin_goleador=sin_goleador,
     )
 
 
@@ -218,12 +235,17 @@ def build_rival_model(
     resultados: dict[int, tuple[int, int]],
     mis_numeros: set[int] | None = None,
     equipo_idx: dict[str, int] | None = None,
+    goleador_op_idx: dict[int, int] | None = None,
 ) -> RivalModel | None:
     """RivalModel desde un snapshot del pool (src.clausura.pool_snapshot).
 
     Excluye NUESTRAS participaciones (si quedaran adentro, el simulador las contaría
     como rivales y nos dividiría el premio contra nosotros mismos). Devuelve None si
     tras filtrar no queda ningún rival.
+
+    `goleador_op_idx` mapea id de opción del menú → índice, para congelar también el
+    goleador observado de cada rival (el snapshot lo guarda desde siempre, pero sin
+    el menú no se puede indexar; se pasa cuando la API de opciones responde).
     """
     if mis_numeros is None:
         mis_numeros = mis_numeros_env()
@@ -243,6 +265,15 @@ def build_rival_model(
     numeros = np.zeros(R, dtype=np.int64)
     puntos = np.zeros(R, dtype=np.int64)
     campeon = np.full(R, -1, dtype=np.int64) if equipo_idx is not None else None
+    goleador = (np.full(R, -1, dtype=np.int64)
+                if goleador_op_idx else None)
+    # Post-lock, un snapshot completo que NO trae campeón significa que ese rival
+    # nunca lo cargó y ya no puede: son puntos que jamás va a sumar. Pre-lock la
+    # misma ausencia solo significa "el gate estaba cerrado", así que el marcado
+    # se hace únicamente si el snapshot es posterior al lock.
+    post_lock = _snapshot_post_lock(snapshot)
+    sin_camp = np.zeros(R, dtype=bool) if post_lock else None
+    sin_gol = np.zeros(R, dtype=bool) if post_lock else None
     for r, fila in enumerate(filas):
         numeros[r] = int(fila.get("numero", 0))
         puntos[r] = int(fila.get("puntos", 0))
@@ -252,6 +283,11 @@ def build_rival_model(
                 known[r, m] = score_index(min(int(gl), MAX_GOALS), min(int(gv), MAX_GOALS))
         if campeon is not None and fila.get("campeon") in equipo_idx:
             campeon[r] = equipo_idx[fila["campeon"]]
+        if goleador is not None and fila.get("goleador_id") in goleador_op_idx:
+            goleador[r] = goleador_op_idx[fila["goleador_id"]]
+        if post_lock:
+            sin_camp[r] = not fila.get("campeon")
+            sin_gol[r] = not fila.get("goleador")
 
     played = np.zeros(n_matches, dtype=bool)
     actual = np.full(n_matches, -1, dtype=np.int64)
@@ -263,8 +299,24 @@ def build_rival_model(
 
     model = build_rival_model_from_arrays(
         known, played, pool_qs, [ev["preferencial"] for ev in eventos],
-        actual, puntos, numeros, campeon,
+        actual, puntos, numeros, campeon, goleador, sin_camp, sin_gol,
     )
+    if sin_camp is not None and sin_camp.any():
+        log.info("rivales que ya no pueden sumar especiales: %d sin campeón, %d sin "
+                 "goleador (de %d)", int(sin_camp.sum()), int(sin_gol.sum()), R)
     log.info("modelo de rivales: %s (excluidas %d participaciones propias)",
              model.resumen(), len(snapshot.get("participaciones", [])) - R)
     return model
+
+
+def _snapshot_post_lock(snapshot: dict) -> bool:
+    """¿El snapshot se tomó después del cierre de especiales?
+
+    Solo entonces la ausencia de campeón es información ("no cargó") en vez de
+    ruido del gate ("no se podía ver")."""
+    from src.clausura.pool_snapshot import lock_especiales_utc
+    lock = lock_especiales_utc()
+    generado = snapshot.get("generado_utc")
+    if lock is None or not generado:
+        return False
+    return datetime.fromisoformat(generado) >= lock
