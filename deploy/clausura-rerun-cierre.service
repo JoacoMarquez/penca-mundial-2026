@@ -24,6 +24,10 @@ ExecStartPre=-/opt/penca/.venv/bin/python -m src.clausura.pool_snapshot --if-sta
 # Tiempos reales en el droplet (1 vCPU): 2400 sims = 33 min, 1600 = 22 min, contra
 # una ventana de ~70 min desde el disparo hasta el primer cierre. Entra.
 ExecStart=/opt/penca/.venv/bin/python -m src.clausura.rerun_cierre --participaciones 12
+# Para ver el pico real: el aviso por valor construye un simulador por semilla de
+# evaluación (351 MB medidos a 2400 sims × 684 rivales) encima de la optimización,
+# en un droplet de 1 GB. Sin accounting, un OOM aparecería como "no llegó el aviso".
+MemoryAccounting=yes
 StandardOutput=append:/var/lib/penca/logs/clausura-rerun-cierre.log
 StandardError=append:/var/lib/penca/logs/clausura-rerun-cierre.err
 User=root

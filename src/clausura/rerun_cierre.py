@@ -149,6 +149,12 @@ def valor_del_cambio(prev: dict, contexto: dict, n_participaciones: int):
         log.warning("sin evaluador en el contexto — no puedo medir el valor del cambio")
         return None
     try:
+        # El evaluador construye un SeasonSimulator por semilla: medido en el droplet,
+        # 351 MB de pico a 2400 sims × 684 rivales (65 s). Corre DESPUÉS de la
+        # optimización, así que conviene devolver primero las matrices que el
+        # optimizador ya no usa — en 1 GB de RAM el margen no sobra.
+        import gc
+        gc.collect()
         viejos = picks_previos(prev, contexto, n_participaciones)
         comp = ev.comparar(viejos, contexto["portfolio"].picks, n_seeds=EVAL_SEEDS)
         log.info("valor del cambio: %s", comp)
