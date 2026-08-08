@@ -290,17 +290,41 @@ def test_fetch_snapshot_reintenta_ante_429_en_vez_de_dejar_la_fila_vacia(monkeyp
     assert out[0].picks == {2086: (2, 1)}         # …y la fila quedó COMPLETA
 
 
-def test_fetch_snapshot_429_persistente_no_inventa_datos(monkeypatch):
-    """Agotados los reintentos la fila queda vacía, pero explícitamente: nunca se
-    fabrica un pick que el API no dio."""
+def test_fetch_snapshot_429_persistente_aborta_en_vez_de_seguir(monkeypatch):
+    """Bloqueo duro: abortar el escaneo ENTERO, no seguir con filas vacías.
+
+    Seguir de largo tiene dos costos, los dos medidos el 7/8: se guarda un pool
+    fantasma como si fuera válido, y cada rival paga sus reintentos (28 min
+    trabado en el mismo) así que el escaneo no termina nunca."""
     import httpx
-    from src.clausura.pool_snapshot import fetch_snapshot
+    import pytest as _pytest
+    from src.clausura.pool_snapshot import RateLimited, fetch_snapshot
 
     _mock_api(monkeypatch, lambda r: httpx.Response(429, text="Too Many Requests"),
-              n_rivales=1)
-    out = fetch_snapshot(46, pause_s=0)
+              n_rivales=40)
+    with _pytest.raises(RateLimited):
+        fetch_snapshot(46, pause_s=0)
 
-    assert out[0].picks == {} and out[0].campeon is None
+
+def test_ranking_429_persistente_tambien_aborta(monkeypatch):
+    """El 429 en el ranking mataba el escaneo con un HTTPStatusError crudo; ahora
+    sale como RateLimited para que el CLI no guarde nada."""
+    import httpx
+    import pytest as _pytest
+    import src.clausura.pool_snapshot as ps
+
+    class ApiFalsa:
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def ranking(self, _):
+            req = httpx.Request("GET", "http://x/ranking")
+            raise httpx.HTTPStatusError("429", request=req,
+                                        response=httpx.Response(429, request=req))
+
+    monkeypatch.setattr(ps, "PencaApiClient", ApiFalsa)
+    monkeypatch.setattr(ps.time, "sleep", lambda s: None)
+    with _pytest.raises(ps.RateLimited):
+        ps._ranking_pacing(46)
 
 
 # -------------------- integración con el optimizador --------------------
