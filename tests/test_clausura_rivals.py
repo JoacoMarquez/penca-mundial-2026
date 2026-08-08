@@ -5,6 +5,7 @@ import pytest
 
 from src.clausura.economics import (
     MAX_GOALS,
+    N_SCORES,
     PrizeConfig,
     SeasonSimulator,
     SimConfig,
@@ -315,3 +316,37 @@ def test_marca_por_especial_por_separado():
     assert model.sin_campeon.tolist() == [True]
     assert model.sin_goleador.tolist() == [False]
     assert model.goleador_idx.tolist() == [7]
+
+
+def test_tilted_sample_chunkeado_es_identico_al_entero():
+    """El chunking del inverse-CDF no puede mover un solo pick rival.
+
+    Acota el pico de memoria (era (R, S, 36) booleano: 806 MB a S=9.600 en un
+    droplet de 1 GB, el techo que impedía subir n_sims). El sorteo `u` se hace
+    entero antes de trocear justamente para que la secuencia del rng no cambie;
+    este test es el que lo vigila.
+    """
+    import src.clausura.rivals as rv
+
+    q = np.random.default_rng(0).dirichlet(np.ones(N_SCORES))
+    gamma = np.random.default_rng(1).uniform(0.5, 2.0, size=97)
+
+    def sin_chunk(size):
+        logq = np.log(q + 1e-12)
+        w = np.exp(gamma[:, None] * logq[None, :])
+        w /= w.sum(axis=1, keepdims=True)
+        cdf = np.cumsum(w, axis=1)
+        u = np.random.default_rng(42).random((len(gamma), size))
+        return (u[:, :, None] > cdf[:, None, :]).sum(axis=2).clip(0, N_SCORES - 1)
+
+    previo = rv.TILTED_CHUNK_BYTES
+    try:
+        for size in (7, 100, 1000):
+            esperado = sin_chunk(size)
+            for tope in (previo, 64 * N_SCORES, 1):   # 1 fuerza bloques de una sim
+                rv.TILTED_CHUNK_BYTES = tope
+                got = rv._tilted_sample(q, gamma, np.random.default_rng(42), size)
+                assert got.shape == (97, size)
+                assert np.array_equal(got, esperado), f"size={size} tope={tope}"
+    finally:
+        rv.TILTED_CHUNK_BYTES = previo

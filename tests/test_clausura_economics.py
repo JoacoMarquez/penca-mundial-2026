@@ -55,11 +55,21 @@ def _sim_minimo(n_mine=2, n_rivales=3, n_sims=1):
     )
 
 
+def _liquidar(s, mine, rivals, pozo):
+    """Adaptador: `_liquidar` toma el (máximo, empatados) del pool ya cacheado.
+
+    Pasar por `_stats` acá no es un rodeo — es lo que hace que estos cuatro tests
+    del Art. 7a sigan cubriendo la cadena entera después del caché del 2026-08-08.
+    """
+    top, empatados = SeasonSimulator._stats(rivals)
+    return s._liquidar(mine, top, empatados, pozo)
+
+
 def test_liquidar_gana_solo_cobra_todo():
     s = _sim_minimo()
     mine = np.array([[10], [5]])
     rivals = np.array([[3], [4], [2]])
-    assert s._liquidar(mine, rivals, 350_000.0)[0] == pytest.approx(350_000.0)
+    assert _liquidar(s, mine, rivals, 350_000.0)[0] == pytest.approx(350_000.0)
 
 
 def test_liquidar_empate_con_rival_divide():
@@ -67,7 +77,7 @@ def test_liquidar_empate_con_rival_divide():
     mine = np.array([[10], [5]])
     rivals = np.array([[10], [4], [2]])
     # 1 nuestra y 1 ajena en el máximo → mitad
-    assert s._liquidar(mine, rivals, 350_000.0)[0] == pytest.approx(175_000.0)
+    assert _liquidar(s, mine, rivals, 350_000.0)[0] == pytest.approx(175_000.0)
 
 
 def test_liquidar_empate_entre_nuestras_no_es_perdida():
@@ -76,14 +86,75 @@ def test_liquidar_empate_entre_nuestras_no_es_perdida():
     mine = np.array([[10], [10]])
     rivals = np.array([[10], [4], [2]])
     # 2 nuestras + 1 ajena = 3 en el máximo, cobramos 2/3
-    assert s._liquidar(mine, rivals, 300_000.0)[0] == pytest.approx(200_000.0)
+    assert _liquidar(s, mine, rivals, 300_000.0)[0] == pytest.approx(200_000.0)
 
 
 def test_liquidar_perder_no_cobra():
     s = _sim_minimo()
     mine = np.array([[8], [5]])
     rivals = np.array([[10]])
-    assert s._liquidar(mine, rivals, 350_000.0)[0] == 0.0
+    assert _liquidar(s, mine, rivals, 350_000.0)[0] == 0.0
+
+
+def test_cache_de_rivales_da_identico_a_recalcular(sim_multi):
+    """El caché de (máximo, empatados) no puede cambiar un solo peso.
+
+    Regresión del cambio del 2026-08-08: `_liquidar` dejó de recalcular el lado
+    rival en cada evaluación (37x más rápido). Si esto se rompe, el ascenso por
+    coordenadas optimiza contra un pool equivocado y nadie se entera.
+    """
+    s = sim_multi
+    rng = np.random.default_rng(3)
+    s.load_picks(rng.integers(0, N_SCORES, size=(4, s.n_matches)))
+
+    def referencia() -> float:
+        def liq(mine, riv, pozo):
+            top = np.maximum(mine.max(axis=0), riv.max(axis=0))
+            k = (mine == top[None, :]).sum(axis=0)
+            j = (riv == top[None, :]).sum(axis=0)
+            t = k + j
+            return np.where(t > 0, pozo * k / np.maximum(t, 1), 0.0)
+        p = liq(s.mine_total, np.asarray(s.rivals_total), s.prize.premio_penca)
+        for fi in range(s.n_fechas):
+            p = p + liq(s.mine_fecha[fi], np.asarray(s.rivals_fecha[fi]),
+                        s.prize.premio_fecha)
+        return float(p.mean())
+
+    assert s.e_premio_total() == referencia()
+    for _ in range(20):   # el ascenso cambia picks PROPIOS; el pool no se mueve
+        s.set_pick(int(rng.integers(0, 4)), int(rng.integers(0, s.n_matches)),
+                   int(rng.integers(0, N_SCORES)))
+        assert s.e_premio_total() == referencia()
+
+
+def test_reescribir_el_lado_rival_invalida_el_cache():
+    """`backtest.realized_prizes` reescribe rivals_total DESPUÉS del constructor.
+
+    Con un caché eager eso devolvía premios calculados contra el pool viejo, en
+    silencio. El setter tiene que invalidar.
+    """
+    s = _sim_minimo()
+    s.load_picks(np.zeros((2, s.n_matches), dtype=np.int64))
+    s.e_premio_total()                                    # materializa el caché
+    assert s.result().e_premio_penca > 0.0                # antes cobrábamos algo
+    s.rivals_total = np.full_like(np.asarray(s.rivals_total), 10_000)
+    top, empatados = s._stats_total()
+    assert top.max() == 10_000 and empatados.min() == s.n_rivales
+    # el pool nos pasa por arriba en la general (el premio POR FECHA se liquida
+    # aparte, contra rivals_fecha, y no lo tocamos: por eso se mira el componente)
+    assert s.result().e_premio_penca == 0.0
+
+
+def test_mutar_el_lado_rival_por_indice_falla_fuerte():
+    """El setter no ve `rivals_fecha[fi] += x`; el read-only sí.
+
+    Preferimos un ValueError a un premio calculado contra un máximo viejo.
+    """
+    s = _sim_minimo()
+    s.load_picks(np.zeros((2, s.n_matches), dtype=np.int64))
+    s.e_premio_total()
+    with pytest.raises(ValueError):
+        s.rivals_fecha[0] += 5
 
 
 # -------------------- estado incremental --------------------

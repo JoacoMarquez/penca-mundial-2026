@@ -122,22 +122,44 @@ class RivalModel:
                 f"(máx |{np.abs(self.residuo).max()}|)")
 
 
+# Tope del booleano transitorio (R, chunk, N_SCORES) del inverse-CDF vectorizado.
+# Sin chunking ese array es (R, S, N_SCORES) y era el techo de memoria del sistema:
+# con R=700 y S=9.600 son 806 MB TRANSITORIOS por partido, en un droplet de 1 GB.
+# Es lo que impedía subir n_sims, que es de donde sale la plata (el ascenso a 2.400
+# sorteos fitea ruido; a 9.600 no). 64 MB deja el pico bien abajo sin costar
+# velocidad medible: el trabajo total es el mismo, solo cambia en cuántos pedazos.
+TILTED_CHUNK_BYTES = 64 * 1024 * 1024
+
+
 def _tilted_sample(q: np.ndarray, gamma: np.ndarray, rng: np.random.Generator,
                    size: int | None = None) -> np.ndarray:
     """Picks de la categórica ∝ q^γ_r, vectorizado por inverse-CDF.
 
     Sin `size`: un pick por rival, shape (R,). Con `size`: sorteos independientes
-    por simulación, shape (R, size).
+    por simulación, shape (R, size), calculados por bloques sobre el eje de
+    simulaciones para acotar el pico de memoria.
+
+    El sorteo `u` se hace ENTERO antes de trocear, a propósito: pedirle bloques al
+    `rng` cambiaría la secuencia de números aleatorios y con ella los picks rivales,
+    o sea que el chunking dejaría de ser una optimización y pasaría a mover los
+    resultados. Así queda bit a bit idéntico a la versión sin chunking.
     """
     logq = np.log(q + 1e-12)
     w = np.exp(gamma[:, None] * logq[None, :])
     w /= w.sum(axis=1, keepdims=True)
     cdf = np.cumsum(w, axis=1)
+    R = len(gamma)
     if size is None:
-        u = rng.random(len(gamma))
+        u = rng.random(R)
         return (u[:, None] > cdf).sum(axis=1).clip(0, N_SCORES - 1)
-    u = rng.random((len(gamma), size))
-    return (u[:, :, None] > cdf[:, None, :]).sum(axis=2).clip(0, N_SCORES - 1)
+
+    u = rng.random((R, size))
+    out = np.empty((R, size), dtype=np.int64)
+    por_bloque = max(1, TILTED_CHUNK_BYTES // max(R * N_SCORES, 1))
+    for a in range(0, size, por_bloque):
+        b = min(a + por_bloque, size)
+        out[:, a:b] = (u[:, a:b, None] > cdf[:, None, :]).sum(axis=2)
+    return out.clip(0, N_SCORES - 1)
 
 
 def fit_gamma(obs_idx: np.ndarray, logqs: np.ndarray) -> float:

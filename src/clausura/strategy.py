@@ -41,10 +41,33 @@ from src.clausura.scoring import expected_points_grid
 log = logging.getLogger(__name__)
 
 
-# Cómo se ordena la rama de "hueco" del menú de candidatos. `legacy_hueco` es la
-# VIGENTE y se queda: el A/B del 2026-08-08 midió `mispricing` peor por Δ E[premio]
-# −$9.486 ± 2.154 (12 reps pareadas, negativo en 10/12, t≈−4.4). Ver Candidato.hueco.
+# Cómo se ordena la rama de "hueco" del menú de candidatos. Solo tiene efecto con
+# K_HUECO > 0, que desde el 2026-08-08 ya no es el default (ver K_EV/K_HUECO). Se
+# conserva porque el A/B del 8/8 midió `mispricing` peor que `legacy_hueco` por
+# Δ E[premio] −$9.486 ± 2.154 (12 reps pareadas, negativo en 10/12, t≈−4.4): si
+# algún día se reactiva la rama, se reactiva con esta métrica. Ver Candidato.hueco.
 HUECO_METRIC = "legacy_hueco"
+
+# Tamaño del menú de candidatos por partido: top-K_EV por E[pts] ∪ top-K_HUECO por
+# hueco. Eran 5 y 3 (menú de 8) hasta el 2026-08-08, cuando el barrido midió que el
+# menú chico gana: (3, 0) vale **+$9.737 ± 859 de E[premio], ganando 16 de 16 reps**
+# pareadas (4 temporadas × 4 semillas, evaluación out-of-sample con sorteos comunes),
+# y además corre 3,5× más rápido.
+#
+# El mecanismo NO es que los candidatos raros sean malos picks — es que cada
+# candidato extra es una comparación más de dos estimaciones Monte Carlo ruidosas, o
+# sea un boleto más para que el ruido gane el argmax. La prueba: a 9.600 sorteos los
+# menús (5,3) y (5,0) producen picks IDÉNTICOS en 16 de 16 reps. Cuando el ascenso ve
+# bien, nunca elige un candidato de la rama de hueco; a los sorteos de producción, a
+# veces lo elige por error. Sacar la rama no cambia el óptimo, cambia cuántas veces
+# se lo pierde.
+#
+# OJO — esto NO contradice el A/B del 8/8, contesta otra pregunta. Aquel comparó cómo
+# ORDENAR la rama de hueco (E[pts]/pool_q vs P/pool_q) y concluyó bien. Nadie había
+# probado SACARLA. Reproducir con:
+#     python -m src.clausura.backtest --experimento-menu-size --reps 4
+K_EV = 3
+K_HUECO = 0
 
 
 @dataclass(frozen=True)
@@ -56,7 +79,11 @@ class Candidato:
 
     @property
     def hueco(self) -> float:
-        """E[pts] por unidad de popularidad del pool: valor NO DISPUTADO. La vigente.
+        """E[pts] por unidad de popularidad del pool: valor NO DISPUTADO.
+
+        DESACTIVADA desde el 2026-08-08 (K_HUECO=0). Lo que sigue explica por qué la
+        métrica era la correcta PARA ORDENAR la rama; el barrido posterior mostró que
+        la rama entera no paga, por ruido de Monte Carlo y no por mala métrica.
 
         Sí, ordena casi por rareza —de 1-0 a 1-4 el E[pts] cae a la mitad (2.19 →
         1.00) mientras el pool_q cae 50 veces (18.9% → 0.38%), así que el cociente es
@@ -90,17 +117,23 @@ def build_candidates(
     grid: np.ndarray,
     pool_q: np.ndarray,
     preferencial: bool = False,
-    k_ev: int = 5,
-    k_hueco: int = 3,
+    k_ev: int | None = None,
+    k_hueco: int | None = None,
     min_prob: float = 0.005,
     metrica: str | None = None,
 ) -> list[Candidato]:
     """Menú de marcadores jugables: top por E[pts] ∪ top por hueco de pool.
 
-    La segunda rama busca marcadores donde acertar NO obliga a repartir el premio, y
-    se ordena por `hueco` (E[pts]/pool_q). `metrica="mispricing"` es la alternativa
-    rechazada por el A/B del 8/8 y existe para reproducirlo.
+    `k_ev`/`k_hueco` en None toman los defaults de módulo K_EV/K_HUECO, que hoy son
+    (3, 0): la rama de hueco está apagada porque el menú chico mide mejor (+$9.737 ±
+    859, 16/16 reps — ver el comentario de K_EV). Se resuelven en tiempo de llamada,
+    no en la firma, para que el A/B del backtest pueda barrer los tamaños.
+
+    `metrica="mispricing"` es la alternativa rechazada por el A/B del 8/8 y existe
+    para reproducirlo; solo tiene efecto con k_hueco > 0.
     """
+    k_ev = K_EV if k_ev is None else k_ev
+    k_hueco = K_HUECO if k_hueco is None else k_hueco
     metrica = metrica or HUECO_METRIC
     p = flatten_grid(grid)
     cands = [
@@ -120,7 +153,9 @@ def build_candidates(
                           float(pool_q[idx]), float(p[idx]))]
 
     by_ev = sorted(cands, key=lambda c: -c.e_points)[:k_ev]
-    if metrica == "legacy_hueco":
+    if k_hueco <= 0:
+        by_hueco = []
+    elif metrica == "legacy_hueco":
         by_hueco = sorted(cands, key=lambda c: -c.hueco)[:k_hueco]
     else:
         # Desempate por E[pts]: los marcadores "impopulares pero sin sesgo" quedan
@@ -183,6 +218,7 @@ def build_portfolio(
     especiales: EspecialesInput | None = None,
     pool_qs: list[np.ndarray] | None = None,
     rivals=None,
+    warm_start: np.ndarray | None = None,
 ) -> PortfolioClausura:
     """Construye el portfolio de N participaciones maximizando E[premio] simulado.
 
@@ -200,6 +236,20 @@ def build_portfolio(
     `rivals` (RivalModel de src.clausura.rivals) reemplaza el pool i.i.d. por el
     empírico por participación: picks conocidos, estilo γ, ausentismo y standings
     reales. Es el insumo correcto post-inicio del campeonato.
+
+    `warm_start` (n_participaciones, n_matches) arranca el ascenso desde la planilla
+    de la corrida anterior en vez del ancla de EV; -1 en una celda significa "no
+    tengo dato" y esa columna cae al ancla. Vale por dos motivos, medidos el
+    2026-08-08 con reps pareadas:
+
+      * **+$3.622 ± 699 de E[premio]** (t=5,2). Tres pasadas de ascenso desde un
+        punto ya bueno rinden más que tres desde el ancla.
+      * **El churn baja de 49% a 22%.** Ese es el beneficio grande y es operativo: lo
+        que hoy dispara una recarga manual de ~96 picks no es información nueva sino
+        el salto entre óptimos locales equivalentes (el ascenso reasigna la mitad de
+        las celdas aun con insumos idénticos, y eso NO se cura con más sorteos —
+        medido a S=9600 sigue en 52%). Arrancar de la planilla de ayer hace que la
+        de hoy se le parezca salvo donde los datos de verdad cambiaron.
     """
     pool_cfg = pool_cfg or PoolConfig()
     n_matches = len(grids)
@@ -221,14 +271,30 @@ def build_portfolio(
     simulator = SeasonSimulator(grids, fecha_de_partido, preferencial, pool_qs, prize, sim,
                                 rivals)
 
-    # ancla de EV puro, replicada en todas las participaciones
+    # punto de partida: warm start donde haya, ancla de EV puro donde no
+    if warm_start is not None and warm_start.shape != (n_participaciones, n_matches):
+        raise ValueError(
+            f"warm_start es {warm_start.shape}, se esperaba "
+            f"({n_participaciones}, {n_matches})"
+        )
     picks = np.zeros((n_participaciones, n_matches), dtype=np.int64)
+    n_warm = 0
     for m in range(n_matches):
         if frozen_mask[m]:
             picks[:, m] = frozen_picks[:, m]
             continue
+        # una columna se hereda entera o nada: mezclar warm y ancla dentro del mismo
+        # partido inventaría un portfolio que nunca se evaluó
+        if warm_start is not None and bool(np.all(warm_start[:, m] >= 0)):
+            picks[:, m] = warm_start[:, m]
+            n_warm += 1
+            continue
         best = max(candidatos[m], key=lambda c: c.e_points)
         picks[:, m] = score_index(*best.pick)
+    if warm_start is not None:
+        log.info("warm start: %d/%d partidos heredados de la planilla anterior "
+                 "(%d congelados, el resto arranca en el ancla EV)",
+                 n_warm, n_matches, int(frozen_mask.sum()))
     simulator.load_picks(picks)
 
     # especiales: activar y anclar en el argmax de probabilidad
