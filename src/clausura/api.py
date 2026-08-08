@@ -23,6 +23,7 @@ config/clausura2026.yaml generado por src.clausura.sync.
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
 
@@ -31,6 +32,11 @@ import httpx
 log = logging.getLogger(__name__)
 
 BASE = "https://penca.supermatch.com.uy/penca-api/v1"
+
+# Backoff corto: destraba el throttle pasajero sin colgar 15 min a un timer. El
+# bloqueo duro se deja salir como error (pool_snapshot lo maneja con más paciencia).
+RATE_LIMIT_BACKOFF_S = 60
+RATE_LIMIT_REINTENTOS = 3
 
 HEADERS = {
     "User-Agent": ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
@@ -166,8 +172,26 @@ class PencaApiClient:
     def __exit__(self, *exc) -> None:
         self.close()
 
+    def _get_429(self, path: str, params: dict | None = None) -> httpx.Response:
+        """GET que aguanta un 429 transitorio en vez de tumbar al que llama.
+
+        El API limita por IP (429 a las ~200 requests seguidas, medido el 7/8) y
+        todo lo que consume este cliente —drift audit, vigía, postmortem— moría con
+        HTTPStatusError crudo: la auditoría de la Fecha 1 se perdió así, con falso
+        OnFailure incluido. Backoff corto a propósito: destraba el throttle pasajero
+        y deja que el bloqueo DURO salga como error (el escaneo del pool tiene su
+        propia política, más paciente, encima de esta)."""
+        for intento in range(RATE_LIMIT_REINTENTOS + 1):
+            r = self._client.get(path, params=params)
+            if r.status_code != 429 or intento == RATE_LIMIT_REINTENTOS:
+                return r
+            log.warning("429 en %s — backoff %ds (intento %d/%d)",
+                        path, RATE_LIMIT_BACKOFF_S, intento + 1, RATE_LIMIT_REINTENTOS)
+            time.sleep(RATE_LIMIT_BACKOFF_S)
+        return r
+
     def _get(self, path: str, **params) -> dict | list:
-        r = self._client.get(path, params=params or None)
+        r = self._get_429(path, params or None)
         r.raise_for_status()
         body = r.json()
         return body.get("data", body) if isinstance(body, dict) else body
@@ -194,7 +218,7 @@ class PencaApiClient:
         rows: list[RankingRow] = []
         page_n = 1
         while True:
-            r = self._client.get(f"/front/pencas/{penca_id}/ranking", params={"page": page_n})
+            r = self._get_429(f"/front/pencas/{penca_id}/ranking", {"page": page_n})
             r.raise_for_status()
             page_rows, _total, total_pages = parse_ranking_page(r.json())
             rows.extend(page_rows)

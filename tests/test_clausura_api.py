@@ -79,3 +79,43 @@ def test_parse_ranking_page():
     assert total == 151 and pages == 8
     assert rows[0].participacion_id == 68220
     assert rows[0].cant_resultados_exactos == 0
+
+
+# -------------------- resiliencia al rate limit --------------------
+
+def test_cliente_reintenta_ante_429_transitorio(monkeypatch):
+    """Un 429 pasajero tumbaba a drift_audit/vigía/postmortem con HTTPStatusError
+    crudo (se perdió la auditoría de la Fecha 1, con falso OnFailure)."""
+    import httpx
+    import src.clausura.api as api_mod
+
+    intentos = {"n": 0}
+
+    def handler(request):
+        intentos["n"] += 1
+        if intentos["n"] <= 2:
+            return httpx.Response(429, text="Too Many Requests")
+        return httpx.Response(200, json={"content": [], "totalPages": 1})
+
+    monkeypatch.setattr(api_mod.time, "sleep", lambda s: None)
+    api = api_mod.PencaApiClient()
+    api._client = httpx.Client(base_url=api_mod.BASE,
+                               transport=httpx.MockTransport(handler))
+    assert api.ranking(46) == []
+    assert intentos["n"] == 3          # aguantó los dos 429 y salió con el 200
+
+
+def test_cliente_no_reintenta_para_siempre(monkeypatch):
+    """Bloqueo duro: se agotan los reintentos y sale el error, para que el que
+    llama decida (no se cuelga el timer indefinidamente)."""
+    import httpx
+    import pytest as _pytest
+    import src.clausura.api as api_mod
+
+    monkeypatch.setattr(api_mod.time, "sleep", lambda s: None)
+    api = api_mod.PencaApiClient()
+    api._client = httpx.Client(
+        base_url=api_mod.BASE,
+        transport=httpx.MockTransport(lambda r: httpx.Response(429, text="no")))
+    with _pytest.raises(httpx.HTTPStatusError):
+        api.ranking(46)
