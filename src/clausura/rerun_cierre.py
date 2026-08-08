@@ -125,9 +125,33 @@ def save_state(corridos: set[str]) -> None:
 
 # -------------------- main --------------------
 
+DEFAULT_SIMS = 2400        # solo si la planilla previa no dice con cuántas corrió
+
+
+def sims_de(prev: dict, pedido: int | None = None) -> int:
+    """Cuántos sorteos usar: los MISMOS que la planilla contra la que se diffea.
+
+    Sin esto el diff no significa nada. Medido el 2026-08-08: la planilla de la
+    mañana corrió con 2400 y el rerun con 1600, y con insumos idénticos —mismo
+    snapshot del pool, misma temperatura, mismo ancla de EV en 7 de 8 partidos—
+    reasignó 56 de 96 picks y bajó el E[premio] out-of-sample de $238k a $221k.
+    La semilla es fija, pero cambiar la cantidad de sorteos cambia la superficie
+    que el ascenso por coordenadas escala: cae en otro óptimo local, no mejor.
+    """
+    if pedido:
+        return pedido
+    previo = prev.get("n_sims")
+    if not previo:
+        log.warning("la planilla previa no registra n_sims (es anterior a este "
+                    "cambio) — uso %d; el diff puede traer churn del optimizador",
+                    DEFAULT_SIMS)
+        return DEFAULT_SIMS
+    return int(previo)
+
+
 def run(
     n_participaciones: int = 12,
-    n_sims: int = 800,
+    n_sims: int | None = None,
     force: bool = False,
     dry_run: bool = False,
     now: datetime | None = None,
@@ -155,10 +179,11 @@ def run(
         return None
     prev = json.loads(prev_path.read_text(encoding="utf-8"))
 
-    log.info("re-corriendo pipeline de la fecha %d (planilla previa: %s)",
-             target_fecha, prev_path.name)
+    sims = sims_de(prev, n_sims)
+    log.info("re-corriendo pipeline de la fecha %d con %d sims (planilla previa: %s)",
+             target_fecha, sims, prev_path.name)
     new_path = picks.run(target_fecha, n_participaciones=n_participaciones,
-                         telegram=False, n_sims=n_sims)
+                         telegram=False, n_sims=sims)
     nuevo = json.loads(new_path.read_text(encoding="utf-8"))
 
     cambios = diff_planillas(prev, nuevo, now)
@@ -166,6 +191,11 @@ def run(
 
     if cambios:
         msg = formatear_diff(cambios, mis_numeros, now)
+        if prev.get("n_sims") and sims != prev["n_sims"]:
+            msg = (f"⚠️ <b>Este diff no es confiable</b>: la planilla previa se optimizó "
+                   f"con {prev['n_sims']} sorteos y ésta con {sims}. Con distinto "
+                   f"n_sims el optimizador cae en otro óptimo local y reasigna picks "
+                   f"sin que se haya movido ningún insumo.\n\n" + msg)
         print(msg.replace("<b>", "").replace("</b>", ""))
         if not dry_run:
             from src.notifier.telegram import TelegramConfig, TelegramNotifier
@@ -183,7 +213,9 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     ap = argparse.ArgumentParser()
     ap.add_argument("--participaciones", type=int, default=12)
-    ap.add_argument("--sims", type=int, default=800)
+    ap.add_argument("--sims", type=int, default=0,
+                    help="0 (default) = heredar de la planilla previa, que es lo "
+                         "único que hace comparable el diff")
     ap.add_argument("--force", action="store_true",
                     help="correr aunque no toque (ignora ventana y estado)")
     ap.add_argument("--dry-run", action="store_true",
