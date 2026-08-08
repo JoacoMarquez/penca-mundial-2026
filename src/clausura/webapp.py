@@ -22,7 +22,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
-from src.clausura.dashboard_loader import load_clausura_page
+from src.clausura.dashboard_loader import load_clausura_page, load_pool_page
 
 HERE = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(HERE / "templates"))
@@ -59,8 +59,22 @@ def page_carga(request: Request, token: str, fecha: Optional[int] = None):
     return templates.TemplateResponse(request, "carga.html", {"data": data, "token": token})
 
 
+@app.get("/dash/{token}/pool/", response_class=HTMLResponse)
+def page_pool(request: Request, token: str):
+    """Estado competitivo: el pool entero, el premio y dónde caen nuestras 12."""
+    _check_token(token)
+    return templates.TemplateResponse(
+        request, "pool.html", {"data": load_pool_page(), "token": token})
+
+
 @app.get("/dash/{token}/api/data")
 def api_data(token: str, fecha: Optional[int] = None):
     """JSON crudo de la página (debug / consumo externo)."""
     _check_token(token)
     return JSONResponse(load_clausura_page(fecha_q=fecha))
+
+
+@app.get("/dash/{token}/api/pool")
+def api_pool(token: str):
+    _check_token(token)
+    return JSONResponse(load_pool_page())

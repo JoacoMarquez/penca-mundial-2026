@@ -1,0 +1,256 @@
+{% extends "base_clausura.html" %}
+{% block title %}Pool — Penca Clausura 2026{% endblock %}
+{% block autorefresh %}<meta http-equiv="refresh" content="120">{% endblock %}
+
+{% block content %}
+<div class="flex flex-wrap items-center gap-x-3 gap-y-2 mb-4">
+  <h1 class="text-lg font-bold whitespace-nowrap">🏆 El pool</h1>
+  <a href="/dash/{{ token }}/" class="text-sm text-indigo-300 hover:text-indigo-200">← planilla</a>
+  {% if data.supermatch_url %}
+  <a href="{{ data.supermatch_url }}" target="_blank" rel="noopener"
+     class="text-sm text-emerald-300 hover:text-emerald-200">abrir penca ↗</a>
+  {% endif %}
+</div>
+
+{% if not data.ok %}
+  <div class="bg-red-900/20 border border-red-700/40 rounded-xl p-4 text-red-300 text-sm mb-4">
+    {{ data.error }}
+  </div>
+{% else %}
+
+  {% if data.sin_env %}
+  <div class="bg-amber-900/20 border border-amber-700/40 rounded-xl p-3 mb-4 text-amber-200 text-sm">
+    No sé cuáles participaciones son tuyas —
+    <code class="bg-slate-700/60 px-1 rounded text-xs">CLAUSURA_MIS_PARTICIPACIONES=nro1,nro2,…</code> en el env.
+  </div>
+  {% elif not data.mias_encontradas %}
+  <div class="bg-amber-900/20 border border-amber-700/40 rounded-xl p-3 mb-4 text-amber-200 text-sm">
+    Ninguno de tus números aparece en el ranking de esta penca.
+  </div>
+  {% endif %}
+
+  {# ---------- CABECERA ---------- #}
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+    <div class="bg-slate-800 rounded-xl p-4">
+      <div class="text-xs text-slate-400 mb-1">Pool</div>
+      <div class="text-2xl font-bold">{{ data.total }}</div>
+      <div class="text-xs text-slate-500">{{ data.mias_encontradas }} tuyas · mediana {{ data.puntos.mediana }} pts</div>
+    </div>
+    <div class="bg-slate-800 rounded-xl p-4">
+      <div class="text-xs text-slate-400 mb-1">Líder</div>
+      <div class="text-2xl font-bold text-amber-300">{{ data.lider.puntos }}<span class="text-sm text-slate-500"> pts</span></div>
+      <div class="text-xs text-slate-500">
+        {{ data.lider.empatados }} empatada{{ 's' if data.lider.empatados != 1 }} en el tope
+        {%- if data.lider.empatados > 1 %} · ${{ '{:,.0f}'.format(data.lider.premio_por_cabeza) }} c/u{% endif %}
+      </div>
+    </div>
+    {% if data.mejor %}
+    <div class="bg-slate-800 rounded-xl p-4">
+      <div class="text-xs text-slate-400 mb-1">Nuestra mejor</div>
+      <div class="text-2xl font-bold {{ 'text-emerald-300' if data.mejor.en_tope else '' }}">
+        #{{ data.mejor.puesto }}<span class="text-sm text-slate-500"> / {{ data.total }}</span>
+      </div>
+      <div class="text-xs text-slate-500">
+        {{ data.mejor.puntos }} pts ·
+        {%- if data.mejor.gap_lider %} a {{ data.mejor.gap_lider }} del líder
+        {%- elif data.mejor.empatados_rivales %} empatada con {{ data.mejor.empatados_rivales }} rival{{ 'es' if data.mejor.empatados_rivales != 1 }}
+        {%- else %} sola en el tope{% endif %}
+      </div>
+    </div>
+    <div class="bg-slate-800 rounded-xl p-4">
+      <div class="text-xs text-slate-400 mb-1">Si terminara hoy</div>
+      <div class="text-2xl font-bold {{ 'text-emerald-300' if data.lider.cobro_hoy else 'text-slate-500' }}">
+        ${{ '{:,.0f}'.format(data.lider.cobro_hoy) }}
+      </div>
+      <div class="text-xs text-slate-500">
+        {% if data.lider.mias_en_tope %}
+          {{ data.lider.mias_en_tope }} nuestra{{ 's' if data.lider.mias_en_tope != 1 }} de {{ data.lider.empatados }} en el tope
+        {% else %}
+          el premio se reparte entre empatados
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="grid lg:grid-cols-2 gap-4">
+
+    {# ---------- NUESTRAS PARTICIPACIONES ---------- #}
+    <div class="bg-slate-800 rounded-xl p-4 min-w-0">
+      <h2 class="font-bold mb-1">📋 Nuestras participaciones</h2>
+      <p class="text-xs text-slate-500 mb-3">
+        Puesto real (cuántas tienen más puntos), no el escalón que muestra la web.
+      </p>
+      {% if data.mias %}
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="text-xs text-slate-400 border-b border-slate-700">
+            <tr>
+              <th class="text-left py-1.5">Part.</th>
+              <th class="text-right">Puesto</th>
+              <th class="text-right">Pts</th>
+              <th class="text-right">Gap</th>
+              <th class="text-right">Exact.</th>
+              <th class="text-right">Mejor que</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for m in data.mias %}
+            <tr class="border-b border-slate-700/40 {{ 'bg-emerald-900/30 text-emerald-200 font-semibold' if m.en_tope }}">
+              <td class="py-1.5 font-mono text-xs">{{ m.numero }}</td>
+              <td class="text-right">#{{ m.puesto }}</td>
+              <td class="text-right">{{ m.puntos }}</td>
+              <td class="text-right text-slate-400">{{ '—' if not m.gap_lider else '-%d' % m.gap_lider }}</td>
+              <td class="text-right">{{ m.exactos }}</td>
+              <td class="text-right text-slate-400">{{ '%.0f' % m.percentil }}%</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="text-xs text-slate-500 mt-2">
+        {% if data.mejor %}
+          {{ data.mejor.rivales_adelante }} rival{{ 'es' if data.mejor.rivales_adelante != 1 }} por delante de la mejor
+          {%- if data.mejor.empatados_rivales %} · {{ data.mejor.empatados_rivales }} empatado{{ 's' if data.mejor.empatados_rivales != 1 }} con ella{% endif %}
+          · puntos nuestros: {{ data.puntos.nuestra_peor }}–{{ data.puntos.nuestra_mejor }} (μ {{ data.puntos.nuestra_media }})
+        {% endif %}
+      </div>
+      {% else %}
+      <div class="text-sm text-slate-400">Sin participaciones propias identificadas.</div>
+      {% endif %}
+    </div>
+
+    {# ---------- AMENAZAS + EXACTOS + FECHA ---------- #}
+    <div class="bg-slate-800 rounded-xl p-4 min-w-0">
+      <h2 class="font-bold mb-1">🎯 Zona de premio</h2>
+      <p class="text-xs text-slate-500 mb-3">
+        El premio grande (${{ '{:,.0f}'.format(data.lider.premio) }}) va al máximo puntaje y se
+        <b>reparte</b> entre empatados: lo que amenaza no es ir 2°, es que la cima se llene.
+      </p>
+      <div class="grid grid-cols-5 gap-2 mb-4">
+        {% for a in data.amenazas %}
+        <div class="bg-slate-900/50 rounded-lg p-2 text-center">
+          <div class="text-[11px] text-slate-500">≤{{ a.delta }} pt{{ 's' if a.delta != 1 }}</div>
+          <div class="text-lg font-bold {{ 'text-amber-300' if a.delta <= 1 else 'text-slate-300' }}">{{ a.rivales }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="text-xs text-slate-500 mb-4">rivales a esa distancia del líder</div>
+
+      <h3 class="font-semibold text-sm mb-2">Premio de la fecha (${{ '{:,.0f}'.format(data.fecha.premio) }})</h3>
+      {% if data.fecha.activo %}
+      <div class="text-sm text-slate-300 mb-4">
+        Líder de la fecha: <b>{{ data.fecha.lider }}</b> pts
+        ({{ data.fecha.empatados }} empatada{{ 's' if data.fecha.empatados != 1 }}) ·
+        nuestra mejor: <b>{{ data.fecha.nuestra_mejor }}</b>
+        {% if data.fecha.mias_en_tope %}
+          · <span class="text-emerald-300">cobraríamos ${{ '{:,.0f}'.format(data.fecha.cobro_hoy) }}</span>
+        {% endif %}
+      </div>
+      {% else %}
+      <div class="text-sm text-slate-500 mb-4">La fecha todavía no liquidó puntos.</div>
+      {% endif %}
+
+      <h3 class="font-semibold text-sm mb-2">Exactos</h3>
+      {% if data.exactos.sin_liquidar %}
+      <div class="text-sm text-amber-300/90">
+        El contador de exactos del API todavía no liquidó
+        <span class="text-slate-500">(marca 0 para las {{ data.total }} aunque ya haya puntos:
+        se actualiza al cierre de la fecha, junto con los puntos por fecha)</span>.
+      </div>
+      {% else %}
+      <div class="text-sm text-slate-300">
+        Pool: máx <b>{{ data.exactos.pool_max }}</b> · μ {{ data.exactos.pool_media }}
+        {% if data.exactos.nuestra_media is not none %}
+        <br>Nuestras: máx <b class="{{ 'text-emerald-300' if data.exactos.nuestra_mejor >= data.exactos.pool_max else '' }}">{{ data.exactos.nuestra_mejor }}</b>
+        · μ {{ data.exactos.nuestra_media }}
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+
+    {# ---------- DISTRIBUCIÓN ---------- #}
+    <div class="bg-slate-800 rounded-xl p-4 min-w-0">
+      <h2 class="font-bold mb-3">📊 Distribución de puntos</h2>
+      <div class="space-y-1.5">
+        {% for d in data.distribucion %}
+        <div class="flex items-center gap-2 text-sm">
+          <span class="w-12 text-right font-mono {{ 'text-emerald-300 font-semibold' if d.mias else 'text-slate-300' }}">{{ d.puntos }}</span>
+          <div class="flex-1 h-4 bg-slate-900/50 rounded overflow-hidden">
+            <div class="h-full rounded {{ 'bg-emerald-500/80' if d.mias else 'bg-indigo-500/70' }}"
+                 style="width: {{ d.bar_pct }}%"></div>
+          </div>
+          <span class="w-20 text-xs text-slate-400 text-right">{{ d.count }} ({{ d.pct }}%)</span>
+          <span class="w-14 text-xs text-right">
+            {%- if d.mias %}<span class="text-emerald-300 font-semibold">★{{ d.mias }}</span>{% endif -%}
+          </span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    {# ---------- TRAYECTORIA ---------- #}
+    <div class="bg-slate-800 rounded-xl p-4 min-w-0">
+      <h2 class="font-bold mb-1">📈 Trayectoria</h2>
+      {% if data.por_fecha %}
+      <p class="text-xs text-slate-500 mb-2">Fecha a fecha (postmortems)</p>
+      <div class="overflow-x-auto mb-4">
+        <table class="w-full text-sm">
+          <thead class="text-xs text-slate-400 border-b border-slate-700">
+            <tr>
+              <th class="text-left py-1.5">Fecha</th>
+              <th class="text-right">Nuestra mejor</th>
+              <th class="text-right">Pool máx</th>
+              <th class="text-right">Pool med.</th>
+              <th class="text-right">Percentil</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for f in data.por_fecha %}
+            <tr class="border-b border-slate-700/40">
+              <td class="py-1.5">F{{ f.fecha }}{% if f.ganamos_fecha %} 🏅{% endif %}</td>
+              <td class="text-right font-semibold">{{ f.nuestra_mejor }}</td>
+              <td class="text-right text-slate-400">{{ f.pool_max if f.pool_max is not none else '—' }}</td>
+              <td class="text-right text-slate-400">{{ f.pool_mediana if f.pool_mediana is not none else '—' }}</td>
+              <td class="text-right">{{ ('%.0f%%' % f.percentil) if f.percentil is not none else '—' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+
+      {% if data.trayectoria %}
+      <p class="text-xs text-slate-500 mb-2">Tabla general en el tiempo</p>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="text-xs text-slate-400 border-b border-slate-700">
+            <tr>
+              <th class="text-left py-1.5">Cuándo</th>
+              <th class="text-right">Líder</th>
+              <th class="text-right">Mediana</th>
+              <th class="text-right">Nuestra mejor</th>
+              <th class="text-right">Puesto</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for t in data.trayectoria | reverse %}
+            <tr class="border-b border-slate-700/40">
+              <td class="py-1.5 text-slate-400 text-xs">{{ t.ts[5:16].replace('T', ' ') }}Z</td>
+              <td class="text-right font-mono">{{ t.lider }}</td>
+              <td class="text-right font-mono text-slate-400">{{ t.mediana }}</td>
+              <td class="text-right font-mono">{{ t.mejor_puntos if t.mejor_puntos is not none else '—' }}</td>
+              <td class="text-right">{{ ('#%d' % t.mejor_puesto) if t.mejor_puesto else '—' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% elif not data.por_fecha %}
+      <div class="text-sm text-slate-500">La trayectoria se llena sola: cada lectura del ranking deja una línea.</div>
+      {% endif %}
+    </div>
+
+  </div>
+{% endif %}
+{% endblock %}

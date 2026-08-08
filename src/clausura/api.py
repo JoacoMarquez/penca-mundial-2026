@@ -38,6 +38,9 @@ BASE = "https://penca.supermatch.com.uy/penca-api/v1"
 RATE_LIMIT_BACKOFF_S = 60
 RATE_LIMIT_REINTENTOS = 3
 
+# El ranking pagina de a 20 por default; con size grande entra entero en 1 request.
+RANKING_PAGE_SIZE = 1000
+
 HEADERS = {
     "User-Agent": ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
                    "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"),
@@ -208,17 +211,23 @@ class PencaApiClient:
     def eventos(self, fecha_id: int) -> list[Evento]:
         return parse_eventos(self._get(f"/front/campeonatos/fechas/{fecha_id}/eventos"), fecha_id)
 
-    def ranking(self, penca_id: int) -> list[RankingRow]:
+    def ranking(self, penca_id: int, page_size: int = RANKING_PAGE_SIZE) -> list[RankingRow]:
         """Ranking completo, siguiendo la paginación.
 
         OJO: el parámetro `page` de este endpoint es 1-BASED (verificado 2026-08-04:
         page=0 devuelve 500, page=1 es la primera página, y el `number` del body sí
         viene 0-based). Spring clásico sería 0-based — no "arreglar" sin re-probar.
+
+        `size` sí se respeta (verificado 2026-08-08: size=1000 → totalPages 1, 692
+        filas, 111 KB). Con el default de 20 el ranking entero eran 35 requests por
+        lectura — la fuente #1 de tráfico del dashboard y la que más nos acercaba al
+        429. Ahora es UNA. El bucle queda igual por si el server recorta el size.
         """
         rows: list[RankingRow] = []
         page_n = 1
         while True:
-            r = self._get_429(f"/front/pencas/{penca_id}/ranking", {"page": page_n})
+            r = self._get_429(f"/front/pencas/{penca_id}/ranking",
+                              {"page": page_n, "size": page_size})
             r.raise_for_status()
             page_rows, _total, total_pages = parse_ranking_page(r.json())
             rows.extend(page_rows)

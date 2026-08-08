@@ -22,11 +22,14 @@ concreto — el 0-0.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 
 import numpy as np
 
 from src.clausura.economics import N_SCORES, flatten_grid, index_score
+
+log = logging.getLogger(__name__)
 
 # Sesgo de popularidad del pencista uruguayo. Parte del prior del Mundial y ajusta
 # a lo que se ve en esta liga: marcadores bajos dominan, pero el 0-0 sigue siendo
@@ -128,13 +131,29 @@ def observed_exact_rate_from_ranking(
     `rows` son RankingRow de src.clausura.api. Devuelve None si todavía no se jugó nada.
     `mis_numeros` excluye nuestras propias participaciones: el observable calibra a
     los RIVALES, y nuestras 12 planillas diversificadas sesgarían la tasa.
+
+    OJO — `cantResultadosExactos` NO se actualiza en vivo: lo liquida el mismo job
+    que llena `puntosPorFecha`, al cierre de la fecha. Medido el 2026-08-08: con
+    Cerro Largo 1-1 Juventud ya FINALIZADO y sus puntos sumados al ranking, 146 de
+    las 692 participaciones tenían 8 puntos —y 8 en un partido normal SOLO se sacan
+    con el marcador exacto (2+1+1+1+3, Art. 6)— pero el contador de exactos venía en
+    0 para las 692. Tomarlo literal da tasa 0 → calibra al pool MÁS disperso (T=3.0)
+    cuando el pool real estaba en el más concentrado (T=0.5): exactamente al revés,
+    y del lado que nos hace jugar chalk y repartir el premio con 146 personas.
+    Por eso, si nadie registra exactos pero el pool ya sumó puntos, se devuelve None
+    (sin calibrar, queda el prior) en vez de un 0 que miente.
     """
     if partidos_jugados <= 0 or not rows:
         return None
     mis = mis_numeros or set()
-    exactos = [r.cant_resultados_exactos for r in rows
-               if getattr(r, "numero_participacion", None) not in mis]
+    rivales = [r for r in rows if getattr(r, "numero_participacion", None) not in mis]
+    exactos = [r.cant_resultados_exactos for r in rivales]
     if not exactos:
+        return None
+    if max(exactos) == 0 and any(getattr(r, "puntos_totales", 0) > 0 for r in rivales):
+        log.warning("el ranking da 0 exactos para las %d participaciones pero ya hay "
+                    "puntos cargados: el contador todavía no liquidó — no calibro",
+                    len(rivales))
         return None
     return float(np.mean(exactos)) / partidos_jugados
 
