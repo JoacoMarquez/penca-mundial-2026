@@ -8,12 +8,70 @@
 set -e
 cd /opt/penca
 
+# Re-instala los units de systemd que hayan cambiado. SIN esto, un cambio en un
+# .service o .timer que llega por pull NO se aplica nunca y nadie se entera: los
+# units viven COPIADOS en /etc/systemd/system (así los instala setup_clausura.sh),
+# no como symlink al repo, así que `git pull` + `daemon-reload` es un no-op para
+# ellos. Pasó el 2026-08-08 con `--sims 2400 → 3200`: el pull entró, daemon-reload
+# corrió, y systemd siguió ejecutando el valor viejo. Se detectó de casualidad
+# comparando con `systemctl cat`.
+#
+# Compara CONTENIDO en vez de mirar el diff del pull, así también corrige la deriva
+# que ya exista (un unit editado a mano en el VPS, que es cómo se pierden los fixes
+# cuando el droplet se recrea). El repo es la fuente de verdad, pero se avisa qué se
+# pisó para que un cambio local no desaparezca en silencio.
+#
+# Solo toca units YA instalados: dar de alta uno nuevo es trabajo de
+# setup_clausura.sh, que además lo habilita.
+sync_units() {
+    local cambiados=() u dst tipo
+    for src in /opt/penca/deploy/*.service /opt/penca/deploy/*.timer; do
+        u=$(basename "$src")
+        dst="/etc/systemd/system/$u"
+        [ -f "$dst" ] || continue                  # no instalado: no es asunto nuestro
+        if ! cmp -s "$src" "$dst"; then
+            cp "$src" "$dst"
+            cambiados+=("$u")
+        fi
+    done
+
+    if [ ${#cambiados[@]} -eq 0 ]; then
+        return 0
+    fi
+
+    echo "⚙️  Units actualizados desde el repo: ${cambiados[*]}"
+    systemctl daemon-reload
+
+    # Los .service disparados por timer toman el archivo nuevo en su próximo disparo.
+    # Los de larga vida (dashboard) NO: siguen corriendo con la definición vieja hasta
+    # que se reinicien. Se filtra por Type para no reiniciar un oneshot que justo esté
+    # a mitad de corrida.
+    for u in "${cambiados[@]}"; do
+        case "$u" in
+            *.service) ;;
+            *) continue ;;
+        esac
+        tipo=$(systemctl show -p Type --value "$u" 2>/dev/null || echo "")
+        case "$tipo" in
+            simple|exec|notify|notify-reload)
+                if systemctl is-active --quiet "$u"; then
+                    echo "   ↻ reiniciando $u (Type=$tipo, estaba activo)"
+                    systemctl restart "$u"
+                fi
+                ;;
+        esac
+    done
+}
+
 PREVIOUS=$(git rev-parse HEAD)
 git fetch -q origin main
 INCOMING=$(git rev-parse origin/main)
 
 if [ "$PREVIOUS" = "$INCOMING" ]; then
-    # Nada nuevo, no hace falta validar
+    # Nada nuevo que validar, pero los units SÍ se reconcilian: la deriva puede venir
+    # de un pull anterior a este cambio o de una edición a mano en el VPS, y en los dos
+    # casos sigue ahí mientras nadie la corrija.
+    sync_units
     exit 0
 fi
 
@@ -36,6 +94,7 @@ except Exception as e:
     sys.exit(1)
 " 2>&1; then
     echo "✅ Validation passed at $INCOMING"
+    sync_units
 else
     echo "❌ Validation FAILED — rolling back to $PREVIOUS" >&2
     git reset --hard "$PREVIOUS" -q
