@@ -1,15 +1,19 @@
 """Tests de la verificación de carga (planilla vs lo cargado en la web, sin red)."""
 
-from src.clausura.verificar_carga import DISTINTO, FALTA, OK, SIN_DATOS, comparar
+from src.clausura.verificar_carga import (
+    DISTINTO, FALTA, NO_VISIBLE, OK, SIN_DATOS, comparar,
+)
 
 
-def _planilla(n_part: int = 2) -> dict:
+def _planilla(n_part: int = 2, cerrados: bool = True) -> dict:
+    """Planilla de 2 partidos. `cerrados`: si ya pasó el cierre de ambos — el API
+    solo publica los picks de partidos cerrados, así que sin eso no hay qué verificar."""
     return {
         "n_participaciones": n_part,
         "picks": [
-            {"partido": "Peñarol vs Nacional", "evento_id": 111, "cerrado": False,
+            {"partido": "Peñarol vs Nacional", "evento_id": 111, "cerrado": cerrados,
              "scores": [[2, 1], [1, 1]], "scores_fmt": ["2-1", "1-1"]},
-            {"partido": "Danubio vs Progreso", "evento_id": 112, "cerrado": False,
+            {"partido": "Danubio vs Progreso", "evento_id": 112, "cerrado": cerrados,
              "scores": [[1, 0], [0, 0]], "scores_fmt": ["1-0", "0-0"]},
         ],
         "especiales": {"por_participacion": [
@@ -67,6 +71,44 @@ def test_participacion_ausente_del_ranking_no_cuenta_como_falta():
     ausentes = [f for f in r["filas"] if f["estado"] == SIN_DATOS]
     assert [f["part"] for f in ausentes] == [1, 1]     # las dos filas de la part. 2
     assert r["resumen"][FALTA] == 0
+
+
+def test_partido_abierto_no_es_pick_faltante():
+    """EL bug que motiva el estado no_visible: el API publica el pick de un partido
+    recién cuando ESE partido cierra. Marcar los abiertos como 'sin cargar' mandaba a
+    recargar picks que ya estaban puestos (y borraba la marca local, la única
+    información que había sobre ellos)."""
+    web = {899258848: {}, 899258849: {}}
+
+    r = comparar(_planilla(cerrados=False), NUMS, web)
+
+    assert all(f["estado"] == NO_VISIBLE for f in r["filas"])
+    assert r["resumen"][FALTA] == 0
+    assert r["nada_verificable"] is True
+    assert r["sin_datos_fecha"] is False     # no es un problema: es el gate
+
+
+def test_fecha_a_medias_verifica_lo_cerrado_y_calla_lo_abierto():
+    planilla = _planilla()
+    planilla["picks"][1]["cerrado"] = False           # el segundo todavía no cierra
+    web = {899258848: {111: (2, 0)}, 899258849: {111: (1, 1)}}
+
+    r = comparar(planilla, NUMS, web)
+
+    por_ev = {(f["part"], f["evento_id"]): f["estado"] for f in r["filas"]}
+    assert por_ev[(0, 111)] == DISTINTO          # cerrado y mal cargado: se ve
+    assert por_ev[(1, 111)] == OK
+    assert por_ev[(0, 112)] == NO_VISIBLE        # abierto: no se sabe, no se opina
+    assert r["nada_verificable"] is False
+
+
+def test_pick_faltante_solo_cuenta_en_partido_cerrado():
+    """Si el partido cerró y el pick no está, ahí sí no quedó cargado (y ya no hay
+    nada que hacer, pero se dice)."""
+    r = comparar(_planilla(), NUMS, {899258848: {111: (2, 1)}, 899258849: {}})
+
+    faltan = [f for f in r["filas"] if f["estado"] == FALTA]
+    assert {(f["part"], f["evento_id"]) for f in faltan} == {(0, 112), (1, 111), (1, 112)}
 
 
 def test_fecha_que_el_api_todavia_no_expone():

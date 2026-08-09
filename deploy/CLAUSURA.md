@@ -65,11 +65,19 @@ Páginas:
    de planilla en la clave: planilla nueva ⇒ progreso borrado y cambio invisible.
 2. **Verificación real** (botón *🔎 Verificar contra la web*, endpoint
    `/dash/<TOKEN>/api/verificar`). Lee los pronósticos efectivamente cargados
-   (`pronosticosEventos` + `pronosticoCampeonGoleador`, públicos post-inicio) y los
-   compara con la planilla: ~24 requests con el mismo pacing que el escaneo del pool,
-   cacheadas 60 s. Sincroniza las marcas con lo que dice la web. Si el API no expone
-   los pronósticos de esa fecha, lo dice en vez de reportar "sin cargar".
-   También como CLI: `python3 -m src.clausura.verificar_carga --fecha N`.
+   (`pronosticosEventos` + `pronosticoCampeonGoleador`) y los compara con la planilla:
+   ~24 requests con el mismo pacing que el escaneo del pool, cacheadas 60 s.
+   Sincroniza las marcas con lo que dice la web. CLI:
+   `python3 -m src.clausura.verificar_carga --fecha N`.
+
+   **Alcance — leer esto antes de confiar en el botón:** el API publica el pick de un
+   partido recién cuando ESE partido cierra (gate por evento, verificado 7/8). O sea
+   que un marcador se puede verificar cuando ya no se puede corregir: sirve como
+   control de calidad de la carga (¿venís tipeando bien? ¿quedó algo sin cargar?) y
+   para los ESPECIALES, que sí son visibles desde el lock y sí se editan. Los partidos
+   todavía abiertos salen como `🔒 no verificable hasta el cierre` y su marca local no
+   se toca — reportarlos como "sin cargar" mandaría a recargar lo que ya está puesto.
+   El aviso proactivo por Telegram de lo mismo es `drift_audit` (3 corridas por día).
 
 El pool sale de **una** request al penca-api (`ranking?size=1000` trae las ~700 filas
 enteras), cacheada 120 s y compartida con el home. El escaneo caro —2 requests por

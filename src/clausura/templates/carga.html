@@ -281,10 +281,14 @@
     // Verificación contra la web: la única fuente que no depende de tu memoria.
     //
     // Las marcas de arriba guardan lo que VOS decís que cargaste; esto lee lo que
-    // efectivamente quedó cargado (pronósticos propios son públicos post-inicio) y
-    // SINCRONIZA las marcas con esa verdad: lo que coincide queda confirmado, lo que
-    // difiere queda marcado con el valor real de la web (y cae en el panel de
-    // cambios con el "corregí a X"), y lo que no está cargado se desmarca.
+    // efectivamente quedó cargado y SINCRONIZA las marcas con esa verdad.
+    //
+    // ALCANCE (gate por evento, verificado 2026-08-07): el API publica el pick de un
+    // partido recién cuando ESE partido cierra. O sea que un marcador se puede
+    // verificar cuando ya no se puede corregir: sirve como control de calidad de la
+    // carga (¿venís tipeando bien?) y para los ESPECIALES, que sí son visibles desde
+    // el lock y sí se editan. Los partidos abiertos quedan en 'no_visible' y su marca
+    // local NO se toca — decir "sin cargar" ahí mandaría a recargar lo que ya está.
     // ------------------------------------------------------------------
     const btnVerif = document.getElementById('btn-verificar');
 
@@ -316,13 +320,21 @@
     function aplicarVerificacion(v) {
       [...filas, ...esps].forEach(el => el.querySelector('.verif')?.classList.add('hidden'));
       if (!v.ok) { panelVerif('rose', `❌ ${v.error}`, []); return; }
+      // El orden importa: "todavía no cerró nada" explica el caso normal (estás
+      // cargando antes del primer cierre); el API mudo es el raro.
+      if (v.nada_verificable) {
+        panelVerif('amber', '🔒 Todavía no hay nada que verificar: el API publica cada pick ' +
+                            'recién cuando ESE partido cierra. Volvé a tocar el botón después ' +
+                            'del primer cierre.', []);
+        return;
+      }
       if (v.sin_datos_api) {
         panelVerif('amber', '❔ El API no devolvió ningún pronóstico — no pude verificar nada.', []);
         return;
       }
       if (v.sin_datos_fecha) {
-        panelVerif('amber', '❔ El API no expone todavía los pronósticos de esta fecha — ' +
-                            'no puedo verificarla (no significa que falten).', []);
+        panelVerif('amber', '❔ El API no devolvió los pronósticos de esta fecha aunque ya haya ' +
+                            'partidos cerrados — no puedo verificarla (no significa que falten).', []);
         return;
       }
 
@@ -340,10 +352,15 @@
           problemas.push({el: tr, texto: `N°${f.numero} · ${f.partido}: web ${f.web} ` +
                                          `≠ planilla ${f.planilla}`});
         } else if (f.estado === 'falta') {
-          pintarVerif(tr, '⬜ sin cargar en la web', 'slate-400');
+          // Solo llega acá un partido YA CERRADO: ahí sí la ausencia es real.
+          pintarVerif(tr, '⬜ no quedó cargado (ya cerrado)', 'rose-300');
           localStorage.removeItem(clave(tr));
-          if (!f.cerrado) problemas.push({el: tr,
-            texto: `N°${f.numero} · ${f.partido}: sin cargar (${f.planilla})`});
+          problemas.push({el: tr,
+            texto: `N°${f.numero} · ${f.partido}: no quedó cargado (${f.planilla})`});
+        } else if (f.estado === 'no_visible') {
+          // El API no publica el pick hasta el cierre del partido: no se sabe nada.
+          // NO tocar la marca local — es lo único que hay sobre este pick.
+          pintarVerif(tr, '🔒 no verificable hasta el cierre', 'slate-500');
         } else {
           pintarVerif(tr, '❔ participación no encontrada', 'slate-400');
         }
@@ -373,7 +390,9 @@
       });
 
       const r = v.resumen;
-      const titulo = `✅ ${r.ok} coinciden · 🔴 ${r.distinto} distintos · ⬜ ${r.falta} sin cargar`;
+      const titulo = `✅ ${r.ok} coinciden · 🔴 ${r.distinto} distintos · ` +
+                     `⬜ ${r.falta} no cargados` +
+                     (r.no_visible ? ` · 🔒 ${r.no_visible} no verificables hasta su cierre` : '');
       panelVerif(problemas.length ? 'rose' : 'emerald', titulo, problemas);
       refrescar();
     }

@@ -30,8 +30,9 @@ VERIF_TTL = 60.0        # cache del endpoint: un doble-clic no dispara dos escan
 
 OK = "ok"               # la web dice lo mismo que la planilla
 DISTINTO = "distinto"   # la web dice otra cosa → hay que corregir
-FALTA = "falta"         # el pick no está cargado
-SIN_DATOS = "sin_datos"  # la participación no apareció en el ranking
+FALTA = "falta"         # el pick no está cargado (solo comprobable en partidos cerrados)
+NO_VISIBLE = "no_visible"   # el partido no cerró: el API todavía no publica ese pick
+SIN_DATOS = "sin_datos"     # la participación no apareció en el ranking
 
 
 class GateCerrado(RuntimeError):
@@ -59,6 +60,12 @@ def comparar(
     `picks_web` y `esp_web` van indexados por numeroParticipacion; la columna i de
     la planilla corresponde a `mis_numeros[i]` (misma convención de carga que las
     tarjetas del modo carga).
+
+    OJO con el alcance: el API publica el pick de un partido recién cuando ESE
+    partido cierra (gate por evento, verificado 2026-08-07). Un partido abierto que
+    no aparece NO es un pick faltante — es un pick que todavía no se puede ver, y
+    decir "sin cargar" ahí manda a recargar lo que ya está puesto. Por eso `FALTA`
+    se reserva a los partidos cerrados y el resto cae en `NO_VISIBLE`.
     """
     n = int(planilla.get("n_participaciones", 0))
     picks = planilla.get("picks", [])
@@ -75,10 +82,11 @@ def comparar(
             else:
                 plan = tuple(int(x) for x in row["scores_fmt"][i].split("-"))
             web = cargado.get(ev) if cargado else None
+            cerrado = bool(row.get("cerrado"))
             if cargado is None:
                 estado = SIN_DATOS
             elif web is None:
-                estado = FALTA
+                estado = FALTA if cerrado else NO_VISIBLE
             else:
                 vistos_de_la_fecha += 1
                 estado = OK if tuple(web) == plan else DISTINTO
@@ -87,7 +95,7 @@ def comparar(
                 "numero": numero,
                 "evento_id": ev,
                 "partido": row.get("partido", ""),
-                "cerrado": bool(row.get("cerrado")),
+                "cerrado": cerrado,
                 "planilla": _fmt(plan),
                 "web": _fmt(web) if web is not None else None,
                 "estado": estado,
@@ -117,8 +125,13 @@ def comparar(
 
     todo = filas + especiales
     resumen = {e: sum(1 for f in todo if f["estado"] == e)
-               for e in (OK, DISTINTO, FALTA, SIN_DATOS)}
+               for e in (OK, DISTINTO, FALTA, NO_VISIBLE, SIN_DATOS)}
     n_picks_web = sum(len(v) for v in picks_web.values())
+    # Qué se pudo verificar de verdad: lo que quedó con veredicto. Un partido abierto
+    # (NO_VISIBLE) o una participación que no está en el ranking (SIN_DATOS) no
+    # cuentan. Si el total da cero, el botón no puede decir nada todavía — y hay que
+    # decirlo así, no dar un ✅ vacío.
+    verificables = sum(1 for f in todo if f["estado"] in (OK, DISTINTO, FALTA))
     return {
         "ok": True,
         "verificado_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -126,11 +139,14 @@ def comparar(
         "especiales": especiales,
         "resumen": resumen,
         "n_participaciones": n,
-        # El API puede no exponer todavía los pronósticos de una fecha futura: si
-        # devolvió picks pero ninguno de ESTA fecha, no es que falte cargar —
-        # es que no se puede verificar. Decirlo, no dar un falso "0 cargados".
-        "sin_datos_fecha": vistos_de_la_fecha == 0 and n_picks_web > 0,
-        "sin_datos_api": n_picks_web == 0,
+        "n_verificables": verificables,
+        "n_no_visibles": resumen[NO_VISIBLE],
+        "nada_verificable": verificables == 0,
+        # El API devolvió picks pero ninguno de esta fecha (ni siquiera de los
+        # partidos ya cerrados): algo no cuadra con el gate, no es "falta cargar".
+        "sin_datos_fecha": (vistos_de_la_fecha == 0 and n_picks_web > 0
+                            and any(f["cerrado"] for f in filas)),
+        "sin_datos_api": n_picks_web == 0 and not esp_web,
     }
 
 
@@ -229,7 +245,11 @@ def main() -> None:
     r = res["resumen"]
     print(f"Fecha {res['fecha_n']} · {res['version_file']}")
     print(f"✅ {r[OK]} coinciden · ⚠️ {r[DISTINTO]} distintos · "
-          f"⬜ {r[FALTA]} sin cargar · ❔ {r[SIN_DATOS]} sin datos")
+          f"⬜ {r[FALTA]} sin cargar · 🔒 {r[NO_VISIBLE]} no visibles todavía · "
+          f"❔ {r[SIN_DATOS]} sin datos")
+    if res["nada_verificable"]:
+        print("(ningún partido de la fecha cerró todavía: el API publica cada pick "
+              "recién al cierre de ESE partido — no hay nada que verificar aún)")
     if res["sin_datos_fecha"]:
         print("(el API no devolvió pronósticos de esta fecha — no es que falten)")
     for f in res["filas"] + res["especiales"]:
