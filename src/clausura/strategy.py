@@ -476,29 +476,52 @@ class EvaluadorPortfolio:
         self._goleador = goleador_picks
 
     def _simulador(self, seed: int) -> SeasonSimulator:
+        """Simulador con el lado RIVAL listo. Nuestros picks los pone `_cargar`.
+
+        `enable_campeon`/`enable_goleador` suman los 25 pts de los rivales a
+        `rivals_total`, así que van UNA vez por simulador: llamarlos de nuevo se los
+        contaría doble. Y no pueden setear nuestros especiales todavía, porque
+        `set_campeon_pick` escribe sobre `mine_total`, que no existe hasta el
+        `load_picks` de `_cargar`.
+        """
         grids, fechas, pref, pool_qs, prize = self._args
         cfg = SimConfig(n_sims=self._cfg.n_sims, n_rivales=self._cfg.n_rivales, seed=seed)
         s = SeasonSimulator(grids, fechas, pref, pool_qs, prize, cfg, self._rivals)
         esp = self._especiales
         if esp is not None and self._campeon is not None:
             s.enable_campeon(esp.local_de, esp.visita_de, esp.n_teams, esp.pool_q_campeon)
-            for i, op in enumerate(self._campeon):
-                s.set_campeon_pick(i, int(op))
             if self._goleador is not None and esp.p_goleador is not None:
                 s.enable_goleador(esp.p_goleador, esp.pool_q_goleador)
-                for i, op in enumerate(self._goleador):
-                    s.set_goleador_pick(i, int(op))
         return s
+
+    def _cargar(self, s: SeasonSimulator, picks: np.ndarray) -> float:
+        """Carga una matriz de picks, RE-APLICA los especiales y liquida.
+
+        Los especiales van después de CADA `load_picks` porque `load_picks` los
+        resetea a None (economics.py). Este orden es el fix del 2026-08-08: antes
+        `_simulador` intentaba setear el campeón ANTES de que existiera `mine_total`
+        y tiraba AttributeError en el 100% de las corridas de producción —
+        `rerun_cierre.valor_del_cambio` se lo comía en un except y avisaba igual, así
+        que el gate por valor de los PR #147/#148 nunca llegó a correr. Y aun sin el
+        crash, comparar sin re-aplicar habría medido las dos planillas SIN los 25+25
+        puntos, que es justo lo que más define la tabla general.
+        """
+        s.load_picks(picks)
+        if s.champ_sim is not None and self._campeon is not None:
+            for i, op in enumerate(self._campeon):
+                s.set_campeon_pick(i, int(op))
+        if s.gol_sim is not None and self._goleador is not None:
+            for i, op in enumerate(self._goleador):
+                s.set_goleador_pick(i, int(op))
+        return s.e_premio_total()
 
     def comparar(self, picks_a, picks_b, n_seeds: int = 5) -> ComparacionPortfolios:
         """Δ = valor(B) − valor(A), promediado sobre `n_seeds` evaluaciones pareadas."""
         deltas, va, vb = [], [], []
         for k in range(n_seeds):
             s = self._simulador(self._cfg.seed + EVAL_SEED_OFFSET + k)
-            s.load_picks(picks_a)
-            a = s.e_premio_total()
-            s.load_picks(picks_b)
-            b = s.e_premio_total()
+            a = self._cargar(s, picks_a)
+            b = self._cargar(s, picks_b)
             deltas.append(b - a)
             va.append(a)
             vb.append(b)
