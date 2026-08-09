@@ -258,6 +258,7 @@ def build_rival_model(
     mis_numeros: set[int] | None = None,
     equipo_idx: dict[str, int] | None = None,
     goleador_op_idx: dict[int, int] | None = None,
+    puntos_vivos: dict[int, int] | None = None,
 ) -> RivalModel | None:
     """RivalModel desde un snapshot del pool (src.clausura.pool_snapshot).
 
@@ -268,6 +269,22 @@ def build_rival_model(
     `goleador_op_idx` mapea id de opción del menú → índice, para congelar también el
     goleador observado de cada rival (el snapshot lo guarda desde siempre, pero sin
     el menú no se puede indexar; se pasa cuando la API de opciones responde).
+
+    `puntos_vivos` (numero → puntos del ranking AHORA) pisa los puntos que traía el
+    snapshot. Es la fuente correcta y hay que pasarla siempre que se pueda: el
+    snapshot es una foto que puede tener horas, y en ese lapso se liquidan partidos.
+
+    Medido el 2026-08-09, y por eso existe este parámetro: el snapshot de las 13:06
+    daba máximo 24 y mediana 7, mientras el ranking vivo daba 41 y 12. Diecisiete
+    puntos de diferencia en el máximo, que es justo la cantidad que gobierna la vara
+    para ganar. Con los puntos viejos el simulador cree que el pool está más abajo de
+    lo que está, nos ve mejor posicionados de lo que estamos, y recomienda MENOS
+    varianza de la que corresponde — se equivoca del lado caro.
+
+    El `residuo` absorbe la diferencia por construcción: si el snapshot no tenía los
+    picks de un partido ya liquidado, `implicados` no los cuenta y el residuo los
+    recupera. O sea que usar puntos frescos con picks viejos no rompe nada; al revés,
+    es exactamente para lo que el residuo está.
     """
     if mis_numeros is None:
         mis_numeros = mis_numeros_env()
@@ -296,9 +313,15 @@ def build_rival_model(
     post_lock = _snapshot_post_lock(snapshot)
     sin_camp = np.zeros(R, dtype=bool) if post_lock else None
     sin_gol = np.zeros(R, dtype=bool) if post_lock else None
+    n_pisados, delta_max = 0, 0
     for r, fila in enumerate(filas):
         numeros[r] = int(fila.get("numero", 0))
-        puntos[r] = int(fila.get("puntos", 0))
+        del_snap = int(fila.get("puntos", 0))
+        vivo = (puntos_vivos or {}).get(int(numeros[r]))
+        puntos[r] = del_snap if vivo is None else int(vivo)
+        if vivo is not None and int(vivo) != del_snap:
+            n_pisados += 1
+            delta_max = max(delta_max, abs(int(vivo) - del_snap))
         for eid_str, (gl, gv) in fila.get("picks", {}).items():
             m = idx_by_evento.get(int(eid_str))
             if m is not None:
@@ -323,6 +346,14 @@ def build_rival_model(
         known, played, pool_qs, [ev["preferencial"] for ev in eventos],
         actual, puntos, numeros, campeon, goleador, sin_camp, sin_gol,
     )
+    if puntos_vivos is None:
+        log.warning("modelo de rivales SIN puntos del ranking vivo: uso los del "
+                    "snapshot, que puede tener horas. Si en el medio se liquidó un "
+                    "partido, el pool va a parecer más débil de lo que es")
+    elif n_pisados:
+        log.info("puntos del pool actualizados desde el ranking vivo: %d de %d "
+                 "rivales cambiaron (máx %+d pts) respecto del snapshot",
+                 n_pisados, R, delta_max)
     if sin_camp is not None and sin_camp.any():
         log.info("rivales que ya no pueden sumar especiales: %d sin campeón, %d sin "
                  "goleador (de %d)", int(sin_camp.sum()), int(sin_gol.sum()), R)
