@@ -14,7 +14,11 @@
 #   /root/penca-shutdown-state.txt → qué units estaban habilitadas (para revertir)
 set -euo pipefail
 
-VPS="${PENCA_VPS_HOST:-root@68.183.52.166}"
+# Droplet del CLAUSURA (creado 2026-08-04). El anterior — root@68.183.52.166, el del
+# Mundial — se destruyó el 2026-07-29 y quedó como default acá hasta el 9/8: correr el
+# script sin PENCA_VPS_HOST fallaba contra una IP muerta, justo en el momento en que
+# uno corre un backup. Su respaldo sigue en ../penca-backups/vps-20260729/.
+VPS="${PENCA_VPS_HOST:-root@159.203.66.24}"
 DEST="${1:-backups/vps-$(date +%Y%m%d)}"
 
 echo "› Origen : $VPS"

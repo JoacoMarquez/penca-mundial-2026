@@ -60,10 +60,44 @@ class PoolConfig:
     popular_bias: dict[tuple[int, int], float] = field(
         default_factory=lambda: dict(DEFAULT_POPULAR_BIAS)
     )
+    # Refleja `popular_bias` cuando el favorito es el visitante. Ver pool_distribution.
+    # Se puede apagar para reproducir el comportamiento previo al 2026-08-09.
+    orientar_al_favorito: bool = True
+
+
+def _favorito_es_visitante(p_market: np.ndarray, margen: float = 0.0) -> bool:
+    """¿El mercado da más chances al visitante que al local?
+
+    `margen` exige una ventaja mínima para reflejar; con 0 alcanza con empatar. En
+    partidos casi parejos da igual hacia qué lado se refleje —el sesgo es casi
+    simétrico ahí— así que no hace falta una zona muerta.
+    """
+    idx = np.arange(N_SCORES)
+    gl, gv = idx // 6, idx % 6
+    p_local = float(p_market[gl > gv].sum())
+    p_visita = float(p_market[gl < gv].sum())
+    return p_visita > p_local + margen
 
 
 def pool_distribution(grid: np.ndarray, cfg: PoolConfig | None = None) -> np.ndarray:
-    """Q[pick_idx]: qué juega el pencista típico en este partido. Vector de N_SCORES."""
+    """Q[pick_idx]: qué juega el pencista típico en este partido. Vector de N_SCORES.
+
+    El sesgo de popularidad se aplica ORIENTADO AL FAVORITO, no al local. La tabla
+    está escrita en clave local-favorito (1-0 alto, 0-1 bajo) porque el favorito
+    suele ser local; cuando NO lo es, se refleja. Sin reflejar, en esos partidos el
+    modelo empuja la Q hacia marcadores de local justo donde el pool hace lo
+    contrario, y se equivoca del lado caro: cree que hay compañía donde no la hay.
+
+    Medido el 2026-08-09 sobre los 4 partidos cerrados de la Fecha 1 (2.739 picks
+    reales de 718 participaciones). En Torque–Peñarol, con Peñarol favorito de
+    visita, el sesgo empírico del 1-0 es 0,07 y el modelo le asignaba 1,58 — un
+    factor 20 en la dirección equivocada. Reorientar estabiliza el sesgo entre
+    partidos: el 1-0 pasa de {0,07 · 1,38 · 2,02 · 2,05} a
+    {0,92 · 1,38 · 2,02 · 2,05}, con coeficiente de variación 0,30.
+
+    Es una corrección ESTRUCTURAL, no un parámetro ajustado a esos 4 partidos: no
+    agrega grados de libertad, solo aplica la tabla en el eje correcto.
+    """
     cfg = cfg or PoolConfig()
     p_market = flatten_grid(grid)
 
@@ -72,6 +106,9 @@ def pool_distribution(grid: np.ndarray, cfg: PoolConfig | None = None) -> np.nda
         idx = gL * 6 + gV
         if idx < N_SCORES:
             bias[idx] = f
+
+    if cfg.orientar_al_favorito and _favorito_es_visitante(p_market):
+        bias = bias.reshape(6, 6).T.reshape(-1).copy()
 
     eps = 1e-12
     score = cfg.chalk_strength * np.log(p_market + eps) + np.log(bias + eps)
