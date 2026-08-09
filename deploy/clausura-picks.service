@@ -18,7 +18,23 @@ ExecStartPre=-/opt/penca/.venv/bin/python -m src.clausura.intermedio
 # "-": si el API nos limita, el escaneo aborta sin guardar y el pipeline
 # sigue con el snapshot previo — mejor eso que no emitir planilla.
 ExecStartPre=-/opt/penca/.venv/bin/python -m src.clausura.pool_snapshot --if-started --reusar-especiales --max-edad-h 6
-ExecStart=/opt/penca/.venv/bin/python -m src.clausura.picks --fecha auto --telegram --participaciones 12 --sims 2400
+# --sims: el ascenso por coordenadas compara dos estimaciones Monte Carlo, así que
+# con pocos sorteos elige ruido. Medido out-of-sample con sorteos comunes: E[premio]
+# 2.400 → 3.200 vale +$3.916 ± 1.585, y 2.400 → 9.600 vale +$21.060 ± 936. O sea que
+# convendría 9.600 y NO se puede: el techo es la MEMORIA del droplet (1 GB).
+#
+# Pico de RSS medido de build_portfolio completo (706 rivales, 120 partidos, 12
+# participaciones, con RivalModel empírico), 2026-08-08:
+#     S=2400 → 437 MB · S=3200 → 555 MB · S=4800 → 788 MB · S=9600 → 875 MB (un solo
+#     simulador; el camino completo construye dos, ver _evaluate_fresh)
+# 3.200 es el escalón más alto con margen para el dashboard que corre al lado.
+#
+# El tiempo ya NO es la restricción: el caché de (max, count) del lado rival dio 37x
+# por evaluación (economics._liquidar), así que lo que antes tardaba 33 min ahora son
+# minutos. Lo que falta para llegar a 9.600 es achicar rivals_fecha, que es
+# (n_fechas, R, S) persistente y de ahí sale casi todo el consumo: con el caché ya
+# solo se necesita su (max, count), o sea (n_fechas, 2, S). Es el próximo paso.
+ExecStart=/opt/penca/.venv/bin/python -m src.clausura.picks --fecha auto --telegram --participaciones 12 --sims 3200
 StandardOutput=append:/var/lib/penca/logs/clausura-picks.log
 StandardError=append:/var/lib/penca/logs/clausura-picks.err
 User=root

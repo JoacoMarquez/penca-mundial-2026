@@ -5,13 +5,14 @@ import json
 import numpy as np
 import pytest
 
-from src.clausura.economics import score_index
+from src.clausura.economics import SimConfig, score_index
 from src.clausura.odds import EventOdds
 from src.clausura.picks import (
     build_season_grids,
     delta_grid,
     fecha_dir,
     load_frozen,
+    load_warm_start,
     match_odds,
     save_version,
 )
@@ -125,6 +126,94 @@ def test_save_version_no_sobreescribe(tmp_path, monkeypatch):
     assert p1.name.startswith("v1_") and p2.name.startswith("v2_")
     assert json.loads(p1.read_text())["a"] == 1
     assert json.loads(p2.read_text())["a"] == 2
+
+
+def test_warm_start_sin_planilla_previa_es_none(tmp_path, monkeypatch):
+    import src.clausura.picks as picks_mod
+    monkeypatch.setattr(picks_mod, "PRED_DIR", tmp_path)
+    eventos = [_evento(10, "A", "B", fecha_n=1)]
+    assert load_warm_start(eventos, target_fecha=1, n_participaciones=3) is None
+
+
+def test_warm_start_prefiere_la_matriz_de_temporada(tmp_path, monkeypatch):
+    """`picks_temporada` cubre los 120 partidos; `picks`, solo los 8 de su fecha."""
+    import src.clausura.picks as picks_mod
+    monkeypatch.setattr(picks_mod, "PRED_DIR", tmp_path)
+
+    eventos = [_evento(10, "A", "B", fecha_n=1), _evento(20, "C", "D", fecha_n=2)]
+    save_version(1, {
+        "picks": [{"evento_id": 10, "scores": [[1, 0], [2, 1]]}],
+        "picks_temporada": [
+            {"evento_id": 10, "scores": [[1, 0], [2, 1]]},
+            {"evento_id": 20, "scores": [[0, 0], [3, 1]]},
+        ],
+    })
+
+    warm = load_warm_start(eventos, target_fecha=2, n_participaciones=2)
+    assert warm.shape == (2, 2)
+    assert warm[0, 1] == score_index(0, 0)     # heredado del partido de la fecha 2
+    assert warm[1, 1] == score_index(3, 1)
+    assert (warm >= 0).all()
+
+
+def test_warm_start_la_planilla_mas_nueva_manda(tmp_path, monkeypatch):
+    """Dos versiones de la misma fecha: gana la v2, no la v1."""
+    import src.clausura.picks as picks_mod
+    monkeypatch.setattr(picks_mod, "PRED_DIR", tmp_path)
+
+    eventos = [_evento(10, "A", "B", fecha_n=1)]
+    save_version(1, {"picks": [{"evento_id": 10, "scores": [[1, 0], [1, 0]]}]})
+    save_version(1, {"picks": [{"evento_id": 10, "scores": [[2, 2], [2, 2]]}]})
+
+    warm = load_warm_start(eventos, target_fecha=1, n_participaciones=2)
+    assert warm[0, 0] == score_index(2, 2)
+
+
+def test_warm_start_ignora_planillas_de_otro_tamano(tmp_path, monkeypatch):
+    """Si ayer eran 5 participaciones y hoy 12, esa columna no se puede heredar.
+
+    Rellenar las filas faltantes inventaría un portfolio que nunca se evaluó; -1
+    hace que la columna caiga al ancla de EV, que es el comportamiento correcto.
+    """
+    import src.clausura.picks as picks_mod
+    monkeypatch.setattr(picks_mod, "PRED_DIR", tmp_path)
+
+    eventos = [_evento(10, "A", "B", fecha_n=1), _evento(20, "C", "D", fecha_n=1)]
+    save_version(1, {"picks": [
+        {"evento_id": 10, "scores": [[1, 0], [2, 1]]},          # solo 2 filas
+        {"evento_id": 20, "scores": [[1, 0], [2, 1], [0, 0]]},  # 3 filas
+    ]})
+
+    warm = load_warm_start(eventos, target_fecha=1, n_participaciones=3)
+    assert (warm[:, 0] == -1).all()            # columna no heredable
+    assert (warm[:, 1] >= 0).all()
+
+
+def test_warm_start_columna_incompleta_cae_al_ancla():
+    """Una columna se hereda entera o nada: no se mezcla warm con ancla."""
+    g = score_grid(1.3, 1.1, 0.0, max_goals=5)
+    grids = [g] * 4
+    warm = np.full((3, 4), -1, dtype=np.int64)
+    warm[:, 0] = score_index(4, 4)             # completa: se hereda
+    warm[:2, 1] = score_index(4, 4)            # incompleta: NO se hereda
+
+    port = build_portfolio(
+        grids=grids, fecha_de_partido=[1] * 4, preferencial=[False] * 4,
+        n_participaciones=3, sim=SimConfig(n_sims=60, n_rivales=20),
+        max_passes=0, warm_start=warm,
+    )
+    assert (port.picks[:, 0] == score_index(4, 4)).all()
+    assert not (port.picks[:, 1] == score_index(4, 4)).any()
+
+
+def test_warm_start_shape_equivocado_falla_fuerte():
+    g = score_grid(1.3, 1.1, 0.0, max_goals=5)
+    with pytest.raises(ValueError, match="warm_start"):
+        build_portfolio(
+            grids=[g] * 4, fecha_de_partido=[1] * 4, preferencial=[False] * 4,
+            n_participaciones=3, sim=SimConfig(n_sims=60, n_rivales=20),
+            max_passes=0, warm_start=np.zeros((2, 4), dtype=np.int64),
+        )
 
 
 def test_load_frozen_desde_archivo(tmp_path, monkeypatch):

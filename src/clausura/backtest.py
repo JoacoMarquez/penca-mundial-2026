@@ -429,6 +429,70 @@ def run_experimento_menu(
     return out
 
 
+def run_experimento_menu_size(
+    partidos: list[PartidoHistorico],
+    ratings: TeamRatings | None,
+    n_participaciones: int = 12,
+    n_sims: int = 400,
+    n_rivales: int = 151,
+    seed_offset: int = 0,
+    brazos: tuple[tuple[str, int, int], ...] = (
+        ("m53_viejo", 5, 3), ("m30_nuevo", 3, 0), ("m50", 5, 0), ("m33", 3, 3),
+    ),
+) -> dict[str, tuple[float, float, float, float]]:
+    """A/B del TAMAÑO del menú: (k_ev, k_hueco). Valida el cambio del 2026-08-08.
+
+    Distinto del A/B de `run_experimento_menu`, que compara cómo ORDENAR la rama de
+    hueco. Acá se compara cuántos candidatos poner, incluida la opción de sacar la
+    rama entera — que es la que ganó (+$9.737 ± 859, 16/16 reps).
+
+    El mecanismo que se está midiendo es ruido de Monte Carlo, no calidad de los
+    candidatos: cada candidato extra es una comparación más de dos estimaciones
+    ruidosas en el ascenso por coordenadas, o sea otra chance de que el argmax se
+    equivoque. Por eso el efecto DEBERÍA desaparecer con `--sims` alto: a 9.600
+    sorteos los brazos m53 y m50 dan picks idénticos. Si corrés esto con pocos
+    sorteos y el menú chico NO gana, el resultado es sospechoso, no tranquilizador.
+
+    Todos los brazos comparten grids, pool, semilla de optimización y semilla de
+    evaluación (independiente de la de optimización): la diferencia es solo calidad
+    de decisión. Devuelve {brazo: (E[premio], puntos, exactos, premio_real)}.
+    """
+    import src.clausura.strategy as _strategy
+
+    grids = build_grids(partidos, ratings)
+    fechas = [p.fecha_id for p in partidos]
+    pref = [p.preferencial for p in partidos]
+    pool_cfg = PoolConfig()
+    pool_qs = [pool_distribution(g, pool_cfg) for g in grids]
+    prize = PrizeConfig()
+    base_seed = SimConfig().seed + seed_offset
+    sim = SimConfig(n_sims=n_sims, n_rivales=n_rivales, seed=base_seed)
+
+    from src.clausura.strategy import EVAL_SEED_OFFSET
+    eval_sim = SimConfig(n_sims=n_sims, n_rivales=n_rivales,
+                         seed=base_seed + EVAL_SEED_OFFSET)
+
+    out: dict[str, tuple[float, float, float, float]] = {}
+    previos = (_strategy.K_EV, _strategy.K_HUECO)
+    try:
+        for nombre, k_ev, k_hueco in brazos:
+            _strategy.K_EV, _strategy.K_HUECO = k_ev, k_hueco
+            port = build_portfolio(
+                grids=grids, fecha_de_partido=fechas, preferencial=pref,
+                n_participaciones=n_participaciones, pool_cfg=pool_cfg,
+                prize=prize, sim=sim,
+            )
+            s = SeasonSimulator(grids, fechas, pref, pool_qs, prize, eval_sim)
+            s.load_picks(port.picks)
+            e_premio = s.e_premio_total()
+            real, pts, ex = realized_prizes(port.picks, partidos, grids, pool_qs,
+                                            prize, sim)
+            out[nombre] = (e_premio, pts, ex, real)
+    finally:
+        _strategy.K_EV, _strategy.K_HUECO = previos
+    return out
+
+
 def main() -> None:
     logging.basicConfig(level=logging.WARNING, format="%(message)s")
     ap = argparse.ArgumentParser()
@@ -442,6 +506,8 @@ def main() -> None:
                     help="A/B: pool i.i.d. (statu quo) vs RivalModel empírico")
     ap.add_argument("--experimento-menu", action="store_true",
                     help="A/B del menú de candidatos: hueco legacy vs mispricing")
+    ap.add_argument("--experimento-menu-size", action="store_true",
+                    help="A/B del TAMAÑO del menú: (5,3) viejo vs (3,0) nuevo vs (5,0) y (3,3)")
     ap.add_argument("--obs-fechas", type=int, default=5,
                     help="fechas ya jugadas/observadas en el experimento (default 5)")
     ap.add_argument("--reps", type=int, default=3,
@@ -461,6 +527,7 @@ def main() -> None:
     costo = args.participaciones * PrizeConfig().costo_participacion
     resultados = []
     menu_res: list[tuple[str, float, float, float, float]] = []
+    size_res: list[tuple[str, dict]] = []
     for nombre in objetivo:
         partidos = temporadas[nombre]
         # Ratings ajustados SOLO con las temporadas anteriores a esta (sin look-ahead)
@@ -470,6 +537,18 @@ def main() -> None:
             ratings = fit_ratings(previas)
         if not args.sin_ratings and ratings is None:
             print(f"\n(salteada {nombre}: no hay temporadas previas para ajustar ratings)")
+            continue
+
+        if args.experimento_menu_size:
+            for rep in range(args.reps):
+                res = run_experimento_menu_size(partidos, ratings, args.participaciones,
+                                                args.sims, args.rivales, seed_offset=rep)
+                base = res["m53_viejo"][0]
+                cols = "  ".join(f"{k.split('_')[0]} ${v[0]/1000:7.1f}k"
+                                 for k, v in res.items())
+                print(f"   {nombre[:24]:24s} rep{rep + 1}  {cols}  "
+                      f"Δ(3,0−5,3){res['m30_nuevo'][0] - base:+9,.0f}")
+                size_res.append((nombre, res))
             continue
 
         if args.experimento_menu:
@@ -511,6 +590,17 @@ def main() -> None:
         for k in r.premio:
             print(f"{k:>14s}  {r.puntos[k]:9.1f}  {r.exactos[k]:7.0f}  "
                   f"${r.premio[k]:11,.0f}  ${r.esperado[k]:10,.0f}")
+
+    if size_res:
+        print(f"\n=== A/B del tamaño del menú sobre {len(size_res)} reps ===")
+        base = np.array([r["m53_viejo"][0] for _, r in size_res])
+        for brazo in ("m30_nuevo", "m50", "m33"):
+            d = np.array([r[brazo][0] for _, r in size_res]) - base
+            se = float(np.std(d, ddof=1) / np.sqrt(len(d))) if len(d) > 1 else 0.0
+            print(f"   {brazo:>10s} vs (5,3):  Δ E[premio] {np.mean(d):+9,.0f} ± {se:,.0f} "
+                  f"(se pareado), a favor en {int((d > 0).sum())}/{len(d)}")
+        print("   Recordá: el efecto es ruido de MC, así que DEBE achicarse con --sims alto.")
+        return
 
     if menu_res:
         dif = [b - a for _, a, b, _, _ in menu_res]

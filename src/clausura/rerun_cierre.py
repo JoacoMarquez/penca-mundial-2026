@@ -160,7 +160,15 @@ def valor_del_cambio(prev: dict, contexto: dict, n_participaciones: int):
         log.info("valor del cambio: %s", comp)
         return comp
     except Exception as e:                                    # noqa: BLE001
-        log.warning("no pude medir el valor del cambio (%s) — aviso igual", e)
+        # ERROR + traceback, no warning: este except tapó durante días un
+        # AttributeError determinístico en EvaluadorPortfolio (arreglado el
+        # 2026-08-08) y el gate por valor nunca corrió. Seguir avisando ante un
+        # fallo es lo correcto —mejor un aviso de más que perderse una mejora
+        # real— pero tiene que hacer ruido, porque "no pude medir" en el 100% de
+        # las corridas se lee igual que en el 1%.
+        log.error("no pude medir el valor del cambio (%s) — aviso igual, PERO esto "
+                  "no debería pasar: el gate por valor está inhabilitado mientras "
+                  "falle", e, exc_info=True)
         return None
 
 

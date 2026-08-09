@@ -125,3 +125,85 @@ def test_build_portfolio_deja_el_evaluador_listo():
     assert c.n_seeds == 2
     # el portfolio optimizado no puede ser peor que poner 0-0 en todo
     assert c.delta <= 0
+
+
+# -------------------- el gate con especiales (regresión del 2026-08-08) --------------------
+
+def _portfolio_con_especiales(n_part=3, n_matches=8):
+    from src.clausura.strategy import EspecialesInput, build_portfolio
+
+    grids = [score_grid(1.3, 1.1, 0.0, max_goals=5) for _ in range(n_matches)]
+    esp = EspecialesInput(
+        local_de=np.arange(n_matches) % 4,
+        visita_de=(np.arange(n_matches) + 1) % 4,
+        n_teams=4,
+        pool_q_campeon=np.full(4, 0.25),
+        p_goleador=np.array([0.4, 0.3, 0.2, 0.1]),
+        pool_q_goleador=np.array([0.4, 0.3, 0.2, 0.1]),
+    )
+    return build_portfolio(
+        grids=grids, fecha_de_partido=[1] * n_matches, preferencial=[False] * n_matches,
+        n_participaciones=n_part, sim=SimConfig(n_sims=200, n_rivales=40),
+        max_passes=1, especiales=esp,
+    )
+
+
+def test_evaluador_con_especiales_no_crashea():
+    """El bug que dejó muerto el gate por valor durante días.
+
+    `_simulador` seteaba el campeón ANTES de cualquier `load_picks`, y
+    `set_campeon_pick` escribe sobre `mine_total`, que todavía era None →
+    AttributeError en el 100% de las corridas (producción SIEMPRE pasa
+    EspecialesInput). `rerun_cierre.valor_del_cambio` se lo comía en un except y
+    avisaba por diferencia de picks, que es exactamente lo que los PR #147/#148
+    querían dejar de hacer.
+    """
+    port = _portfolio_con_especiales()
+    otra = port.picks.copy()
+    otra[1, 0] = (otra[1, 0] + 1) % 36
+    c = port.evaluador.comparar(port.picks, otra, n_seeds=2)   # antes: AttributeError
+    assert c.n_seeds == 2
+    assert np.isfinite(c.delta)
+
+
+def test_evaluador_reaplica_los_especiales_despues_de_cada_carga():
+    """La segunda capa del bug: sin esto se comparaba SIN los 25+25 puntos.
+
+    `load_picks` resetea campeon_picks/goleador_picks a None, así que arreglar solo
+    el orden habría dejado las dos planillas midiéndose sin los especiales — que en
+    la tabla general pesan ~1,6 sigma del puntaje de temporada.
+    """
+    port = _portfolio_con_especiales()
+    ev = port.evaluador
+    s = ev._simulador(1234)
+
+    ev._cargar(s, port.picks)
+    assert s.campeon_picks is not None
+    assert s.campeon_picks.tolist() == port.campeon.tolist()
+    assert s.goleador_picks.tolist() == port.goleador.tolist()
+
+    otra = port.picks.copy()
+    otra[0, 0] = (otra[0, 0] + 1) % 36
+    ev._cargar(s, otra)                                  # segunda carga: siguen ahí
+    assert s.campeon_picks.tolist() == port.campeon.tolist()
+    assert s.goleador_picks.tolist() == port.goleador.tolist()
+
+
+def test_los_especiales_mueven_el_valor_que_reporta_el_evaluador():
+    """Prueba de que los 25 pts realmente entran en la cuenta, no solo que existen."""
+    port = _portfolio_con_especiales()
+    ev = port.evaluador
+    s = ev._simulador(4321)
+
+    con = ev._cargar(s, port.picks)
+    s.load_picks(port.picks)                             # misma planilla, SIN especiales
+    sin = s.e_premio_total()
+    assert con != sin, "los especiales no están afectando el E[premio] del evaluador"
+
+
+def test_comparar_una_planilla_contra_si_misma_da_cero_con_especiales():
+    """Sorteos comunes + especiales re-aplicados ⇒ Δ exactamente 0, no 'casi'."""
+    port = _portfolio_con_especiales()
+    c = port.evaluador.comparar(port.picks, port.picks.copy(), n_seeds=3)
+    assert c.delta == 0.0
+    assert c.se == 0.0

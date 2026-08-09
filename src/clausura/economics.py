@@ -154,6 +154,8 @@ class SeasonSimulator:
         ])
 
         # picks de los rivales, POR SIMULACIÓN: (R, S) por partido → acumulados
+        self._cache_total: tuple[np.ndarray, np.ndarray] | None = None
+        self._cache_fecha: list[tuple[np.ndarray, np.ndarray] | None] | None = None
         self.rivals_total = np.zeros((R, S), dtype=np.int32)
         self.rivals_fecha = np.zeros((self.n_fechas, R, S), dtype=np.int32)
         if rivals is not None:
@@ -183,6 +185,68 @@ class SeasonSimulator:
         self.gol_sim: np.ndarray | None = None         # (S,) goleador por sim
         self.campeon_picks: np.ndarray | None = None   # (n_mine,) equipo elegido
         self.goleador_picks: np.ndarray | None = None  # (n_mine,) opción elegida
+
+    # ---------- lado rival: (máximo, empatados) cacheados ----------
+    #
+    # El lado rival NO cambia entre evaluaciones: se arma en el constructor (más los
+    # especiales) y de ahí en más es constante, mientras el ascenso por coordenadas
+    # cambia SOLO picks propios. Pero `_liquidar` recalculaba `rivals.max(axis=0)` y el
+    # conteo de empatados en cada una de las ~25.000 evaluaciones por corrida, sobre
+    # matrices (R,S) con R≈700 — o sea el 98% del trabajo era re-derivar lo mismo.
+    # Medido 2026-08-08: cachear da 34-35x por evaluación (14,5 → 0,42 ms) con
+    # resultados bit a bit idénticos, y con ese margen el ascenso puede correr a
+    # n_sims 9.600 en vez de 2.400, que es donde deja de fitear ruido (+$10.206 ± 1.126).
+    #
+    # El caché es LAZY a propósito: `backtest.realized_prizes` y
+    # `scripts/sweep_participaciones.build_sim` reescriben el lado rival DESPUÉS del
+    # constructor, así que uno eager los corrompería en silencio. Las asignaciones
+    # enteras (`sim.rivals_total = ...`, `sim.rivals_total += ...`) pasan por el setter
+    # e invalidan solas. Lo que el setter NO puede ver es la mutación por índice
+    # (`sim.rivals_fecha[fi] += pts`), así que al materializar el caché los arrays
+    # quedan read-only: una mutación tardía tira ValueError en vez de devolver premios
+    # calculados contra un máximo viejo.
+
+    @property
+    def rivals_total(self) -> np.ndarray:
+        return self._rivals_total
+
+    @rivals_total.setter
+    def rivals_total(self, value: np.ndarray) -> None:
+        self._rivals_total = value
+        if value.base is None:
+            value.setflags(write=True)
+        self._cache_total = None
+
+    @property
+    def rivals_fecha(self) -> np.ndarray:
+        return self._rivals_fecha
+
+    @rivals_fecha.setter
+    def rivals_fecha(self, value: np.ndarray) -> None:
+        self._rivals_fecha = value
+        if value.base is None:
+            value.setflags(write=True)
+        self._cache_fecha = None
+
+    @staticmethod
+    def _stats(rivals: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """(máximo del pool por sim, cuántos rivales lo empatan)."""
+        top = rivals.max(axis=0)
+        return top, (rivals == top[None, :]).sum(axis=0)
+
+    def _stats_total(self) -> tuple[np.ndarray, np.ndarray]:
+        if self._cache_total is None:
+            self._rivals_total.setflags(write=False)
+            self._cache_total = self._stats(self._rivals_total)
+        return self._cache_total
+
+    def _stats_fecha(self, fi: int) -> tuple[np.ndarray, np.ndarray]:
+        if self._cache_fecha is None:
+            self._rivals_fecha.setflags(write=False)
+            self._cache_fecha = [None] * self.n_fechas
+        if self._cache_fecha[fi] is None:
+            self._cache_fecha[fi] = self._stats(self._rivals_fecha[fi])
+        return self._cache_fecha[fi]
 
     # ---------- especiales: Campeón y Goleador (25 pts c/u, solo total general) ----------
 
@@ -322,31 +386,41 @@ class SeasonSimulator:
 
     # ---------- liquidación ----------
 
-    def _liquidar(self, mine: np.ndarray, rivals: np.ndarray, pozo: float) -> np.ndarray:
-        """Premio cobrado en cada simulación, con reparto entre empatados (Art. 7a)."""
-        top = np.maximum(mine.max(axis=0), rivals.max(axis=0))
+    def _liquidar(self, mine: np.ndarray, rival_top: np.ndarray,
+                  rival_empatados: np.ndarray, pozo: float) -> np.ndarray:
+        """Premio cobrado en cada simulación, con reparto entre empatados (Art. 7a).
+
+        `rival_top`/`rival_empatados` vienen cacheados de `_stats_*`. Equivalente
+        exacto a contar los rivales en el máximo global: si el pool no llega al
+        máximo, ningún rival lo empata y su aporte al reparto es 0.
+        """
+        top = np.maximum(mine.max(axis=0), rival_top)
         k = (mine == top[None, :]).sum(axis=0)
-        j = (rivals == top[None, :]).sum(axis=0)
+        j = np.where(rival_top == top, rival_empatados, 0)
         total = k + j
         return np.where(total > 0, pozo * k / np.maximum(total, 1), 0.0)
 
     def e_premio_total(self) -> float:
         """Objetivo escalar: E[premio del portfolio]. Es lo que optimiza la estrategia."""
-        premio = self._liquidar(self.mine_total, self.rivals_total, self.prize.premio_penca)
+        rt, rc = self._stats_total()
+        premio = self._liquidar(self.mine_total, rt, rc, self.prize.premio_penca)
         for fi in range(self.n_fechas):
+            ft, fc = self._stats_fecha(fi)
             premio = premio + self._liquidar(
-                self.mine_fecha[fi], self.rivals_fecha[fi], self.prize.premio_fecha
+                self.mine_fecha[fi], ft, fc, self.prize.premio_fecha
             )
         return float(premio.mean())
 
     def result(self) -> SimResult:
         """Reporte completo (más caro que e_premio_total, para el final)."""
-        premio_penca = self._liquidar(self.mine_total, self.rivals_total, self.prize.premio_penca)
+        rt, rc = self._stats_total()
+        premio_penca = self._liquidar(self.mine_total, rt, rc, self.prize.premio_penca)
         premio_fechas = np.zeros(self.cfg.n_sims)
         fechas_ganadas = np.zeros(self.cfg.n_sims)
         for fi in range(self.n_fechas):
+            ft, fc = self._stats_fecha(fi)
             cobro = self._liquidar(
-                self.mine_fecha[fi], self.rivals_fecha[fi], self.prize.premio_fecha
+                self.mine_fecha[fi], ft, fc, self.prize.premio_fecha
             )
             premio_fechas += cobro
             fechas_ganadas += (cobro > 0).astype(float)
@@ -360,7 +434,7 @@ class SeasonSimulator:
             p_gana_alguna_fecha=float((fechas_ganadas > 0).mean()),
             e_fechas_ganadas=float(fechas_ganadas.mean()),
             e_puntos_mejor=float(self.mine_total.max(axis=0).mean()),
-            e_puntos_pool_max=float(self.rivals_total.max(axis=0).mean()),
+            e_puntos_pool_max=float(rt.mean()),
             costo=n_mine * self.prize.costo_participacion,
         )
 
