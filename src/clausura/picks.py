@@ -575,6 +575,10 @@ def run(
     mis_numeros = mis_numeros_env()
     resultados: dict[int, tuple[int, int]] = {}
     n_rivales, exact_rate = 151, None
+    # numero de participación → puntos del ranking AHORA. El modelo de rivales los
+    # prefiere a los del snapshot, que es una foto y puede tener horas (ver
+    # rivals.build_rival_model).
+    puntos_vivos: dict[int, int] = {}
     penca_id = cfg["pencas"]["paga"]["id"]
     try:
         with PencaApiClient() as api:
@@ -589,6 +593,7 @@ def run(
             ranking = api.ranking(penca_id)
             propias = sum(r.numero_participacion in mis_numeros for r in ranking)
             n_rivales = max(len(ranking) - propias, 1)
+            puntos_vivos = {r.numero_participacion: r.puntos_totales for r in ranking}
             jugados = len(resultados)
             exact_rate = observed_exact_rate_from_ranking(ranking, jugados, mis_numeros)
     except Exception as e:  # red caída: seguimos con defaults
@@ -724,6 +729,7 @@ def run(
         rival_model = build_rival_model(
             snapshot, eventos, pool_qs, resultados, equipo_idx=equipo_idx,
             goleador_op_idx=goleador_op_idx,
+            puntos_vivos=puntos_vivos or None,
         )
         if rival_model is not None:
             n_rivales = rival_model.n_rivales

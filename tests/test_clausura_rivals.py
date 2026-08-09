@@ -353,3 +353,60 @@ def test_tilted_sample_chunkeado_es_identico_al_entero():
                 assert np.array_equal(got, esperado), f"size={size} tope={tope}"
     finally:
         rv.TILTED_CHUNK_BYTES = previo
+
+
+# -------------------- puntos del ranking vivo (2026-08-09) --------------------
+
+def _snap_2_rivales(puntos_snapshot):
+    return {
+        "generado_utc": "2026-08-09T13:06:00+00:00",
+        "participaciones": [
+            {"numero": 555, "puntos": puntos_snapshot[0], "picks": {"10": [1, 0]}},
+            {"numero": 666, "puntos": puntos_snapshot[1], "picks": {"10": [0, 0]}},
+        ],
+    }
+
+
+def test_puntos_vivos_pisan_los_del_snapshot():
+    """El snapshot es una foto; el ranking es el estado. Manda el ranking.
+
+    Regresión del 2026-08-09: el snapshot de las 13:06 daba máximo 24 y el ranking
+    vivo 41 — 17 puntos en el máximo, que es justo lo que gobierna la vara para
+    ganar. Con los puntos viejos el simulador ve al pool más débil, nos cree mejor
+    posicionados y recomienda menos varianza de la que corresponde.
+    """
+    model = build_rival_model(
+        _snap_2_rivales([3, 3]), [{"evento_id": 10, "preferencial": False}],
+        [_q()], resultados={10: (1, 0)}, mis_numeros={999},
+        puntos_vivos={555: 20, 666: 11},
+    )
+    # el residuo es puntos_del_ranking − puntos_implicados por los picks observados
+    imp_a = supermatch_points((1, 0), (1, 0))    # exacto
+    imp_b = supermatch_points((0, 0), (1, 0))    # acierta los goles del visitante
+    assert model.residuo.tolist() == [20 - imp_a, 11 - imp_b]
+
+
+def test_sin_puntos_vivos_cae_al_snapshot_y_avisa(caplog):
+    """El fallback sigue existiendo, pero tiene que hacer ruido."""
+    import logging
+    with caplog.at_level(logging.WARNING):
+        model = build_rival_model(
+            _snap_2_rivales([8, 0]), [{"evento_id": 10, "preferencial": False}],
+            [_q()], resultados={10: (1, 0)}, mis_numeros={999},
+        )
+    imp_a = supermatch_points((1, 0), (1, 0))
+    imp_b = supermatch_points((0, 0), (1, 0))
+    assert model.residuo.tolist() == [8 - imp_a, 0 - imp_b]
+    assert any("ranking vivo" in r.message for r in caplog.records)
+
+
+def test_puntos_vivos_parciales_no_rompen():
+    """Un rival que no está en el ranking (recién comprado) conserva el del snapshot."""
+    model = build_rival_model(
+        _snap_2_rivales([8, 5]), [{"evento_id": 10, "preferencial": False}],
+        [_q()], resultados={10: (1, 0)}, mis_numeros={999},
+        puntos_vivos={555: 20},          # falta el 666
+    )
+    imp_a = supermatch_points((1, 0), (1, 0))
+    imp_b = supermatch_points((0, 0), (1, 0))
+    assert model.residuo.tolist() == [20 - imp_a, 5 - imp_b]
