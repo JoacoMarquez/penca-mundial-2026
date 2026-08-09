@@ -10,35 +10,63 @@
   </div>
 {% else %}
 
+  {# Semilla para el JIT del Tailwind CDN: clases que sólo aparecen por JS #}
+  <div class="hidden bg-amber-500/15 !text-amber-300 line-through opacity-40 ring-2 ring-amber-400
+              bg-rose-500/15 text-rose-300 text-emerald-400 bg-slate-700"></div>
+
   <div class="flex flex-wrap items-center gap-x-3 gap-y-2 mb-1">
     <h1 class="text-lg font-bold whitespace-nowrap">📲 Modo carga — Fecha {{ data.fecha_n }}</h1>
     <a href="{{ data.supermatch_url }}" target="_blank" rel="noopener"
        class="text-sm bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg font-medium whitespace-nowrap">
       Abrir penca ↗
     </a>
+    <button id="btn-verificar" type="button"
+            class="text-sm bg-slate-700 hover:bg-slate-600 text-slate-100 px-3 py-1.5
+                   rounded-lg font-medium whitespace-nowrap disabled:opacity-50">
+      🔎 Verificar contra la web
+    </button>
     <a href="/dash/{{ token }}/?fecha={{ data.fecha_n }}"
        class="text-sm text-indigo-300 hover:text-indigo-200 whitespace-nowrap">← planilla</a>
   </div>
   <div class="text-xs text-slate-400 mb-3">
     {{ data.planilla.version_file.split('_')[0] }} · {{ data.planilla.generado_uy }} UY ·
-    tocá una fila al copiarla para no perderte
+    tocá cada fila cuando la cargues: se guarda <b>el marcador que cargaste</b> y si
+    después cambia te lo marco acá
   </div>
 
-  <div class="text-sm text-slate-300 mb-4 sticky top-[3.3rem] z-20 bg-slate-900/95 backdrop-blur
-       py-1.5 rounded-lg px-1 font-medium" id="progreso"></div>
+  <div class="sticky top-[3.3rem] z-20 bg-slate-900/95 backdrop-blur py-1.5 rounded-lg px-1 mb-4">
+    <div class="text-sm text-slate-300 font-medium" id="progreso"></div>
+
+    <div id="verif-panel" class="hidden mt-2 rounded-lg p-3 border text-sm">
+      <div id="verif-txt" class="font-semibold"></div>
+      <ul id="verif-list" class="space-y-1 mt-1.5"></ul>
+    </div>
+
+    <div id="drift-panel" class="hidden mt-2 bg-amber-500/15 border border-amber-500/50 rounded-lg p-3">
+      <div class="text-sm font-bold text-amber-200 mb-1.5">
+        ⚠️ <span id="drift-n"></span> — corregí en la web
+      </div>
+      <ul id="drift-list" class="space-y-1 text-sm"></ul>
+      <div class="text-[11px] text-amber-200/70 mt-1.5">
+        tocá el ítem para ir a la fila; tocá la fila cuando ya lo corregiste
+      </div>
+    </div>
+  </div>
 
   <div class="grid gap-3 lg:grid-cols-2">
     {% for i in range(data.planilla.n_participaciones) %}
-    {% set key = data.planilla.version_file ~ ':' ~ data.fecha_n ~ ':' ~ i %}
-    <div class="bg-slate-800 rounded-xl p-4 carga-card" data-key="{{ key }}">
+    {% set num = data.mis_numeros[i] if data.mis_numeros and i < data.mis_numeros | length else None %}
+    <div class="bg-slate-800 rounded-xl p-4 carga-card" data-part="{{ i }}"
+         data-num="{{ ('…' ~ (num % 1000)) if num else (i + 1) }}">
       <div class="flex items-center justify-between gap-2 mb-2">
         <span class="font-bold whitespace-nowrap min-w-0">
           <span class="text-slate-400 text-sm">{{ i + 1 }}·</span>
-          <span class="font-mono text-emerald-300">…{{ data.mis_numeros[i] % 1000 if data.mis_numeros and i < data.mis_numeros | length else i + 1 }}-1</span>
-          {% if data.mis_numeros and i < data.mis_numeros | length %}
-            <span class="font-mono text-[10px] text-slate-500 hidden sm:inline">({{ data.mis_numeros[i] }})</span>
+          <span class="font-mono text-emerald-300">…{{ num % 1000 if num else i + 1 }}-1</span>
+          {% if num %}
+            <span class="font-mono text-[10px] text-slate-500 hidden sm:inline">({{ num }})</span>
           {% endif %}
           {% if i == 0 %}<span class="text-indigo-300 text-xs font-medium">ancla EV</span>{% endif %}
+          <span class="chip-cambios hidden text-amber-300 text-xs font-semibold"></span>
         </span>
         <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer select-none shrink-0">
           <input type="checkbox" class="cargada w-6 h-6 accent-emerald-500">
@@ -47,12 +75,16 @@
       </div>
       <table class="w-full text-sm">
         {% for row in data.planilla.picks %}
-        <tr class="copiable border-b border-slate-700/40 cursor-pointer active:bg-slate-700/40
-                   {% if row.cerrado %}opacity-40{% endif %}" data-row="{{ loop.index0 }}">
+        <tr class="pick-row border-b border-slate-700/40 cursor-pointer active:bg-slate-700/40"
+            data-part="{{ i }}" data-ev="{{ row.evento_id }}" data-val="{{ row.scores_fmt[i] }}"
+            data-partido="{{ row.partido }}" data-cerrado="{{ 1 if row.cerrado else 0 }}"
+            data-row="{{ loop.index0 }}">
           <td class="py-2 pr-2 text-slate-300">
-            {{ row.partido }}{% if row.preferencial %} <span class="text-amber-300">⭐</span>{% endif %}
+            <span class="rotulo">{{ row.partido }}{% if row.preferencial %} <span class="text-amber-300">⭐</span>{% endif %}</span>
+            <div class="aviso hidden text-[11px] text-amber-300 font-medium leading-tight"></div>
+            <div class="verif hidden text-[11px] font-medium leading-tight"></div>
           </td>
-          <td class="text-right font-mono text-2xl font-bold whitespace-nowrap
+          <td class="score text-right font-mono text-2xl font-bold whitespace-nowrap
                      {% if i == 0 %}text-indigo-300{% else %}text-slate-100{% endif %}">
             {{ row.scores_fmt[i] }}
           </td>
@@ -68,79 +100,333 @@
     <h2 class="font-bold mb-2">⭐ Especiales (pestaña Especial, una vez)</h2>
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-2 text-sm">
       {% for esp in data.planilla.especiales.por_participacion %}
-      <div class="bg-slate-700/60 rounded-lg px-3 py-2">
+      {% set num = data.mis_numeros[loop.index0] if data.mis_numeros and loop.index0 < data.mis_numeros | length else None %}
+      <div class="esp-card bg-slate-700/60 rounded-lg px-3 py-2 cursor-pointer active:bg-slate-600/60"
+           data-part="{{ loop.index0 }}"
+           data-num="{{ ('…' ~ (num % 1000)) if num else loop.index }}"
+           data-val="{{ esp.campeon }}{% if esp.goleador %} · {{ esp.goleador }}{% endif %}">
         <span class="text-slate-400">
-          {%- if data.mis_numeros and loop.index0 < data.mis_numeros | length -%}
-            N° …{{ data.mis_numeros[loop.index0] % 1000 }}
-          {%- else -%}{{ loop.index }}{%- endif -%}:</span>
+          {%- if num -%}N° …{{ num % 1000 }}{%- else -%}{{ loop.index }}{%- endif -%}:</span>
         <span class="font-semibold">{{ esp.campeon }}</span>
         {% if esp.goleador %}<div class="text-xs text-slate-400">{{ esp.goleador }}</div>{% endif %}
+        <div class="aviso hidden text-[11px] text-amber-300 font-medium leading-tight"></div>
+        <div class="verif hidden text-[11px] font-medium leading-tight"></div>
       </div>
       {% endfor %}
     </div>
+    <div class="text-[11px] text-slate-500 mt-2">tocá cada tarjeta cuando la cargues</div>
   </div>
   {% endif %}
 
   <div id="version-watch" class="hidden fixed bottom-3 inset-x-3 bg-amber-600 text-white
        rounded-xl px-4 py-3 text-sm font-semibold shadow-lg z-50">
     ⚠️ Hay una versión más nueva de la planilla —
-    <a href="" class="underline">recargar</a> antes de seguir cargando.
+    <a href="" class="underline">recargá</a>: tus marcas se conservan y te muestro qué cambió.
   </div>
 
   <script>
+    // ------------------------------------------------------------------
+    // Marcas de carga: guardamos EL VALOR cargado, no un sí/no.
+    //
+    // Antes la clave incluía version_file, así que una planilla nueva borraba todo
+    // el progreso y el cambio de pick pasaba invisible. Ahora la clave es
+    // (fecha, participación, evento) y el valor es el marcador que confirmaste:
+    // si el pipeline lo mueve, la comparación con el pick actual delata el desfasaje
+    // y te dice de qué a qué cambió. Ese es el punto: que no quede cargado en la web
+    // un marcador que el modelo ya descartó.
+    // ------------------------------------------------------------------
+    const FECHA = {{ data.fecha_n }};
+    const VER = {{ (data.planilla.version_file if data.planilla else '') | tojson }};
+    const kRow = (part, ev) => `carga:v2:${FECHA}:${part}:${ev}`;
+    const kEsp = part => `carga:v2:esp:${part}`;   // los especiales son de temporada, no de fecha
+
+    const filas = [...document.querySelectorAll('.pick-row')];
+    const cards = [...document.querySelectorAll('.carga-card')];
+    const esps = [...document.querySelectorAll('.esp-card')];
+
+    const clave = el => el.classList.contains('esp-card')
+      ? kEsp(el.dataset.part) : kRow(el.dataset.part, el.dataset.ev);
+    const guardado = el => localStorage.getItem(clave(el));
+    const estado = el => {
+      const rec = guardado(el);
+      if (rec === null) return 'pendiente';
+      return rec === el.dataset.val ? 'cargada' : 'cambio';
+    };
+
+    // Migración del esquema viejo (marcas booleanas por versión de planilla): sólo
+    // tiene sentido para la versión que está en pantalla — las marcas de versiones
+    // anteriores ya eran invisibles. Se corre una sola vez para no resucitar lo que
+    // desmarcaste a mano.
+    const migKey = `carga:v2:${FECHA}:migrado:${VER}`;
+    if (VER && localStorage.getItem(migKey) !== '1') {
+      filas.forEach(tr => {
+        if (guardado(tr) !== null) return;
+        const base = `carga:${VER}:${FECHA}:${tr.dataset.part}`;
+        if (localStorage.getItem(base) === '1' ||
+            localStorage.getItem(`${base}:r${tr.dataset.row}`) === '1') {
+          localStorage.setItem(clave(tr), tr.dataset.val);
+        }
+      });
+      localStorage.setItem(migKey, '1');
+    }
+
+    function pintarFila(tr) {
+      const st = estado(tr);
+      const cerrado = tr.dataset.cerrado === '1';
+      tr.classList.toggle('line-through', st === 'cargada');
+      tr.classList.toggle('opacity-40', st === 'cargada' || (cerrado && st !== 'cambio'));
+      tr.classList.toggle('bg-amber-500/15', st === 'cambio');
+      // `!` para ganarle al color base de la columna (indigo en el ancla EV)
+      tr.querySelector('.score').classList.toggle('!text-amber-300', st === 'cambio');
+      const aviso = tr.querySelector('.aviso');
+      aviso.classList.toggle('hidden', st !== 'cambio');
+      if (st === 'cambio') {
+        aviso.textContent = cerrado
+          ? `⚠️ cargaste ${guardado(tr)} · la planilla dice ${tr.dataset.val} (ya cerrado)`
+          : `⚠️ cargaste ${guardado(tr)} → corregí a ${tr.dataset.val}`;
+      }
+    }
+
+    function pintarEsp(card) {
+      const st = estado(card);
+      card.classList.toggle('opacity-40', st === 'cargada');
+      card.classList.toggle('ring-2', st === 'cambio');
+      card.classList.toggle('ring-amber-400', st === 'cambio');
+      const aviso = card.querySelector('.aviso');
+      aviso.classList.toggle('hidden', st !== 'cambio');
+      if (st === 'cambio') aviso.textContent = `⚠️ cargaste ${guardado(card)}`;
+    }
+
+    function refrescar() {
+      const cambios = [];
+      cards.forEach(card => {
+        const suyas = filas.filter(tr => tr.dataset.part === card.dataset.part);
+        suyas.forEach(pintarFila);
+        const drift = suyas.filter(tr => estado(tr) === 'cambio');
+        drift.forEach(tr => cambios.push({
+          el: tr,
+          texto: `${card.dataset.num} · ${tr.dataset.partido}: ` +
+                 `${guardado(tr)} → ${tr.dataset.val}`,
+        }));
+        const chip = card.querySelector('.chip-cambios');
+        chip.classList.toggle('hidden', drift.length === 0);
+        chip.textContent = `⚠️ ${drift.length} cambió${drift.length === 1 ? '' : 'n'}`;
+
+        // "cargada" es derivado: todas las filas todavía abiertas confirmadas con el
+        // valor de hoy. Un cambio de pick la desmarca solo.
+        const abiertas = suyas.filter(tr => tr.dataset.cerrado !== '1');
+        const listo = abiertas.length > 0 && abiertas.every(tr => estado(tr) === 'cargada');
+        card.querySelector('.cargada').checked = listo;
+        card.classList.toggle('opacity-50', listo);
+      });
+
+      esps.forEach(card => {
+        pintarEsp(card);
+        if (estado(card) === 'cambio') cambios.push({
+          el: card,
+          texto: `${card.dataset.num} · especiales: ${guardado(card)} → ${card.dataset.val}`,
+        });
+      });
+
+      const done = cards.filter(c => c.querySelector('.cargada').checked).length;
+      document.getElementById('progreso').textContent =
+        `${done}/${cards.length} participaciones cargadas` +
+        (done === cards.length && !cambios.length ? ' ✅' : '');
+
+      const panel = document.getElementById('drift-panel');
+      panel.classList.toggle('hidden', cambios.length === 0);
+      document.getElementById('drift-n').textContent = cambios.length === 1
+        ? '1 pick cambió después de que lo cargaste'
+        : `${cambios.length} picks cambiaron después de que los cargaste`;
+      const lista = document.getElementById('drift-list');
+      lista.innerHTML = '';
+      cambios.forEach(c => {
+        const li = document.createElement('li');
+        li.className = 'text-amber-100 cursor-pointer underline decoration-amber-400/40';
+        li.textContent = c.texto;
+        li.addEventListener('click', () => {
+          c.el.scrollIntoView({behavior: 'smooth', block: 'center'});
+          c.el.classList.add('ring-2', 'ring-amber-400');
+          setTimeout(() => c.el.classList.remove('ring-2', 'ring-amber-400'), 2000);
+        });
+        lista.appendChild(li);
+      });
+    }
+
+    // Tocar confirma el valor de ahora; volver a tocar algo ya confirmado lo desmarca.
+    // Sobre una fila en estado "cambio", tocar significa "ya lo corregí en la web".
+    const alternar = el => {
+      if (estado(el) === 'cargada') localStorage.removeItem(clave(el));
+      else localStorage.setItem(clave(el), el.dataset.val);
+      refrescar();
+    };
+    filas.forEach(tr => tr.addEventListener('click', () => alternar(tr)));
+    esps.forEach(card => card.addEventListener('click', () => alternar(card)));
+
+    // El checkbox de la tarjeta es un atajo: confirma (o limpia) todas sus filas abiertas.
+    cards.forEach(card => {
+      card.querySelector('.cargada').addEventListener('change', ev => {
+        filas.filter(tr => tr.dataset.part === card.dataset.part
+                           && tr.dataset.cerrado !== '1')
+             .forEach(tr => ev.target.checked
+               ? localStorage.setItem(clave(tr), tr.dataset.val)
+               : localStorage.removeItem(clave(tr)));
+        refrescar();
+      });
+    });
+
+    refrescar();
+
+    // ------------------------------------------------------------------
+    // Verificación contra la web: la única fuente que no depende de tu memoria.
+    //
+    // Las marcas de arriba guardan lo que VOS decís que cargaste; esto lee lo que
+    // efectivamente quedó cargado y SINCRONIZA las marcas con esa verdad.
+    //
+    // ALCANCE (gate por evento, verificado 2026-08-07): el API publica el pick de un
+    // partido recién cuando ESE partido cierra. O sea que un marcador se puede
+    // verificar cuando ya no se puede corregir: sirve como control de calidad de la
+    // carga (¿venís tipeando bien?) y para los ESPECIALES, que sí son visibles desde
+    // el lock y sí se editan. Los partidos abiertos quedan en 'no_visible' y su marca
+    // local NO se toca — decir "sin cargar" ahí mandaría a recargar lo que ya está.
+    // ------------------------------------------------------------------
+    const btnVerif = document.getElementById('btn-verificar');
+
+    function panelVerif(color, titulo, items) {
+      const panel = document.getElementById('verif-panel');
+      panel.className = `mt-2 rounded-lg p-3 border text-sm bg-${color}-500/15 border-${color}-500/50`;
+      document.getElementById('verif-txt').textContent = titulo;
+      const ul = document.getElementById('verif-list');
+      ul.innerHTML = '';
+      items.forEach(it => {
+        const li = document.createElement('li');
+        li.className = 'text-slate-200';
+        li.textContent = it.texto;
+        if (it.el) {
+          li.classList.add('cursor-pointer', 'underline', 'decoration-slate-400/40');
+          li.addEventListener('click', () => it.el.scrollIntoView({behavior: 'smooth', block: 'center'}));
+        }
+        ul.appendChild(li);
+      });
+    }
+
+    const pintarVerif = (el, texto, color) => {
+      const d = el.querySelector('.verif');
+      if (!d) return;
+      d.textContent = texto;
+      d.className = `verif text-[11px] font-medium leading-tight text-${color}`;
+    };
+
+    function aplicarVerificacion(v) {
+      [...filas, ...esps].forEach(el => el.querySelector('.verif')?.classList.add('hidden'));
+      if (!v.ok) { panelVerif('rose', `❌ ${v.error}`, []); return; }
+      // El orden importa: "todavía no cerró nada" explica el caso normal (estás
+      // cargando antes del primer cierre); el API mudo es el raro.
+      if (v.nada_verificable) {
+        panelVerif('amber', '🔒 Todavía no hay nada que verificar: el API publica cada pick ' +
+                            'recién cuando ESE partido cierra. Volvé a tocar el botón después ' +
+                            'del primer cierre.', []);
+        return;
+      }
+      if (v.sin_datos_api) {
+        panelVerif('amber', '❔ El API no devolvió ningún pronóstico — no pude verificar nada.', []);
+        return;
+      }
+      if (v.sin_datos_fecha) {
+        panelVerif('amber', '❔ El API no devolvió los pronósticos de esta fecha aunque ya haya ' +
+                            'partidos cerrados — no puedo verificarla (no significa que falten).', []);
+        return;
+      }
+
+      const problemas = [];
+      v.filas.forEach(f => {
+        const tr = document.querySelector(
+          `.pick-row[data-part="${f.part}"][data-ev="${f.evento_id}"]`);
+        if (!tr) return;
+        if (f.estado === 'ok') {
+          pintarVerif(tr, '✓ igual en la web', 'emerald-400');
+          localStorage.setItem(clave(tr), f.planilla);
+        } else if (f.estado === 'distinto') {
+          pintarVerif(tr, `🔴 en la web dice ${f.web}`, 'rose-300');
+          localStorage.setItem(clave(tr), f.web);      // la web manda sobre tu marca
+          problemas.push({el: tr, texto: `N°${f.numero} · ${f.partido}: web ${f.web} ` +
+                                         `≠ planilla ${f.planilla}`});
+        } else if (f.estado === 'falta') {
+          // Solo llega acá un partido YA CERRADO: ahí sí la ausencia es real.
+          pintarVerif(tr, '⬜ no quedó cargado (ya cerrado)', 'rose-300');
+          localStorage.removeItem(clave(tr));
+          problemas.push({el: tr,
+            texto: `N°${f.numero} · ${f.partido}: no quedó cargado (${f.planilla})`});
+        } else if (f.estado === 'no_visible') {
+          // El API no publica el pick hasta el cierre del partido: no se sabe nada.
+          // NO tocar la marca local — es lo único que hay sobre este pick.
+          pintarVerif(tr, '🔒 no verificable hasta el cierre', 'slate-500');
+        } else {
+          pintarVerif(tr, '❔ participación no encontrada', 'slate-400');
+        }
+      });
+
+      const porEsp = {};
+      (v.especiales || []).forEach(e => {
+        (porEsp[e.part] = porEsp[e.part] || []).push(e);
+      });
+      Object.entries(porEsp).forEach(([part, campos]) => {
+        const card = document.querySelector(`.esp-card[data-part="${part}"]`);
+        if (!card) return;
+        const malos = campos.filter(c => c.estado !== 'ok');
+        if (!malos.length) {
+          pintarVerif(card, '✓ igual en la web', 'emerald-400');
+          localStorage.setItem(clave(card), card.dataset.val);
+        } else {
+          const rot = c => c.campo === 'campeon' ? 'campeón' : c.campo;
+          const txt = malos.map(c => c.estado === 'falta'
+            ? `${rot(c)} sin cargar` : `${rot(c)}: web ${c.web || '—'}`).join(' · ');
+          pintarVerif(card, `🔴 ${txt}`, 'rose-300');
+          // la marca local decía "cargado" y la web dice otra cosa: se cae la marca
+          localStorage.removeItem(clave(card));
+          malos.forEach(c => problemas.push({el: card,
+            texto: `N°${c.numero} · ${rot(c)}: web ${c.web || '—'} ≠ planilla ${c.planilla}`}));
+        }
+      });
+
+      const r = v.resumen;
+      const titulo = `✅ ${r.ok} coinciden · 🔴 ${r.distinto} distintos · ` +
+                     `⬜ ${r.falta} no cargados` +
+                     (r.no_visible ? ` · 🔒 ${r.no_visible} no verificables hasta su cierre` : '');
+      panelVerif(problemas.length ? 'rose' : 'emerald', titulo, problemas);
+      refrescar();
+    }
+
+    btnVerif.addEventListener('click', async () => {
+      const txt = btnVerif.textContent;
+      btnVerif.disabled = true;
+      btnVerif.textContent = '🔎 verificando…';
+      try {
+        const r = await fetch('../api/verificar?fecha={{ data.fecha_n }}', {cache: 'no-store'});
+        aplicarVerificacion(await r.json());
+      } catch (e) {
+        panelVerif('rose', `❌ no pude consultar la web (${e})`, []);
+      } finally {
+        btnVerif.disabled = false;
+        btnVerif.textContent = txt;
+      }
+    });
+
     // Vigía de versión: si el timer/rerun escribe una planilla nueva mientras esta
     // pestaña está abierta, avisamos — una pestaña vieja es el único camino para
-    // cargar picks desactualizados sin enterarse.
-    const versionActual = {{ (data.planilla.version_file if data.planilla else '') | tojson }};
-    if (versionActual) {
+    // cargar picks desactualizados sin enterarse. Al recargar, las marcas sobreviven
+    // y los picks que se movieron quedan listados arriba.
+    if (VER) {
       setInterval(async () => {
         try {
           const r = await fetch('../api/data?fecha={{ data.fecha_n }}', {cache: 'no-store'});
           const d = await r.json();
-          if (d.planilla && d.planilla.version_file !== versionActual) {
+          if (d.planilla && d.planilla.version_file !== VER) {
             document.getElementById('version-watch').classList.remove('hidden');
           }
         } catch (e) { /* sin red: no molestar */ }
       }, 60_000);
     }
-
-    // Progreso de carga persistido en el teléfono (localStorage), por versión de
-    // planilla: si se regenera la planilla, los checks se resetean solos.
-    const cards = document.querySelectorAll('.carga-card');
-    const update = () => {
-      const done = [...cards].filter(c => c.querySelector('.cargada').checked).length;
-      document.getElementById('progreso').textContent =
-        `${done}/${cards.length} participaciones cargadas` + (done === cards.length ? ' ✅' : '');
-    };
-    cards.forEach(card => {
-      const key = 'carga:' + card.dataset.key;
-      const box = card.querySelector('.cargada');
-      box.checked = localStorage.getItem(key) === '1';
-      if (box.checked) card.classList.add('opacity-50');
-      box.addEventListener('change', () => {
-        localStorage.setItem(key, box.checked ? '1' : '0');
-        card.classList.toggle('opacity-50', box.checked);
-        update();
-      });
-
-      // Filas tacheables: tocás la fila al copiarla en la web y queda marcada —
-      // para no perderte transcribiendo 8 marcadores × 12 participaciones.
-      // Mismo keying por versión que los checks: planilla nueva ⇒ marcas limpias.
-      card.querySelectorAll('.copiable').forEach(tr => {
-        const rkey = key + ':r' + tr.dataset.row;
-        const marcar = on => {
-          tr.classList.toggle('opacity-40', on);
-          tr.classList.toggle('line-through', on);
-        };
-        marcar(localStorage.getItem(rkey) === '1');
-        tr.addEventListener('click', () => {
-          const on = !(localStorage.getItem(rkey) === '1');
-          localStorage.setItem(rkey, on ? '1' : '0');
-          marcar(on);
-        });
-      });
-    });
-    update();
   </script>
 {% endif %}
 {% endblock %}
