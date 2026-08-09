@@ -130,6 +130,9 @@ def test_simulador_ancla_el_pasado_a_los_puntos_reales():
     sim = SeasonSimulator(
         [d1, d2], [280, 280], [False, True], [q, q],
         PrizeConfig(), SimConfig(n_sims=50, seed=5), rivals=model,
+        # sin compactar: este test inspecciona los puntos de UN rival en UNA fecha,
+        # y el camino de producción solo guarda el (máximo, empatados) de cada una
+        compactar_fechas=False,
     )
     esperado = implied + 2
     assert np.all(sim.rivals_total == esperado[:, None])

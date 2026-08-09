@@ -96,14 +96,49 @@ def test_liquidar_perder_no_cobra():
     assert _liquidar(s, mine, rivals, 350_000.0)[0] == 0.0
 
 
-def test_cache_de_rivales_da_identico_a_recalcular(sim_multi):
-    """El caché de (máximo, empatados) no puede cambiar un solo peso.
+def _sim_16(compactar: bool) -> SeasonSimulator:
+    g = score_grid(1.4, 1.0, 0.0, max_goals=MAX_GOALS)
+    n = 16
+    q = pool_distribution(g, PoolConfig())
+    return SeasonSimulator(
+        grids=[g] * n, fecha_de_partido=[i // 8 for i in range(n)],
+        preferencial=[i % 8 == 0 for i in range(n)], pool_q=[q] * n,
+        prize=PrizeConfig(), sim=SimConfig(n_sims=200, n_rivales=20, seed=42),
+        compactar_fechas=compactar,
+    )
 
-    Regresión del cambio del 2026-08-08: `_liquidar` dejó de recalcular el lado
-    rival en cada evaluación (37x más rápido). Si esto se rompe, el ascenso por
-    coordenadas optimiza contra un pool equivocado y nadie se entera.
+
+def test_compactar_fechas_da_identico_a_guardar_la_matriz_entera():
+    """El acumulado por fecha se liquida a (máximo, empatados) y se tira la matriz.
+
+    Era (n_fechas, R, S) — 403 MB con S=9.600 y R=700, en un droplet de 1 GB — y es
+    lo que impedía subir n_sims, que es de donde sale la plata. La compactación no
+    puede mover un peso, ni al liquidar ni después de cambiar picks propios: si se
+    rompe, el ascenso optimiza contra un pool equivocado y nadie se entera.
     """
-    s = sim_multi
+    compacto, entero = _sim_16(True), _sim_16(False)
+    assert compacto.rivals_fecha is None and entero.rivals_fecha is not None
+    assert np.array_equal(np.asarray(compacto.rivals_total),
+                          np.asarray(entero.rivals_total))
+
+    rng = np.random.default_rng(3)
+    picks = rng.integers(0, N_SCORES, size=(4, compacto.n_matches))
+    compacto.load_picks(picks)
+    entero.load_picks(picks)
+    assert compacto.e_premio_total() == entero.e_premio_total()
+    assert compacto.result().__dict__ == entero.result().__dict__
+
+    for _ in range(20):   # el ascenso cambia picks PROPIOS; el pool no se mueve
+        i, m, v = (int(rng.integers(0, 4)), int(rng.integers(0, compacto.n_matches)),
+                   int(rng.integers(0, N_SCORES)))
+        compacto.set_pick(i, m, v)
+        entero.set_pick(i, m, v)
+        assert compacto.e_premio_total() == entero.e_premio_total()
+
+
+def test_cache_de_rivales_da_identico_a_recalcular():
+    """El caché de (máximo, empatados) contra la fórmula cruda del Art. 7a."""
+    s = _sim_16(False)
     rng = np.random.default_rng(3)
     s.load_picks(rng.integers(0, N_SCORES, size=(4, s.n_matches)))
 
@@ -121,7 +156,7 @@ def test_cache_de_rivales_da_identico_a_recalcular(sim_multi):
         return float(p.mean())
 
     assert s.e_premio_total() == referencia()
-    for _ in range(20):   # el ascenso cambia picks PROPIOS; el pool no se mueve
+    for _ in range(20):
         s.set_pick(int(rng.integers(0, 4)), int(rng.integers(0, s.n_matches)),
                    int(rng.integers(0, N_SCORES)))
         assert s.e_premio_total() == referencia()
@@ -150,7 +185,7 @@ def test_mutar_el_lado_rival_por_indice_falla_fuerte():
 
     Preferimos un ValueError a un premio calculado contra un máximo viejo.
     """
-    s = _sim_minimo()
+    s = _sim_16(False)          # compactado no hay matriz que mutar: el caso es este
     s.load_picks(np.zeros((2, s.n_matches), dtype=np.int64))
     s.e_premio_total()
     with pytest.raises(ValueError):

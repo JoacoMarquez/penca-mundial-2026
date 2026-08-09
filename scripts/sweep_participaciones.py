@@ -161,13 +161,14 @@ class FastPort:
         self.sim = sim
         self.S = sim.cfg.n_sims
         self.F = sim.n_fechas
-        rt = sim.rivals_total
-        self.rmax = rt.max(axis=0)
-        self.rcnt = (rt == self.rmax[None, :]).sum(axis=0)
-        self.rfmax = np.stack([sim.rivals_fecha[f].max(axis=0) for f in range(self.F)])
-        self.rfcnt = np.stack([
-            (sim.rivals_fecha[f] == self.rfmax[f][None, :]).sum(axis=0)
-            for f in range(self.F)])
+        # Desde el 2026-08-08 el simulador ya cachea el (máximo, empatados) del lado
+        # rival — es exactamente lo que este evaluador calculaba a mano — y además
+        # NO guarda el acumulado por fecha entero (era (n_fechas, R, S), el techo de
+        # memoria del droplet). Se reusan sus stats en vez de re-derivarlas.
+        self.rmax, self.rcnt = sim._stats_total()
+        stats = [sim._stats_fecha(f) for f in range(self.F)]
+        self.rfmax = np.stack([m for m, _ in stats])
+        self.rfcnt = np.stack([c for _, c in stats])
         self.reset(0)
 
     def reset(self, n_rows: int):

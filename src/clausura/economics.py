@@ -127,6 +127,7 @@ class SeasonSimulator:
         prize: PrizeConfig | None = None,
         sim: SimConfig | None = None,
         rivals=None,
+        compactar_fechas: bool = True,
     ):
         """`rivals` (opcional): un RivalModel de src.clausura.rivals — pool empírico
         por participación (picks conocidos, estilo γ, ausentismo, residuo vs tabla
@@ -153,26 +154,67 @@ class SeasonSimulator:
             rng.choice(N_SCORES, size=S, p=flatten_grid(g)) for g in grids
         ])
 
-        # picks de los rivales, POR SIMULACIÓN: (R, S) por partido → acumulados
+        # picks de los rivales, POR SIMULACIÓN: (R, S) por partido → acumulados.
+        #
+        # El acumulado POR FECHA no se guarda entero: era una matriz
+        # (n_fechas, R, S) —403 MB con S=9.600 y R=700, en un droplet de 1 GB— y de
+        # ella solo se usa su (máximo, empatados) por simulación, que ocupa
+        # (n_fechas, 2, S) = 2 MB. Ese array era el techo que impedía subir n_sims,
+        # que es de donde sale la plata (a 2.400 sorteos el ascenso fitea ruido).
+        #
+        # Se acumula con UN buffer por fecha abierta, que se liquida a stats y se
+        # libera apenas entra el último partido de esa fecha. El recorrido sigue
+        # siendo m = 0..n_matches-1 en orden: agrupar por fecha cambiaría la
+        # secuencia del rng y con ella los picks rivales, o sea que dejaría de ser
+        # una optimización para pasar a mover los resultados. Con el fixture real
+        # (fechas contiguas) hay un solo buffer vivo a la vez.
         self._cache_total: tuple[np.ndarray, np.ndarray] | None = None
         self._cache_fecha: list[tuple[np.ndarray, np.ndarray] | None] | None = None
         self.rivals_total = np.zeros((R, S), dtype=np.int32)
-        self.rivals_fecha = np.zeros((self.n_fechas, R, S), dtype=np.int32)
+        self.rivals_fecha = None          # compactado; ver _stats_fecha
+
+        # `compactar_fechas=False` conserva la matriz entera. No es para producción:
+        # existe para inspeccionar los puntos de UN rival en UNA fecha (tests del
+        # ausentismo, debugging). El camino compacto y el completo dan resultados
+        # idénticos — hay un test que lo fija.
+        ultimo_de_fecha = {}
+        for m in range(self.n_matches):
+            ultimo_de_fecha[self.match_fecha[m]] = m
+        buffers: dict[int, np.ndarray] = {}
+        self._cache_fecha = [None] * self.n_fechas
+        if not compactar_fechas:
+            self.rivals_fecha = np.zeros((self.n_fechas, R, S), dtype=np.int32)
+            self._cache_fecha = None
+
+        def _acumular(m: int, pts: np.ndarray) -> None:
+            fi = self.match_fecha[m]
+            self._rivals_total += pts
+            if not compactar_fechas:
+                self._rivals_fecha[fi] += pts
+                return
+            buf = buffers.get(fi)
+            if buf is None:
+                buf = buffers[fi] = np.zeros((R, S), dtype=np.int32)
+            buf += pts
+            if ultimo_de_fecha[fi] == m:       # no entran más partidos de esta fecha
+                self._cache_fecha[fi] = self._stats(buf)
+                del buffers[fi]
+
         if rivals is not None:
             for m in range(self.n_matches):
                 rp, show = rivals.sample_picks_match(m, pool_q[m], rng, S)
                 pts = self.pm[m][rp, self.actual[m][None, :]]
                 pts = pts * show   # no cargó → 0 puntos
-                self.rivals_total += pts
-                self.rivals_fecha[self.match_fecha[m]] += pts
-            # ancla a la tabla real: puntos del ranking − puntos implicados
-            self.rivals_total += rivals.residuo.astype(np.int32)[:, None]
+                _acumular(m, pts)
+            # ancla a la tabla real: puntos del ranking − puntos implicados. Va SOLO
+            # al total: los premios por fecha computan únicamente sus partidos (Art. 8).
+            self.rivals_total = self._rivals_total + rivals.residuo.astype(np.int32)[:, None]
         else:
             for m in range(self.n_matches):
                 rp = rng.choice(N_SCORES, size=(R, S), p=pool_q[m])
                 pts = self.pm[m][rp, self.actual[m][None, :]]
-                self.rivals_total += pts
-                self.rivals_fecha[self.match_fecha[m]] += pts
+                _acumular(m, pts)
+            self.rivals_total = self._rivals_total
 
         # estado propio (se setea con load_picks)
         self.picks: np.ndarray | None = None
@@ -218,13 +260,20 @@ class SeasonSimulator:
         self._cache_total = None
 
     @property
-    def rivals_fecha(self) -> np.ndarray:
+    def rivals_fecha(self) -> np.ndarray | None:
+        """Acumulado rival por fecha, o None si está compactado (el caso normal).
+
+        El constructor NO lo guarda: liquida cada fecha a (máximo, empatados) y tira
+        la matriz. Escribirle una entera es un camino soportado —lo usa
+        `backtest.realized_prizes`, que reemplaza el lado rival después del
+        constructor— y a partir de ahí las stats se derivan de ella.
+        """
         return self._rivals_fecha
 
     @rivals_fecha.setter
-    def rivals_fecha(self, value: np.ndarray) -> None:
+    def rivals_fecha(self, value: np.ndarray | None) -> None:
         self._rivals_fecha = value
-        if value.base is None:
+        if value is not None and value.base is None:
             value.setflags(write=True)
         self._cache_fecha = None
 
@@ -242,9 +291,17 @@ class SeasonSimulator:
 
     def _stats_fecha(self, fi: int) -> tuple[np.ndarray, np.ndarray]:
         if self._cache_fecha is None:
+            if self._rivals_fecha is None:
+                raise RuntimeError(
+                    "no hay lado rival por fecha: se compactó en el constructor y "
+                    "después alguien lo invalidó sin escribir uno nuevo"
+                )
             self._rivals_fecha.setflags(write=False)
             self._cache_fecha = [None] * self.n_fechas
         if self._cache_fecha[fi] is None:
+            if self._rivals_fecha is None:
+                raise RuntimeError(f"fecha {fi} sin stats ni matriz rival")
+            self._rivals_fecha.setflags(write=False)
             self._cache_fecha[fi] = self._stats(self._rivals_fecha[fi])
         return self._cache_fecha[fi]
 
