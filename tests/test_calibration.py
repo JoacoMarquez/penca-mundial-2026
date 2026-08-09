@@ -365,3 +365,70 @@ def test_calibration_recovers_params_with_mixed_singles_and_groups():
     assert fit["loss"] < fit["prior_loss"]
     assert abs(fit["chalk_strength"] - true["chalk"]) < abs(PRIOR_CHALK - true["chalk"])
     assert abs(fit["bias_scale"] - true["beta"]) < abs(PRIOR_BIAS_SCALE - true["beta"])
+
+
+# -------------------- sesgo de popularidad orientado al favorito --------------------
+
+def test_bias_se_refleja_cuando_el_favorito_es_visitante():
+    """La tabla está en clave local-favorito; con favorito visitante hay que reflejarla.
+
+    Medido el 2026-08-09 sobre 2.739 picks reales: en Torque–Peñarol (Peñarol
+    favorito de visita) el sesgo empírico del 1-0 era 0,07 y el modelo le daba 1,58.
+    Sin reflejar, el modelo empuja la Q hacia marcadores de local justo donde el pool
+    hace lo contrario.
+    """
+    import numpy as np
+    from src.clausura.economics import score_index
+    from src.clausura.pool import PoolConfig, pool_distribution
+    from src.model.poisson import score_grid
+
+    local_fav = score_grid(1.9, 0.8, 0.0, max_goals=5)     # local favorito
+    visita_fav = score_grid(0.8, 1.9, 0.0, max_goals=5)    # visitante favorito
+
+    q_lf = pool_distribution(local_fav, PoolConfig())
+    q_vf = pool_distribution(visita_fav, PoolConfig())
+
+    # con favorito local, el 1-0 (gana el favorito por 1) está premiado
+    assert q_lf[score_index(1, 0)] > q_lf[score_index(0, 1)]
+    # con favorito visitante, el premiado tiene que ser el 0-1, no el 1-0
+    assert q_vf[score_index(0, 1)] > q_vf[score_index(1, 0)]
+
+    # y el efecto es simétrico: la Q reflejada del uno es la del otro
+    espejo = q_vf.reshape(6, 6).T.reshape(-1)
+    assert np.allclose(q_lf, espejo, atol=1e-12)
+
+
+def test_orientar_al_favorito_se_puede_apagar():
+    """Reproducir el comportamiento previo al 2026-08-09.
+
+    Se compara el sesgo RELATIVO AL MERCADO (Q/P), no la Q cruda: el sesgo es un
+    multiplicador sobre la probabilidad de mercado, y con favorito visitante el
+    mercado por sí solo ya hace que 0-1 tenga más masa que 1-0. Lo que distingue a
+    los dos modos es hacia dónde empujan RESPECTO del mercado.
+    """
+    from src.clausura.economics import flatten_grid, score_index
+    from src.clausura.pool import PoolConfig, pool_distribution
+    from src.model.poisson import score_grid
+
+    visita_fav = score_grid(0.8, 1.9, 0.0, max_goals=5)
+    p = flatten_grid(visita_fav)
+    i10, i01 = score_index(1, 0), score_index(0, 1)
+
+    def sesgo_rel(cfg):
+        q = pool_distribution(visita_fav, cfg)
+        return (q[i10] / p[i10]) / (q[i01] / p[i01])
+
+    # apagado: empuja hacia el 1-0 (tabla en clave local) aunque el favorito sea visita
+    assert sesgo_rel(PoolConfig(orientar_al_favorito=False)) > 1.2
+    # prendido: empuja hacia el 0-1, que es el "gana el favorito por 1"
+    assert sesgo_rel(PoolConfig(orientar_al_favorito=True)) < 0.9
+
+
+def test_partido_parejo_no_rompe_la_orientacion():
+    """Con λ iguales no hay favorito; la Q tiene que quedar bien formada igual."""
+    import numpy as np
+    from src.clausura.pool import PoolConfig, pool_distribution
+    from src.model.poisson import score_grid
+
+    q = pool_distribution(score_grid(1.2, 1.2, 0.0, max_goals=5), PoolConfig())
+    assert np.isfinite(q).all() and abs(q.sum() - 1.0) < 1e-9
