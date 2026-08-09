@@ -20,21 +20,19 @@ ExecStartPre=-/opt/penca/.venv/bin/python -m src.clausura.intermedio
 ExecStartPre=-/opt/penca/.venv/bin/python -m src.clausura.pool_snapshot --if-started --reusar-especiales --max-edad-h 6
 # --sims: el ascenso por coordenadas compara dos estimaciones Monte Carlo, así que
 # con pocos sorteos elige ruido. Medido out-of-sample con sorteos comunes: E[premio]
-# 2.400 → 3.200 vale +$3.916 ± 1.585, y 2.400 → 9.600 vale +$21.060 ± 936. O sea que
-# convendría 9.600 y NO se puede: el techo es la MEMORIA del droplet (1 GB).
+# 2.400 → 3.200 vale +$3.916 ± 1.585, y 2.400 → 9.600 vale +$21.060 ± 936. Durante
+# unas horas el techo fue la MEMORIA del droplet (1 GB) y hubo que quedarse en 3.200;
+# compactar el acumulado por fecha lo destrabó.
 #
-# Pico de RSS medido de build_portfolio completo (706 rivales, 120 partidos, 12
-# participaciones, con RivalModel empírico), 2026-08-08:
-#     S=2400 → 437 MB · S=3200 → 555 MB · S=4800 → 788 MB · S=9600 → 875 MB (un solo
-#     simulador; el camino completo construye dos, ver _evaluate_fresh)
-# 3.200 es el escalón más alto con margen para el dashboard que corre al lado.
+# Pico de RSS medido EN EL DROPLET (706 rivales, 120 partidos, 12 participaciones,
+# RivalModel empírico), con el acumulado por fecha ya compactado a (máximo, empatados):
+#     S=3200 → 268 MB (116 s) · S=9600 → 466 MB (340 s), sobre 552 MB disponibles
+# Antes de compactar, 3200 pedía 476 MB y 9600 no entraba en el GB del droplet.
 #
-# El tiempo ya NO es la restricción: el caché de (max, count) del lado rival dio 37x
-# por evaluación (economics._liquidar), así que lo que antes tardaba 33 min ahora son
-# minutos. Lo que falta para llegar a 9.600 es achicar rivals_fecha, que es
-# (n_fechas, R, S) persistente y de ahí sale casi todo el consumo: con el caché ya
-# solo se necesita su (max, count), o sea (n_fechas, 2, S). Es el próximo paso.
-ExecStart=/opt/penca/.venv/bin/python -m src.clausura.picks --fecha auto --telegram --participaciones 12 --sims 3200
+# 9.600 es donde la curva de E[premio] ya casi satura: 2400→9600 vale +$21.060 ± 936
+# y 9600→19200 solo +$6.461 ± 609, con el doble de memoria y tiempo. No subir más sin
+# volver a medir el pico acá.
+ExecStart=/opt/penca/.venv/bin/python -m src.clausura.picks --fecha auto --telegram --participaciones 12 --sims 9600
 StandardOutput=append:/var/lib/penca/logs/clausura-picks.log
 StandardError=append:/var/lib/penca/logs/clausura-picks.err
 User=root
