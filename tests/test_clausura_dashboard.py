@@ -250,3 +250,68 @@ def test_modo_carga_incluye_el_vigia_de_version(monkeypatch):
     assert "version-watch" in html
     assert '"v8_x.json"' in html          # la versión actual queda embebida para comparar
     assert "api/data?fecha=" in html      # y el poll apunta al endpoint de datos
+
+
+# -------------------- modo carga: marcas por valor --------------------
+
+def _render_carga(picks: list[dict], n_part: int = 2, version: str = "v3_x.json") -> str:
+    """Renderiza carga.html sin fastapi (el template sólo usa `data` y `token`)."""
+    from pathlib import Path
+
+    from jinja2 import Environment, FileSystemLoader
+
+    tpl_dir = Path(__file__).resolve().parents[1] / "src" / "clausura" / "templates"
+    env = Environment(loader=FileSystemLoader(str(tpl_dir)))
+    data = {
+        "ok": True, "fecha_n": 4, "supermatch_url": "http://x",
+        "mis_numeros": [899258848, 899258849][:n_part],
+        "planilla": {
+            "n_participaciones": n_part, "version_file": version,
+            "generado_uy": "vie 08/08 10:00", "picks": picks,
+        },
+    }
+    return env.get_template("carga.html").render(data=data, token="t")
+
+
+def _pick(evento_id: int, scores_fmt: list[str], cerrado: bool = False) -> dict:
+    return {"partido": f"L{evento_id} vs V{evento_id}", "preferencial": False,
+            "cerrado": cerrado, "evento_id": evento_id, "scores_fmt": scores_fmt}
+
+
+def test_modo_carga_cada_fila_lleva_evento_y_valor():
+    """La marca de 'cargada' guarda EL VALOR, así que cada fila tiene que exponer su
+    evento_id (clave estable) y el marcador de ESA participación."""
+    html = _render_carga([_pick(111, ["2-1", "1-1"]), _pick(112, ["1-0", "0-0"])])
+
+    assert 'data-part="0" data-ev="111" data-val="2-1"' in html
+    assert 'data-part="1" data-ev="111" data-val="1-1"' in html
+    assert 'data-part="1" data-ev="112" data-val="0-0"' in html
+
+
+def test_modo_carga_la_clave_no_depende_de_la_version():
+    """Regresión: con la versión en la clave, una planilla nueva borraba todo el
+    progreso y el cambio de pick pasaba invisible. La clave es (fecha, part, evento)."""
+    html = _render_carga([_pick(111, ["2-1", "1-1"])], version="v9_zzz.json")
+
+    assert "`carga:v2:${FECHA}:${part}:${ev}`" in html
+    # el version_file sigue embebido (vigía + migración) pero no como clave de fila
+    assert 'carga:v2:${FECHA}:${part}:${ev}:${VER}' not in html
+    assert "migrado" in html          # las marcas del esquema viejo se rescatan una vez
+
+
+def test_modo_carga_trae_el_panel_de_cambios():
+    """El desfasaje se muestra: panel con la lista antes → después y aviso por fila."""
+    html = _render_carga([_pick(111, ["2-1", "1-1"])])
+
+    assert 'id="drift-panel"' in html and 'id="drift-list"' in html
+    assert "cambiaron después de que los cargaste" in html
+    assert 'class="aviso' in html          # el "cargaste X → corregí a Y" de cada fila
+
+
+def test_modo_carga_marca_los_cerrados():
+    """Un partido ya cerrado no se puede corregir: la fila lo declara para que el
+    aviso no pida ir a arreglar algo que la web ya no deja tocar."""
+    html = _render_carga([_pick(111, ["2-1", "1-1"], cerrado=True)])
+
+    assert 'data-cerrado="1"' in html
+    assert "ya cerrado" in html

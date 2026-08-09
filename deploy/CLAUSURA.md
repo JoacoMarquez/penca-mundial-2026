@@ -53,8 +53,23 @@ Páginas:
 | Ruta | Qué muestra |
 |---|---|
 | `/dash/<TOKEN>/` | planilla de la fecha + ranking en vivo (top-15 + las nuestras) |
-| `/dash/<TOKEN>/carga/` | modo carga: una tarjeta por participación con checkbox |
+| `/dash/<TOKEN>/carga/` | modo carga: una tarjeta por participación, marcas por valor y verificación contra la web |
 | `/dash/<TOKEN>/pool/` | el pool: líder y empatados en la cima, puesto real de cada participación nuestra, distribución de puntos, premio de la fecha y trayectoria |
+
+### Modo carga: dos defensas contra el error humano
+
+1. **Marcas por valor.** Tocás cada fila al copiarla en la web y se guarda *el
+   marcador que cargaste* (localStorage, clave `carga:v2:<fecha>:<part>:<evento>`).
+   Si una corrida posterior mueve ese pick, la fila avisa `cargaste 2-1 → corregí a
+   1-1` y el cambio queda listado arriba. Antes la marca era un sí/no con la versión
+   de planilla en la clave: planilla nueva ⇒ progreso borrado y cambio invisible.
+2. **Verificación real** (botón *🔎 Verificar contra la web*, endpoint
+   `/dash/<TOKEN>/api/verificar`). Lee los pronósticos efectivamente cargados
+   (`pronosticosEventos` + `pronosticoCampeonGoleador`, públicos post-inicio) y los
+   compara con la planilla: ~24 requests con el mismo pacing que el escaneo del pool,
+   cacheadas 60 s. Sincroniza las marcas con lo que dice la web. Si el API no expone
+   los pronósticos de esa fecha, lo dice en vez de reportar "sin cargar".
+   También como CLI: `python3 -m src.clausura.verificar_carga --fecha N`.
 
 El pool sale de **una** request al penca-api (`ranking?size=1000` trae las ~700 filas
 enteras), cacheada 120 s y compartida con el home. El escaneo caro —2 requests por

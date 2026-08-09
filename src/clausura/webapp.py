@@ -78,3 +78,17 @@ def api_data(token: str, fecha: Optional[int] = None):
 def api_pool(token: str):
     _check_token(token)
     return JSONResponse(load_pool_page())
+
+
+@app.get("/dash/{token}/api/verificar")
+def api_verificar(token: str, fecha: Optional[int] = None):
+    """Lo cargado en la web vs la planilla, pick por pick.
+
+    Lo dispara el botón del modo carga. Son ~24 requests al penca-api con pacing,
+    así que va cacheado: un doble-clic no lanza dos escaneos.
+    """
+    _check_token(token)
+    from src.clausura.dashboard_loader import _cached
+    from src.clausura.verificar_carga import VERIF_TTL, verificar
+
+    return JSONResponse(_cached(f"verif:{fecha}", VERIF_TTL, lambda: verificar(fecha)))
