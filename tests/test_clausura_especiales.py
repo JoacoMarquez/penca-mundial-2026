@@ -219,3 +219,50 @@ def test_build_portfolio_respeta_frozen_especiales():
                            sim=SimConfig(n_sims=200, n_rivales=20, seed=7),
                            especiales=esp, max_passes=1)
     assert port.campeon[0] == 1
+
+
+# -------------------- menú de goleador desde el snapshot (2026-08-10) --------------------
+
+def test_opciones_goleador_desde_snapshot():
+    """El API de opciones da 500 crónico; el menú se reconstruye del pool."""
+    from src.clausura.especiales import opciones_goleador_desde_snapshot
+
+    snap = {"participaciones": [
+        {"numero": 1, "goleador_id": 620, "goleador": "Matías Arezo"},
+        {"numero": 2, "goleador_id": 622, "goleador": "Maximiliano Gómez"},
+        {"numero": 3, "goleador_id": 620, "goleador": "Matías Arezo"},   # repetido
+        {"numero": 4, "goleador_id": None, "goleador": None},            # sin cargar
+        {"numero": 5},                                                   # sin el campo
+    ]}
+    ops = opciones_goleador_desde_snapshot(snap)
+    assert [o.id for o in ops] == [620, 622]
+    assert [o.nombre for o in ops] == ["Matías Arezo", "Maximiliano Gómez"]
+    # el snapshot no trae equipo, y eso hay que dejarlo explícito
+    assert all(o.equipo_id == -1 for o in ops)
+
+
+def test_goleador_prior_desde_pool_encoge_hacia_uniforme():
+    """shrink=0 es el pool tal cual, 1 es uniforme, 0.5 los promedia."""
+    import numpy as np
+    from src.clausura.especiales import goleador_prior_desde_pool
+
+    counts = np.array([80.0, 15.0, 5.0])
+    crudo = goleador_prior_desde_pool(counts, shrink=0.0)
+    uni = goleador_prior_desde_pool(counts, shrink=1.0)
+    medio = goleador_prior_desde_pool(counts, shrink=0.5)
+
+    assert np.allclose(crudo, [0.8, 0.15, 0.05])
+    assert np.allclose(uni, [1 / 3, 1 / 3, 1 / 3])
+    assert np.allclose(medio, (crudo + uni) / 2)
+    # el favorito del pool baja y la cola sube: es el punto del encogimiento
+    assert medio[0] < crudo[0] and medio[2] > crudo[2]
+    for p in (crudo, uni, medio):
+        assert abs(p.sum() - 1.0) < 1e-12
+
+
+def test_goleador_prior_desde_pool_sin_datos_no_rompe():
+    import numpy as np
+    from src.clausura.especiales import goleador_prior_desde_pool
+    p = goleador_prior_desde_pool(np.zeros(4), shrink=0.5)
+    assert np.allclose(p, 0.25)
+    assert len(goleador_prior_desde_pool(np.zeros(0))) == 0
