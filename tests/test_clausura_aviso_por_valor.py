@@ -207,3 +207,83 @@ def test_comparar_una_planilla_contra_si_misma_da_cero_con_especiales():
     c = port.evaluador.comparar(port.picks, port.picks.copy(), n_seeds=3)
     assert c.delta == 0.0
     assert c.se == 0.0
+
+
+# -------------------- el veredicto llega al dashboard --------------------
+
+def _planilla_min(tmp_path, generado="2026-08-10T19:40:59Z", scores=None):
+    """Dos versiones de una fecha que difieren en un pick, como las escribe el rerun."""
+    import json
+    d = tmp_path / "fecha_01"
+    d.mkdir(parents=True, exist_ok=True)
+    base = {"generado_utc": generado, "n_sims": 9600, "picks": [{
+        "evento_id": 1, "partido": "Deportivo Maldonado vs Racing",
+        "cierre_pronostico_utc": "2099-01-01T00:00:00+00:00",
+        "scores": scores or [[1, 0]]}]}
+    return d, base
+
+
+def test_veredicto_queda_escrito_en_la_planilla(tmp_path):
+    """Si solo vive en el log, el panel muestra los picks sin decir que se descartaron."""
+    import json
+    from src.clausura.rerun_cierre import _guardar_veredicto
+
+    p = tmp_path / "v26.json"
+    p.write_text(json.dumps({"picks": []}), encoding="utf-8")
+    _guardar_veredicto(p, comp(-456, 171), avisar=False, n_picks=7)
+
+    v = json.loads(p.read_text(encoding="utf-8"))["veredicto_cambio"]
+    assert v["avisar"] is False and v["medido"] is True
+    assert v["n_picks"] == 7 and round(v["delta"]) == -456
+
+
+def test_gate_roto_no_se_lee_como_cambio_sin_valor(tmp_path):
+    """comp=None es 'no pude medir', que pide una acción DISTINTA a 'medí y da cero'."""
+    import json
+    from src.clausura.rerun_cierre import _guardar_veredicto
+
+    p = tmp_path / "v26.json"
+    p.write_text(json.dumps({"picks": []}), encoding="utf-8")
+    _guardar_veredicto(p, None, avisar=True, n_picks=7)
+
+    v = json.loads(p.read_text(encoding="utf-8"))["veredicto_cambio"]
+    assert v["medido"] is False and v["avisar"] is True
+    assert "delta" not in v
+
+
+def test_guardar_veredicto_no_rompe_la_corrida(tmp_path):
+    """Anotar el veredicto es cosmético: si falla, el rerun tiene que seguir."""
+    from src.clausura.rerun_cierre import _guardar_veredicto
+    _guardar_veredicto(tmp_path / "no-existe.json", comp(-456, 171), False, 7)
+
+
+def test_el_panel_apaga_los_cambios_descartados():
+    """El caso del 2026-08-10: 7 picks en amarillo con Δ -456 ± 171 detrás."""
+    from jinja2 import Environment, FileSystemLoader
+
+    def _data(c):
+        return {"cambios": c, "fecha_n": 1}
+
+    env = Environment(loader=FileSystemLoader("src/clausura/templates"))
+    tpl = env.get_template("_cambios.html")
+    cambios = {
+        "n_versiones": 26, "fuentes": [], "especiales": [],
+        "prev": {"generado_uy": "lun 10/08 08:18"}, "cur": {"generado_uy": "lun 10/08 16:40"},
+        "cambios": [{"partido": "Deportivo Maldonado vs Racing", "numero": 899258856,
+                     "antes": "1-0", "despues": "0-1", "cerrado": False}],
+        "veredicto": {"avisar": False, "medido": True, "n_picks": 7,
+                      "delta": -456.0, "se": 171.0, "n_seeds": 5, "significativa": True},
+    }
+    html = tpl.render(data=_data(cambios))
+
+    assert "No toques nada" in html
+    assert "-456" in html and "171" in html
+    assert "text-amber-300" not in html and "border-amber" not in html
+
+    cambios["veredicto"]["avisar"] = True
+    html = tpl.render(data=_data(cambios))
+    assert "conviene corregir" in html and "No toques nada" not in html
+
+    cambios["veredicto"] = {"avisar": True, "medido": False, "n_picks": 7}
+    html = tpl.render(data=_data(cambios))
+    assert "no pudo medir" in html
