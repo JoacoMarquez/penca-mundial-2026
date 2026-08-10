@@ -153,13 +153,21 @@ def _tilted_sample(q: np.ndarray, gamma: np.ndarray, rng: np.random.Generator,
         u = rng.random(R)
         return (u[:, None] > cdf).sum(axis=1).clip(0, N_SCORES - 1)
 
-    u = rng.random((R, size))
-    out = np.empty((R, size), dtype=np.int64)
-    por_bloque = max(1, TILTED_CHUNK_BYTES // max(R * N_SCORES, 1))
-    for a in range(0, size, por_bloque):
-        b = min(a + por_bloque, size)
-        out[:, a:b] = (u[:, a:b, None] > cdf[:, None, :]).sum(axis=2)
-    return out.clip(0, N_SCORES - 1)
+    # Se trocea por RIVALES, no por simulaciones. numpy llena en orden C, así que
+    # pedirle al rng bloques de FILAS da exactamente el mismo stream que pedirle la
+    # matriz entera — verificado — mientras que partir por columnas lo cambia. Ese
+    # detalle es lo que permite no materializar `u` completo: a 19.200 sorteos y 715
+    # rivales eran 110 MB de u + 110 de salida + 64 del booleano, 284 MB por partido.
+    # Troceando por filas y devolviendo int16 (los índices van de 0 a 35) queda en ~90.
+    out = np.empty((R, size), dtype=np.int16)
+    fila_bytes = max(size * (8 + N_SCORES), 1)          # u float64 + booleano por fila
+    filas = max(1, min(R, TILTED_CHUNK_BYTES // fila_bytes))
+    for a in range(0, R, filas):
+        b = min(a + filas, R)
+        u = rng.random((b - a, size))
+        out[a:b] = (u[:, :, None] > cdf[a:b, None, :]).sum(axis=2)
+        del u
+    return np.clip(out, 0, N_SCORES - 1)
 
 
 def fit_gamma(obs_idx: np.ndarray, logqs: np.ndarray) -> float:
