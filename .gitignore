@@ -57,5 +57,8 @@ files.zip
 # elige por NÚMERO de versión). Commitear uno generado a mano crea una segunda línea
 # de versionado en el mismo directorio: quedan dos vN y el sistema puede quedarse con
 # el más viejo. El v1 sintético queda trackeado por historia.
-data/pool_snapshots/clausura/v*_*.json
+# El patrón cubre también los .json.incompleto que deja un escaneo abortado: el
+# 2026-08-10 uno se coló al repo por un rsync del VPS y BLOQUEÓ el deploy — git se
+# niega a pisar un archivo sin trackear con uno trackeado.
+data/pool_snapshots/clausura/v*_*.json*
 !data/pool_snapshots/clausura/v1_20260807T141330Z.json
