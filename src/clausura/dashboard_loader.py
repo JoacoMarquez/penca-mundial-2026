@@ -186,7 +186,7 @@ def diff_versiones(fecha_n: int, mis_numeros: list[int]) -> dict:
     d = fecha_dir(fecha_n)
     versiones = sorted(d.glob("v*_*.json")) if d.exists() else []
     out = {"n_versiones": len(versiones), "cambios": [], "fuentes": [],
-           "especiales": [], "prev": None, "cur": None}
+           "especiales": [], "prev": None, "cur": None, "veredicto": None}
     if len(versiones) < 2:
         return out
 
@@ -196,6 +196,10 @@ def diff_versiones(fecha_n: int, mis_numeros: list[int]) -> dict:
     cur = json.loads(versiones[-1].read_text(encoding="utf-8"))
     out["prev"] = {"file": versiones[-2].name, "generado_uy": _to_uy(prev.get("generado_utc", ""))}
     out["cur"] = {"file": versiones[-1].name, "generado_uy": _to_uy(cur.get("generado_utc", ""))}
+    # Lo escribe rerun_cierre: si el gate por valor descartó estos cambios, el panel
+    # tiene que mostrarlos apagados en vez de en amarillo. Las corridas del timer de
+    # picks no pasan por el gate y no lo traen — ahí queda None y se muestra como antes.
+    out["veredicto"] = cur.get("veredicto_cambio")
 
     prev_by_ev = {r["evento_id"]: r for r in prev.get("picks", [])}
     now = datetime.now(timezone.utc)

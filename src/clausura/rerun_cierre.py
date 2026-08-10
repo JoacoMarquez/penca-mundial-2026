@@ -172,6 +172,31 @@ def valor_del_cambio(prev: dict, contexto: dict, n_participaciones: int):
         return None
 
 
+def _guardar_veredicto(path: Path, comp, avisar: bool, n_picks: int) -> None:
+    """Anota en la planilla si sus cambios valen la pena, para que el panel lo diga.
+
+    `comp is None` significa que el gate NO pudo medir (evaluador roto), no que el
+    cambio sea nulo: ahí se avisa por las dudas y el panel tiene que decir eso mismo,
+    porque "no pude medir" y "medí y da cero" piden acciones distintas.
+    """
+    try:
+        d = json.loads(path.read_text(encoding="utf-8"))
+        d["veredicto_cambio"] = {
+            "avisar": bool(avisar),
+            "medido": comp is not None,
+            "n_picks": int(n_picks),
+            **({} if comp is None else {
+                "delta": float(comp.delta), "se": float(comp.se),
+                "valor_a": float(comp.valor_a), "valor_b": float(comp.valor_b),
+                "n_seeds": int(comp.n_seeds), "significativa": bool(comp.significativa),
+            }),
+        }
+        path.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
+    except Exception as e:                                    # noqa: BLE001
+        # No es fatal: sin veredicto el panel cae al aviso genérico de siempre.
+        log.warning("no pude anotar el veredicto en %s (%s)", path.name, e)
+
+
 def formatear_diff(
     cambios: list[tuple[dict, list[tuple[int, tuple[int, int], tuple[int, int]]]]],
     mis_numeros: list[int],
@@ -286,7 +311,14 @@ def run(
     comp = None
     if cambios:
         comp = valor_del_cambio(prev, contexto, n_participaciones)
-        if comp is not None and not vale_avisar(comp):
+        avisar = comp is None or vale_avisar(comp)
+        # El veredicto va DENTRO de la planilla nueva. Si solo queda en el log, el
+        # dashboard muestra los picks distintos sin decir que fueron descartados, y
+        # eso invita a recargar a mano justo lo que el gate resolvió no tocar (pasó
+        # el 2026-08-10: 7 picks en amarillo con Δ -456 ± 171 detrás).
+        _guardar_veredicto(new_path, comp, avisar,
+                           n_picks=sum(len(cs) for _, cs in cambios))
+        if not avisar:
             log.info("la planilla nueva NO mejora lo suficiente (%s) — no aviso; "
                      "%d picks distintos quedan versionados en %s",
                      comp, sum(len(cs) for _, cs in cambios), new_path.name)

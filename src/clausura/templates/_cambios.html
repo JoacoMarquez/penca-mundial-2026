@@ -1,0 +1,57 @@
+{# Panel "Cambios de la última corrida".
+
+   Vive aparte de clausura.html para poder testear su lógica sin fabricar la página
+   entera: lo que decide es si estos cambios se muestran como accionables o como
+   registro, y esa decisión ya mandó a recargar picks por ruido una vez.
+#}
+{% if data.cambios and data.cambios.n_versiones >= 2 %}
+{% set ver = data.cambios.veredicto %}
+{% set descartado = ver and not ver.avisar %}
+<div class="bg-slate-800 rounded-xl p-4 {% if (data.cambios.cambios or data.cambios.especiales) and not descartado %}border border-amber-600/60{% endif %}">
+  <div class="flex items-center justify-between mb-1">
+    <h2 class="font-bold">🔁 Cambios de la última corrida</h2>
+    <span class="text-xs text-slate-500">{{ data.cambios.prev.generado_uy }} → {{ data.cambios.cur.generado_uy }} · v{{ data.cambios.n_versiones }}</span>
+  </div>
+  {% if not data.cambios.cambios and not data.cambios.especiales and not data.cambios.fuentes %}
+    <div class="text-sm text-emerald-300">Sin cambios — lo cargado sigue vigente. ✓</div>
+  {% else %}
+    {% if descartado %}
+    <div class="text-sm text-emerald-300 mb-1">✓ No toques nada — lo cargado sigue vigente.</div>
+    <div class="text-xs text-slate-400 mb-2">
+      El motor midió estos {{ ver.n_picks }} cambios contra los MISMOS sorteos y
+      {% if ver.medido %}dan <b class="font-mono">{{ "%+d"|format(ver.delta|round|int) }}
+      ± {{ ver.se|round|int }}</b> de E[premio] ({{ ver.n_seeds }} semillas){% else %}no
+      alcanzaron el umbral{% endif %} — no compensa recargar a mano.
+      El óptimo es plano: dos corridas con los mismos insumos reasignan picks sin que
+      se haya movido nada. Quedan versionados abajo solo como registro.
+    </div>
+    {% elif ver and not ver.medido %}
+    <div class="text-xs text-rose-300 mb-2">⚠️ El gate por valor <b>no pudo medir</b> este cambio
+      (no es lo mismo que "no vale"): se avisa por las dudas. Revisá el log de rerun-cierre.</div>
+    {% else %}
+    {% if ver %}
+    <div class="text-sm text-amber-200 mb-1">Vale
+      <b class="font-mono">{{ "%+d"|format(ver.delta|round|int) }} ± {{ ver.se|round|int }}</b>
+      de E[premio] ({{ ver.n_seeds }} semillas) — conviene corregir.</div>
+    {% endif %}
+    <div class="text-xs text-slate-400 mb-2">Si ya cargaste en la web, esto es lo que convendría corregir
+      (regla: tocar solo si la razón es identificable — cuotas nuevas, lesión, mercado movido).</div>
+    {% endif %}
+    {% for f in data.cambios.fuentes %}
+    <div class="text-xs text-indigo-300 mb-1">ℹ️ {{ f.partido }}: fuente {{ f.antes }} → <b>{{ f.despues }}</b></div>
+    {% endfor %}
+    {% for c in data.cambios.cambios %}
+    <div class="flex items-center gap-2 text-sm {% if c.cerrado %}opacity-40 line-through{% elif descartado %}opacity-45{% endif %}">
+      <span class="font-mono text-xs text-slate-400 w-10">{{ c.numero % 1000 }}</span>
+      <span class="flex-1 truncate">{{ c.partido }}</span>
+      <span class="font-mono text-slate-400">{{ c.antes }}</span>
+      <span class="text-slate-500">→</span>
+      <span class="font-mono {% if descartado %}text-slate-400{% else %}font-semibold text-amber-300{% endif %}">{{ c.despues }}</span>
+    </div>
+    {% endfor %}
+    {% for e in data.cambios.especiales %}
+    <div class="text-sm {% if descartado %}text-slate-400 opacity-45{% else %}text-amber-200{% endif %}">⭐ {{ e.numero % 1000 }}: {{ e.campo }} {{ e.antes }} → <b>{{ e.despues }}</b></div>
+    {% endfor %}
+  {% endif %}
+</div>
+{% endif %}

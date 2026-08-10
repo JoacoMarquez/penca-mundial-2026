@@ -154,35 +154,7 @@
     </div>
 
     {# ---------- CAMBIOS ENTRE CORRIDAS (las "pasadas" del Clausura) ---------- #}
-    {% if data.cambios and data.cambios.n_versiones >= 2 %}
-    <div class="bg-slate-800 rounded-xl p-4 {% if data.cambios.cambios or data.cambios.especiales %}border border-amber-600/60{% endif %}">
-      <div class="flex items-center justify-between mb-1">
-        <h2 class="font-bold">🔁 Cambios de la última corrida</h2>
-        <span class="text-xs text-slate-500">{{ data.cambios.prev.generado_uy }} → {{ data.cambios.cur.generado_uy }} · v{{ data.cambios.n_versiones }}</span>
-      </div>
-      {% if not data.cambios.cambios and not data.cambios.especiales and not data.cambios.fuentes %}
-        <div class="text-sm text-emerald-300">Sin cambios — lo cargado sigue vigente. ✓</div>
-      {% else %}
-        <div class="text-xs text-slate-400 mb-2">Si ya cargaste en la web, esto es lo que convendría corregir
-          (regla: tocar solo si la razón es identificable — cuotas nuevas, lesión, mercado movido).</div>
-        {% for f in data.cambios.fuentes %}
-        <div class="text-xs text-indigo-300 mb-1">ℹ️ {{ f.partido }}: fuente {{ f.antes }} → <b>{{ f.despues }}</b></div>
-        {% endfor %}
-        {% for c in data.cambios.cambios %}
-        <div class="flex items-center gap-2 text-sm {% if c.cerrado %}opacity-40 line-through{% endif %}">
-          <span class="font-mono text-xs text-slate-400 w-10">{{ c.numero % 1000 }}</span>
-          <span class="flex-1 truncate">{{ c.partido }}</span>
-          <span class="font-mono text-slate-400">{{ c.antes }}</span>
-          <span class="text-slate-500">→</span>
-          <span class="font-mono font-semibold text-amber-300">{{ c.despues }}</span>
-        </div>
-        {% endfor %}
-        {% for e in data.cambios.especiales %}
-        <div class="text-sm text-amber-200">⭐ {{ e.numero % 1000 }}: {{ e.campo }} {{ e.antes }} → <b>{{ e.despues }}</b></div>
-        {% endfor %}
-      {% endif %}
-    </div>
-    {% endif %}
+    {% include "_cambios.html" %}
 
     {# ---------- PENCA GRATUITA (1 participación, premio PS5) ---------- #}
     {% if data.gratuita and data.gratuita.ok and data.gratuita.picks %}
