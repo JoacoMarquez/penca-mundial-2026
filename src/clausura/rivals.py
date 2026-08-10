@@ -100,7 +100,10 @@ class RivalModel:
         ascenso por coordenadas podía explotar como huecos muestrales inexistentes).
         """
         R = self.n_rivales
-        picks = np.zeros((R, n_sims), dtype=np.int64)
+        # int16 y no int64: son índices de marcador (0..35). A 19.200 sorteos y 715
+        # rivales la diferencia es 110 MB contra 27 POR PARTIDO, y este array es el
+        # transitorio más grande del constructor. numpy indexa igual con int16.
+        picks = np.zeros((R, n_sims), dtype=np.int16)
         show = np.zeros((R, n_sims), dtype=bool)
         known = self.known_picks[:, m]
         has = known >= 0
@@ -122,12 +125,12 @@ class RivalModel:
                 f"(máx |{np.abs(self.residuo).max()}|)")
 
 
-# Tope del booleano transitorio (R, chunk, N_SCORES) del inverse-CDF vectorizado.
-# Sin chunking ese array es (R, S, N_SCORES) y era el techo de memoria del sistema:
-# con R=700 y S=9.600 son 806 MB TRANSITORIOS por partido, en un droplet de 1 GB.
-# Es lo que impedía subir n_sims, que es de donde sale la plata (el ascenso a 2.400
-# sorteos fitea ruido; a 9.600 no). 64 MB deja el pico bien abajo sin costar
-# velocidad medible: el trabajo total es el mismo, solo cambia en cuántos pedazos.
+# Presupuesto de memoria por bloque del inverse-CDF vectorizado. Sin trocear, el
+# booleano intermedio es (R, S, N_SCORES): 806 MB TRANSITORIOS por partido con R=700
+# y S=9.600, en un droplet de 1 GB. Era el techo que impedía subir n_sims, que es de
+# donde sale la plata (a 2.400 sorteos el ascenso fitea ruido; a 9.600 no).
+# 64 MB deja el pico abajo sin costar velocidad medible: el trabajo total es el
+# mismo, solo cambia en cuántos pedazos.
 TILTED_CHUNK_BYTES = 64 * 1024 * 1024
 
 
@@ -136,13 +139,15 @@ def _tilted_sample(q: np.ndarray, gamma: np.ndarray, rng: np.random.Generator,
     """Picks de la categórica ∝ q^γ_r, vectorizado por inverse-CDF.
 
     Sin `size`: un pick por rival, shape (R,). Con `size`: sorteos independientes
-    por simulación, shape (R, size), calculados por bloques sobre el eje de
-    simulaciones para acotar el pico de memoria.
+    por simulación, shape (R, size), calculados por bloques de RIVALES para acotar
+    el pico de memoria.
 
-    El sorteo `u` se hace ENTERO antes de trocear, a propósito: pedirle bloques al
-    `rng` cambiaría la secuencia de números aleatorios y con ella los picks rivales,
-    o sea que el chunking dejaría de ser una optimización y pasaría a mover los
-    resultados. Así queda bit a bit idéntico a la versión sin chunking.
+    El eje del troceo no es un detalle: numpy llena en orden C, así que pedirle al
+    `rng` bloques de FILAS da exactamente el mismo stream que pedirle la matriz
+    entera, mientras que partir por COLUMNAS (simulaciones) lo cambia y movería los
+    picks rivales. Verificado en los dos sentidos. Por eso `u` puede sortearse por
+    bloques sin que el resultado se mueva — y por eso la primera versión de esto, que
+    troceaba por simulaciones, tenía que materializarlo entero.
     """
     logq = np.log(q + 1e-12)
     w = np.exp(gamma[:, None] * logq[None, :])
