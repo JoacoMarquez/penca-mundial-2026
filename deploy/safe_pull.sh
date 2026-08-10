@@ -63,6 +63,35 @@ sync_units() {
     done
 }
 
+# Archivos TRACKEADOS que el VPS REGENERA en cada corrida. Su copia local siempre
+# difiere del repo, y eso hace abortar el pull con "Please commit your changes or
+# stash them before you merge" en cuanto un commit los toca.
+#
+# Pasó el 2026-08-10 con config/clausura2026.yaml y dejó al VPS DOS COMMITS ATRÁS sin
+# que nadie lo notara: el postmortem corrió con código viejo y volvió a fallar por el
+# mismo bug que se acababa de arreglar. El deploy fallaba en silencio, que es
+# exactamente lo que safe_pull existe para evitar.
+#
+# Descartarlos es seguro y hay que verificarlo antes de agregar uno a esta lista:
+#   * config/clausura2026.yaml — lo reescribe `src.clausura.sync`, que corre como
+#     ExecStartPre (sin "-", o sea obligatorio) de clausura-picks y de
+#     clausura-rerun-cierre. Su diff local es solo `generado_utc` y `estado`, y
+#     NADIE lee `estado` del config (verificado por grep 2026-08-10).
+REGENERADOS=(config/clausura2026.yaml)
+
+descartar_regenerados() {
+    local f sucios=()
+    for f in "${REGENERADOS[@]}"; do
+        if ! git diff --quiet -- "$f" 2>/dev/null; then
+            git checkout -- "$f" && sucios+=("$f")
+        fi
+    done
+    if [ ${#sucios[@]} -gt 0 ]; then
+        echo "↺ descartados cambios locales de archivos regenerados: ${sucios[*]}"
+        echo "  (los reescribe src.clausura.sync antes de la próxima corrida)"
+    fi
+}
+
 PREVIOUS=$(git rev-parse HEAD)
 git fetch -q origin main
 INCOMING=$(git rev-parse origin/main)
@@ -76,7 +105,24 @@ if [ "$PREVIOUS" = "$INCOMING" ]; then
 fi
 
 echo "Pulling $PREVIOUS → $INCOMING"
-git pull -q
+descartar_regenerados
+if ! git pull -q; then
+    # Que NO quede en silencio: el modo de falla del 10/8 fue justamente este —
+    # abortar y seguir corriendo con código viejo como si nada hubiera pasado.
+    echo "❌ git pull FALLÓ — el VPS queda en $PREVIOUS, con código viejo" >&2
+    git status --short | head -10 >&2
+    set -a; source /etc/penca/env 2>/dev/null; set +a
+    .venv/bin/python -c "
+from src.notifier.telegram import TelegramNotifier, TelegramConfig
+try:
+    TelegramNotifier(TelegramConfig.from_env()).send_error(
+        'deploy bloqueado',
+        'git pull falló en el VPS: sigue en $PREVIOUS. Revisá git status en /opt/penca.')
+except Exception:
+    pass
+" 2>/dev/null || true
+    exit 1
+fi
 
 # Validar que los módulos críticos importan
 if .venv/bin/python -c "
