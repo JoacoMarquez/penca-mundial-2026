@@ -19,20 +19,25 @@ ExecStartPre=-/opt/penca/.venv/bin/python -m src.clausura.intermedio
 # sigue con el snapshot previo — mejor eso que no emitir planilla.
 ExecStartPre=-/opt/penca/.venv/bin/python -m src.clausura.pool_snapshot --if-started --reusar-especiales --max-edad-h 6
 # --sims: el ascenso por coordenadas compara dos estimaciones Monte Carlo, así que
-# con pocos sorteos elige ruido. Medido out-of-sample con sorteos comunes: E[premio]
-# 2.400 → 3.200 vale +$3.916 ± 1.585, y 2.400 → 9.600 vale +$21.060 ± 936. Durante
-# unas horas el techo fue la MEMORIA del droplet (1 GB) y hubo que quedarse en 3.200;
-# compactar el acumulado por fecha lo destrabó.
+# con pocos sorteos elige ruido. Medido out-of-sample con sorteos comunes:
+#     2.400 → 9.600   +$21.060 ± 936
+#     9.600 → 19.200  +$1.452 ± 401  (4/4 semillas, RÉGIMEN DE PRODUCCIÓN)
 #
-# Pico de RSS medido EN EL DROPLET (706 rivales, 120 partidos, 12 participaciones,
-# RivalModel empírico), con el acumulado por fecha ya compactado a (máximo, empatados):
-#     S=3200 → 268 MB (116 s) · S=9600 → 466 MB (340 s), sobre 552 MB disponibles
-# Antes de compactar, 3200 pedía 476 MB y 9600 no entraba en el GB del droplet.
+# Ojo con el segundo número: la auditoría del 8/8 decía +$6.461 ± 609, pero eso salió
+# de DOS semillas y de un pool sintético i.i.d. Con 715 rivales correlacionados la
+# cola del máximo es más gorda, y reducir el ruido de MEDICIÓN rinde menos cuando la
+# incertidumbre estructural sube. El sintético sobreestima, y en dirección predecible.
 #
-# 9.600 es donde la curva de E[premio] ya casi satura: 2400→9600 vale +$21.060 ± 936
-# y 9600→19200 solo +$6.461 ± 609, con el doble de memoria y tiempo. No subir más sin
-# volver a medir el pico acá.
-ExecStart=/opt/penca/.venv/bin/python -m src.clausura.picks --fecha auto --telegram --participaciones 12 --sims 9600
+# El techo era la MEMORIA del droplet. Tres reducciones (compactar rivals_fecha,
+# trocear _tilted_sample por rivales, int16 en los picks) bajaron el pico de 620 a
+# 548 MB, y el 2026-08-10 el droplet pasó de 1 a 2 GB. Pico medido allá:
+#     S=9600 → 360 MB · S=19200 → 548 MB, sobre ~1.900 MB   (28% de uso)
+# Tiempo: ~11 min de optimización + ~9 de escaneo, contra una ventana de 2h45 hasta
+# el primer cierre.
+#
+# No subir más sin volver a medir acá: la curva satura (21k → 1,4k por duplicación) y
+# el próximo escalón difícilmente pague.
+ExecStart=/opt/penca/.venv/bin/python -m src.clausura.picks --fecha auto --telegram --participaciones 12 --sims 19200
 StandardOutput=append:/var/lib/penca/logs/clausura-picks.log
 StandardError=append:/var/lib/penca/logs/clausura-picks.err
 User=root
