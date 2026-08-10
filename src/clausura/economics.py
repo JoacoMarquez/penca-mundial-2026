@@ -211,7 +211,8 @@ class SeasonSimulator:
             self.rivals_total = self._rivals_total + rivals.residuo.astype(np.int32)[:, None]
         else:
             for m in range(self.n_matches):
-                rp = rng.choice(N_SCORES, size=(R, S), p=pool_q[m])
+                # int16: índices de marcador, 110 MB → 27 por partido a S=19.200
+                rp = rng.choice(N_SCORES, size=(R, S), p=pool_q[m]).astype(np.int16)
                 pts = self.pm[m][rp, self.actual[m][None, :]]
                 _acumular(m, pts)
             self.rivals_total = self._rivals_total
