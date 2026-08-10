@@ -1,4 +1,4 @@
-generado_utc: '2026-08-07T14:11:19.846351+00:00'
+generado_utc: '2026-08-10T12:35:37.991388+00:00'
 campeonato:
   id: 44
   nombre: Torneo Clausura 2026
@@ -48,7 +48,7 @@ fechas:
       cierre_pronostico_utc: '2026-08-07T21:45:00+00:00'
       estadio: Antonio Ubilla
       preferencial: false
-      estado: PENDIENTE
+      estado: FINALIZADO
     - evento_id: 2083
       local: Central Español
       visitante: Progreso
@@ -58,7 +58,7 @@ fechas:
       cierre_pronostico_utc: '2026-08-08T13:45:00+00:00'
       estadio: Parque Palermo
       preferencial: false
-      estado: PENDIENTE
+      estado: FINALIZADO
     - evento_id: 2080
       local: Liverpool
       visitante: Albion
@@ -68,7 +68,7 @@ fechas:
       cierre_pronostico_utc: '2026-08-08T17:45:00+00:00'
       estadio: Alfredo Victor Viera
       preferencial: false
-      estado: PENDIENTE
+      estado: FINALIZADO
     - evento_id: 2082
       local: Montevideo City Torque
       visitante: Peñarol
@@ -88,7 +88,7 @@ fechas:
       cierre_pronostico_utc: '2026-08-09T13:45:00+00:00'
       estadio: Jardines del Hipodromo
       preferencial: false
-      estado: PENDIENTE
+      estado: FINALIZADO
     - evento_id: 2081
       local: Defensor Sporting
       visitante: Wanderers
@@ -98,7 +98,7 @@ fechas:
       cierre_pronostico_utc: '2026-08-09T17:45:00+00:00'
       estadio: Luis Franzini
       preferencial: true
-      estado: PENDIENTE
+      estado: FINALIZADO
     - evento_id: 2084
       local: Nacional
       visitante: Boston River
@@ -108,7 +108,7 @@ fechas:
       cierre_pronostico_utc: '2026-08-09T21:15:00+00:00'
       estadio: Gran Parque Central
       preferencial: false
-      estado: PENDIENTE
+      estado: FINALIZADO
     - evento_id: 2085
       local: Deportivo Maldonado
       visitante: Racing

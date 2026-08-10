@@ -1,11 +1,13 @@
 """Postmortem automático por fecha (regla de trabajo #4 del proyecto).
 
-Cuando una fecha queda completa (todos sus partidos con resultado), genera y manda
-por Telegram un análisis de qué pasó, y persiste el detalle en JSON:
+Cuando una fecha tiene suficientes partidos jugados (MIN_JUGADOS, no todos: un
+suspendido no puede bloquear el análisis de los demás), genera y manda por Telegram
+un análisis de qué pasó, y persiste el detalle en JSON:
 
   - Resultados reales + puntos de nuestras 12 participaciones por partido
-    (kernel real de Supermatch, estrella x2), esperado vs real donde la planilla
-    guardó E[pts].
+    (kernel real de Supermatch, estrella x2), esperado vs real — el E[pts] se toma
+    de la planilla generada ANTES del cierre de cada partido, porque en las
+    posteriores la grilla es una delta y el "esperado" sería el puntaje real.
   - Distribución de puntos del POOL en la fecha (desde el snapshot de picks
     públicos): mediana, máximo, cuántos rivales nos ganaron, y si alguna nuestra
     ganó el premio por fecha.
@@ -63,29 +65,55 @@ class FechaStats:
 
 # -------------------- datos --------------------
 
-def resultados_de_fecha(cfg: dict, fecha_n: int) -> dict[int, tuple[int, int]] | None:
-    """evento_id → (gl, gv) reales. None si la fecha aún no está completa."""
+def resultados_de_fecha(
+    cfg: dict, fecha_n: int, min_jugados: int = 1,
+) -> tuple[dict[int, tuple[int, int]], int] | None:
+    """(evento_id → (gl, gv) de los JUGADOS, cuántos faltan). None si no alcanza.
+
+    Antes exigía la fecha COMPLETA y devolvía None si faltaba un solo resultado. Con
+    eso el postmortem —el único circuito que compara lo pronosticado contra lo que
+    pasó— nunca corrió: la Fecha 1 tiene Torque–Peñarol SUSPENDIDO, y un suspendido
+    no se resuelve en días. Un partido que se reprograma para dentro de un mes
+    bloqueaba el aprendizaje de los otros siete.
+
+    Ahora analiza lo jugado y REPORTA lo que falta. El postmortem es idempotente por
+    fecha, así que si después se juega el pendiente se puede regenerar y el nuevo
+    archivo incluye todo.
+    """
     nombre = f"Fecha {fecha_n}"
     f = cfg["fechas"].get(nombre)
     if f is None:
         raise ValueError(f"no existe {nombre} en el config")
     out: dict[int, tuple[int, int]] = {}
+    faltan = 0
     with PencaApiClient() as api:
         data = api._get(f"/front/campeonatos/fechas/{f['fecha_id']}/eventos")
     for e in data:
         res = e.get("resultado") or {}
         gl, gv = res.get("golesEquipoLocal"), res.get("golesEquipoVisitante")
         if gl is None or gv is None:
-            return None
+            faltan += 1
+            continue
         out[int(e["id"])] = (int(gl), int(gv))
-    return out or None
+    if len(out) < min_jugados:
+        return None
+    return out, faltan
 
 
 def picks_de_planilla(fecha_n: int, mis_numeros: list[int]) -> tuple[dict, dict]:
-    """(numero → {evento_id → pick}, evento_id → {numero → e_pts}) de la última
-    planilla guardada de la fecha. e_pts vacío en planillas viejas sin el campo."""
+    """(numero → {evento_id → pick}, evento_id → {numero → e_pts PRE-PARTIDO}).
+
+    Los PICKS salen de la última planilla (la que refleja lo cargado). El `e_pts`,
+    en cambio, sale de la última versión generada ANTES del cierre de cada partido.
+
+    La distinción no es cosmética, es lo que hace que "esperado vs real" signifique
+    algo. Para un partido ya jugado `build_season_grids` usa una grilla DELTA —toda
+    la masa en el resultado— así que el `e_pts` que guarda una planilla posterior ES
+    el puntaje obtenido. Comparar eso contra lo real daba identidad perfecta en las
+    cinco filas y no medía nada (detectado el 2026-08-10).
+    """
     from src.clausura.picks import fecha_dir
-    from src.utils.versions import latest_version
+    from src.utils.versions import latest_version, version_num
 
     d = fecha_dir(fecha_n)
     latest = latest_version(d.glob("v*_*.json")) if d.exists() else None
@@ -93,15 +121,30 @@ def picks_de_planilla(fecha_n: int, mis_numeros: list[int]) -> tuple[dict, dict]
         raise FileNotFoundError(f"no hay planilla guardada para la fecha {fecha_n}")
     data = json.loads(latest.read_text(encoding="utf-8"))
     picks: dict[int, dict[int, tuple[int, int]]] = {n: {} for n in mis_numeros}
-    e_pts: dict[int, dict[int, float]] = {}
     for row in data.get("picks", []):
         eid = int(row["evento_id"])
         for k, score in enumerate(row.get("scores", [])):
             if k < len(mis_numeros):
                 picks[mis_numeros[k]][eid] = (int(score[0]), int(score[1]))
-        if "e_pts" in row:
-            e_pts[eid] = {mis_numeros[k]: float(v)
-                          for k, v in enumerate(row["e_pts"]) if k < len(mis_numeros)}
+
+    # e_pts pre-partido: recorriendo las versiones de la MÁS VIEJA a la más nueva y
+    # quedándose con la última cuyo `generado_utc` sea anterior al cierre del evento.
+    e_pts: dict[int, dict[int, float]] = {}
+    for path in sorted(d.glob("v*_*.json"), key=version_num):
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        generado = payload.get("generado_utc")
+        if not generado:
+            continue
+        gen = datetime.fromisoformat(generado)
+        for row in payload.get("picks", []):
+            if "e_pts" not in row or not row.get("cierre_pronostico_utc"):
+                continue
+            if gen >= datetime.fromisoformat(row["cierre_pronostico_utc"]):
+                continue                    # generada con el partido ya cerrado
+            e_pts[int(row["evento_id"])] = {
+                mis_numeros[k]: float(v)
+                for k, v in enumerate(row["e_pts"]) if k < len(mis_numeros)
+            }
     return picks, e_pts
 
 
@@ -238,19 +281,28 @@ def pm_path(fecha_n: int) -> Path:
     return PM_DIR / f"fecha_{fecha_n:02d}.json"
 
 
+# Cuántos partidos de la fecha tienen que estar jugados para que valga un postmortem.
+# 6 de 8 deja afuera la fecha en curso (viernes/sábado) pero no se traba con uno o dos
+# suspendidos, que es lo que impedía que este módulo corriera alguna vez.
+MIN_JUGADOS = 6
+
+
 def fecha_a_analizar(cfg: dict) -> int | None:
-    """La fecha completa más alta sin postmortem generado. None si no hay nada nuevo."""
+    """La fecha más vieja con suficientes partidos jugados y sin postmortem.
+
+    "Suficientes" y no "todos": un partido suspendido —Torque–Peñarol en la Fecha 1—
+    se reprograma para dentro de semanas, y exigir la fecha completa dejaba el
+    análisis de los otros siete sin correr nunca.
+    """
     nums = sorted(int(n.split()[-1]) for n in cfg["fechas"])
-    candidata = None
     for n in nums:
         if pm_path(n).exists():
             continue
-        res = resultados_de_fecha(cfg, n)
+        res = resultados_de_fecha(cfg, n, min_jugados=MIN_JUGADOS)
         if res is None:
-            break   # las fechas van en orden: si esta no terminó, las siguientes tampoco
-        candidata = n
-        break       # una por corrida: la más vieja pendiente
-    return candidata
+            break   # las fechas van en orden: si esta no llegó, las siguientes tampoco
+        return n    # una por corrida: la más vieja pendiente
+    return None
 
 
 def run(fecha: int | None = None, dry_run: bool = False) -> str | None:
@@ -263,10 +315,15 @@ def run(fecha: int | None = None, dry_run: bool = False) -> str | None:
             log.info("sin fechas completas pendientes de postmortem")
             return None
 
-    resultados = resultados_de_fecha(cfg, fecha)
-    if resultados is None:
-        log.error("la fecha %d no está completa todavía", fecha)
+    datos = resultados_de_fecha(cfg, fecha, min_jugados=1)
+    if datos is None:
+        log.error("la fecha %d no tiene ningún partido jugado todavía", fecha)
         return None
+    resultados, faltan = datos
+    if faltan:
+        log.warning("fecha %d: %d partido(s) sin resultado (suspendido o por jugar) — "
+                    "se analiza lo jugado; regenerá el postmortem cuando se resuelvan",
+                    fecha, faltan)
 
     mis_numeros = sorted(mis_numeros_env())
     eventos_fecha = [ev for ev in flat_eventos(cfg) if ev["fecha_n"] == fecha]

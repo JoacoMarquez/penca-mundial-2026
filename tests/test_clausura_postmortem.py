@@ -1,5 +1,6 @@
 """Tests del postmortem por fecha (src.clausura.postmortem)."""
 
+import json
 from src.clausura.postmortem import _percentil, compute_stats, formatear_postmortem
 
 NUMS = [899258848, 899258849, 899258850]
@@ -82,3 +83,63 @@ def test_reporte_sin_snapshot_no_rompe():
     st = compute_stats(1, _eventos(), RESULTADOS, _picks(), {}, [], set(NUMS))
     txt = formatear_postmortem(st)
     assert "Sin snapshot" in txt
+
+
+# -------------------- fecha incompleta y e_pts pre-partido (2026-08-10) --------------------
+
+def test_resultados_de_fecha_no_se_traba_con_un_suspendido(monkeypatch):
+    """Un partido suspendido bloqueaba el postmortem para siempre.
+
+    La Fecha 1 tuvo Torque–Peñarol suspendido: exigir la fecha completa dejó el
+    análisis de los otros siete sin correr nunca.
+    """
+    import src.clausura.postmortem as pm
+
+    class _Api:
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def _get(self, _):
+            return [
+                {"id": 1, "resultado": {"golesEquipoLocal": 1, "golesEquipoVisitante": 0}},
+                {"id": 2, "resultado": {"golesEquipoLocal": 0, "golesEquipoVisitante": 1}},
+                {"id": 3, "resultado": {}},                      # suspendido
+            ]
+
+    monkeypatch.setattr(pm, "PencaApiClient", _Api)
+    cfg = {"fechas": {"Fecha 1": {"fecha_id": 280}}}
+
+    res, faltan = pm.resultados_de_fecha(cfg, 1, min_jugados=2)
+    assert res == {1: (1, 0), 2: (0, 1)} and faltan == 1
+    # y con el umbral por encima de lo jugado, no alcanza
+    assert pm.resultados_de_fecha(cfg, 1, min_jugados=3) is None
+
+
+def test_e_pts_sale_de_la_planilla_PRE_partido(tmp_path, monkeypatch):
+    """Post-partido la grilla es delta y el E[pts] guardado ES el puntaje real.
+
+    Si el postmortem lo tomara de la última versión, "esperado vs real" daría
+    identidad perfecta y no mediría nada.
+    """
+    import src.clausura.picks as picks_mod
+    import src.clausura.postmortem as pm
+
+    monkeypatch.setattr(picks_mod, "PRED_DIR", tmp_path)
+    d = tmp_path / "fecha_01"; d.mkdir()
+    cierre = "2026-08-09T13:45:00+00:00"
+
+    # v1: generada ANTES del cierre → su e_pts es la expectativa real
+    (d / "v1_20260809T100000Z.json").write_text(json.dumps({
+        "generado_utc": "2026-08-09T10:00:00+00:00",
+        "picks": [{"evento_id": 10, "cierre_pronostico_utc": cierre,
+                   "scores": [[1, 0], [1, 1]], "e_pts": [2.36, 1.98]}],
+    }))
+    # v2: generada DESPUÉS → e_pts contra la delta = el puntaje obtenido
+    (d / "v2_20260809T160000Z.json").write_text(json.dumps({
+        "generado_utc": "2026-08-09T16:00:00+00:00",
+        "picks": [{"evento_id": 10, "cierre_pronostico_utc": cierre,
+                   "scores": [[1, 0], [1, 1]], "e_pts": [0.0, 1.0]}],
+    }))
+
+    picks, e_pts = pm.picks_de_planilla(1, [111, 222])
+    assert picks[111][10] == (1, 0)          # los PICKS sí salen de la última
+    assert e_pts[10] == {111: 2.36, 222: 1.98}   # el E[pts], de la PRE-partido
