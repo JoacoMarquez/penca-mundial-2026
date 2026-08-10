@@ -58,7 +58,54 @@ def test_formato_con_faltantes_y_sin_faltantes():
     assert formatear_alerta(ev, cierre, 2.0, faltantes=[], n_participaciones=12) is None
 
 
-def test_formato_pre_inicio_es_recordatorio_ciego():
+def test_formato_sin_verificacion_es_recordatorio():
+    """Con faltantes=None el aviso recuerda, no acusa.
+
+    El texto cambió el 2026-08-09: decía "no puedo verificar hasta que inicie el
+    campeonato", que sugiere que después sí podría. No puede nunca antes del cierre —
+    el gate del API es por partido.
+    """
     ev = _ev(2, NOW + timedelta(hours=5))
     msg = formatear_alerta(ev, NOW + timedelta(hours=5), 6.0, faltantes=None, n_participaciones=12)
-    assert "No puedo verificar" in msg and "⏰" in msg
+    assert "Verificá a mano" in msg and "⏰" in msg
+    assert "faltan" not in msg.lower()
+
+
+# -------------------- el gate es por partido (regresión 2026-08-09) --------------------
+
+def test_partido_abierto_no_cuenta_faltantes():
+    """Antes del cierre el API no publica NUESTROS picks: no se puede verificar.
+
+    Contarlos como faltantes daba siempre "faltan 12/12" con las 12 cargadas. Salieron
+    14 avisos falsos al Telegram el 8-9/8, en el mismo canal donde drift_audit manda lo
+    que sí cuesta puntos.
+    """
+    from datetime import datetime, timedelta, timezone
+    from src.clausura.carga_alert import formatear_alerta
+
+    cierre = datetime.now(timezone.utc) + timedelta(hours=2)
+    msg = formatear_alerta({"local": "Nacional", "visitante": "Boston River"},
+                           cierre, 2.0, None, 12)
+    assert msg is not None
+    assert "faltan" not in msg.lower()
+    assert "verificá a mano" in msg.lower()
+    # y no puede prometer que después va a poder: no es cuestión de esperar
+    assert "hasta que inicie el campeonato" not in msg.lower()
+
+
+def test_post_cierre_si_puede_contar_faltantes():
+    """Cerrado el partido el gate abre y el conteo vuelve a ser real."""
+    from datetime import datetime, timedelta, timezone
+    from src.clausura.carga_alert import formatear_alerta
+
+    cierre = datetime.now(timezone.utc) - timedelta(hours=1)
+    msg = formatear_alerta({"local": "Nacional", "visitante": "Boston River"},
+                           cierre, 2.0, [899258848, 899258854], 12)
+    assert "2/12" in msg and "899258848" in msg
+
+
+def test_todo_cargado_no_avisa():
+    from datetime import datetime, timedelta, timezone
+    from src.clausura.carga_alert import formatear_alerta
+    cierre = datetime.now(timezone.utc) - timedelta(hours=1)
+    assert formatear_alerta({"local": "A", "visitante": "B"}, cierre, 2.0, [], 12) is None
