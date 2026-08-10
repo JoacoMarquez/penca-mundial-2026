@@ -180,6 +180,65 @@ def pool_campeon_distribution(
     return q / q.sum()
 
 
+def opciones_goleador_desde_snapshot(snapshot: dict) -> list[OpcionGoleador]:
+    """Menú de goleadores reconstruido de lo que el POOL tiene cargado.
+
+    `/front/pencas/46/opcionesGoleador` devuelve 500 desde antes del kickoff (la penca
+    41 del Apertura responde 200, así que es de esta penca, no un "todavía no"). Sin
+    menú, `enable_goleador` nunca se activa y los 25 puntos del goleador — la mitad de
+    los especiales — no existen en el Monte Carlo, ni los nuestros ni los de los 474
+    rivales que sí lo cargaron.
+
+    El snapshot del pool trae `goleador_id` + `goleador` de cada participación, así que
+    el menú se puede reconstruir de ahí: son las opciones que alguien efectivamente
+    eligió. Al 2026-08-10 eso da las 16 opciones reales.
+
+    Limitación honesta: el snapshot NO trae `equipo_id`, así que estas opciones no
+    sirven para `goleador_prior_from_ratings` (que pesa por ataque del equipo). Se usan
+    con `goleador_prior_desde_pool`.
+    """
+    vistos: dict[int, str] = {}
+    for fila in snapshot.get("participaciones", []):
+        gid, nom = fila.get("goleador_id"), fila.get("goleador")
+        if gid is not None and nom and int(gid) not in vistos:
+            vistos[int(gid)] = str(nom)
+    return [OpcionGoleador(id=gid, nombre=nom, equipo_id=-1)
+            for gid, nom in sorted(vistos.items())]
+
+
+def goleador_prior_desde_pool(
+    counts: np.ndarray,
+    shrink: float = 0.5,
+) -> np.ndarray:
+    """P(goleador) a partir de lo que eligió el pool, encogido hacia uniforme.
+
+    Sin datos a nivel jugador no hay forma de estimar esto bien, y el prior de ratings
+    (`goleador_prior_from_ratings`) descansa en tres constantes inventadas y necesita
+    un `equipo_id` que el snapshot no trae. Lo único con información genuina son los
+    474 rivales que eligieron: es un agregado de gente que sigue el campeonato.
+
+    Pero NO se puede tomar su distribución como la verdad, por dos motivos:
+      * las pencas tienen sesgo favorito-longshot — los nombres grandes se
+        sobrejuegan — y usar Q como P haría creer que el pool siempre acierta, o sea
+        que el goleador es un evento donde todos empatan;
+      * y volvería circular la comparación: estaríamos midiendo al pool contra sí mismo.
+
+    Por eso se encoge hacia uniforme: `shrink=0` devuelve la distribución del pool tal
+    cual, `shrink=1` la uniforme, `0.5` (default) las promedia. Es un parámetro
+    honesto, no calibrado — está expuesto justamente para poder medir cuánto dependen
+    las decisiones de él. Si dependen mucho, no hay que prender esto.
+    """
+    c = np.asarray(counts, dtype=float)
+    n = len(c)
+    if n == 0:
+        return np.zeros(0)
+    total = c.sum()
+    q = c / total if total > 0 else np.full(n, 1.0 / n)
+    u = np.full(n, 1.0 / n)
+    p = (1.0 - shrink) * q + shrink * u
+    return p / p.sum()
+
+
 def goleador_prior_from_ratings(
     opciones: list[OpcionGoleador],
     equipos: list[str],

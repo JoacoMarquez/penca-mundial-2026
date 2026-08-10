@@ -63,6 +63,31 @@ PRED_DIR = ROOT / "data" / "predictions" / "clausura"
 
 MARKET_WEIGHT = 0.7   # blend λ: 70% mercado / 30% ratings (criterio Capa 1+2 del Mundial)
 
+# Cuánto se encoge hacia uniforme el consenso del pool para estimar P(goleador), cuando
+# el menú se reconstruye del snapshot. 0 = creerle al pool tal cual, 1 = uniforme.
+# NO está calibrado — no hay datos a nivel jugador. Está acá arriba y expuesto porque
+# lo que corresponde es medir cuánto dependen las decisiones de él, no afinarlo a ojo.
+# Medido el 2026-08-10: ver el comentario de `goleador_prior_desde_pool`.
+GOLEADOR_SHRINK = float(os.environ.get("CLAUSURA_GOLEADOR_SHRINK", "0.5"))
+
+# Reconstruir el menú de goleador del snapshot y meterlo al Monte Carlo. APAGADO por
+# medición, no por falta de ganas: el 2026-08-10 se midió que prenderlo EMPEORA las
+# decisiones, con los tres priors probados y por lo tanto no por culpa del shrink:
+#     shrink 0.0 → −$609 ± 308 · shrink 0.5 → −$716 ± 324 · shrink 1.0 → −$199 ± 442
+#
+# Dos razones. (1) Nuestros 12 goleadores están CONGELADOS desde el lock y los 12 caen
+# en el top-3, junto con el 84,6% del pool: los 25 puntos son un desplazamiento casi
+# común y no mueven posiciones relativas. (2) Es un término grumoso —25 pts con 20-34%
+# de probabilidad— que sube la varianza de cada estimación de E[premio] y degrada al
+# ascenso por coordenadas; el mismo mecanismo que hace ganar al menú chico.
+#
+# El "+$48k" del sweep del 7/8 era sobre ELEGIR goleadores y comprar participaciones
+# ANTES del lock. Eso ya no está disponible; son dos cosas distintas.
+#
+# Vale la pena prenderlo si algún día aparece un prior REAL (cuotas de mercado de
+# goleador), o el año que viene antes del lock, cuando la elección sí esté abierta.
+GOLEADOR_EN_MC = os.environ.get("CLAUSURA_GOLEADOR_MC", "0") == "1"
+
 
 # -------------------- carga de insumos --------------------
 
@@ -701,12 +726,35 @@ def run(
     except Exception as e:
         log.warning("opciones de especiales no disponibles (%s)", e)
 
+    # Sin menú del API (500 crónico en esta penca) el goleador quedaba FUERA del Monte
+    # Carlo: 25 de los 50 puntos de especiales no existían, ni los nuestros ni los de
+    # los 474 rivales que sí lo cargaron, y `sin_goleador` tampoco se marcaba. El menú
+    # se reconstruye del snapshot, que trae goleador_id + nombre de cada participación.
+    desde_snapshot = False
+    if GOLEADOR_EN_MC and not opciones_goleador and snapshot:
+        from src.clausura.especiales import (
+            goleador_prior_desde_pool, opciones_goleador_desde_snapshot,
+        )
+        opciones_goleador = opciones_goleador_desde_snapshot(snapshot)
+        desde_snapshot = bool(opciones_goleador)
+        if desde_snapshot:
+            log.info("menú de goleador reconstruido del snapshot: %d opciones "
+                     "(el API sigue en 500)", len(opciones_goleador))
+
     p_gol, pool_q_gol = None, None
     if opciones_goleador:
-        equipo_id_por_nombre = {v: k for k, v in equipos_cfg.items()}
-        p_gol = goleador_prior_from_ratings(
-            opciones_goleador, equipo_nombres, equipo_id_por_nombre, ratings.ataque
-        )
+        if desde_snapshot:
+            # El snapshot no trae equipo_id, así que el prior de ratings no aplica.
+            # Se usa el consenso del pool encogido hacia uniforme — ver
+            # `goleador_prior_desde_pool` para por qué no se usa Q tal cual.
+            from src.clausura.especiales import goleador_prior_desde_pool
+            g_counts = empirical_goleador_counts(snapshot, opciones_goleador, mis_numeros)
+            p_gol = goleador_prior_desde_pool(g_counts, shrink=GOLEADOR_SHRINK)
+        else:
+            equipo_id_por_nombre = {v: k for k, v in equipos_cfg.items()}
+            p_gol = goleador_prior_from_ratings(
+                opciones_goleador, equipo_nombres, equipo_id_por_nombre, ratings.ataque
+            )
         pool_q_gol = pool_goleador_distribution(p_gol)
         # los especiales de los rivales son públicos incluso ANTES del inicio del
         # campeonato (verificado 2026-08-07): si hay snapshot, la Q modelada del
