@@ -242,7 +242,18 @@ def save_state(corridos: set[str]) -> None:
 
 # -------------------- main --------------------
 
-DEFAULT_SIMS = 2400        # solo si la planilla previa no dice con cuántas corrió
+# Solo si la planilla previa no dice con cuántas corrió. Tiene que seguir a
+# deploy/clausura-picks.service: era 2400 y quedó peligrosamente viejo cuando
+# producción pasó a 19.200 el 2026-08-10.
+DEFAULT_SIMS = 19_200
+
+# Debajo de esto el ascenso por coordenadas fitea ruido, y desde el 2026-08-11 eso
+# no es solo "menos preciso": con K_EV=5 el menú de 5 mide −$4.192 a 2.400 sorteos
+# (a 19.200 mide +$4.568). O sea que correr con pocos sorteos pone al optimizador en
+# el régimen donde NUESTRA PROPIA configuración de menú es dañina. No se clampea
+# —quien pide --sims a mano sabe lo que hace, y los tests corren con valores chicos
+# a propósito— pero tiene que hacer ruido en el log.
+SIMS_MIN_SEGURO = 9_600
 
 
 
@@ -256,15 +267,23 @@ def sims_de(prev: dict, pedido: int | None = None) -> int:
     La semilla es fija, pero cambiar la cantidad de sorteos cambia la superficie
     que el ascenso por coordenadas escala: cae en otro óptimo local, no mejor.
     """
-    if pedido:
-        return pedido
     previo = prev.get("n_sims")
-    if not previo:
+    if pedido:
+        sims = int(pedido)
+    elif not previo:
         log.warning("la planilla previa no registra n_sims (es anterior a este "
                     "cambio) — uso %d; el diff puede traer churn del optimizador",
                     DEFAULT_SIMS)
-        return DEFAULT_SIMS
-    return int(previo)
+        sims = DEFAULT_SIMS
+    else:
+        sims = int(previo)
+    if sims < SIMS_MIN_SEGURO:
+        log.warning(
+            "corriendo con %d sorteos, por debajo del piso seguro de %d. El ascenso "
+            "fitea ruido ahí, y con K_EV=5 el menú de producción mide NEGATIVO en ese "
+            "régimen (−$4.192 a 2.400 vs +$4.568 a 19.200). La planilla que salga de "
+            "acá no es comparable con las de producción.", sims, SIMS_MIN_SEGURO)
+    return sims
 
 
 def run(

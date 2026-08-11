@@ -39,7 +39,10 @@ from src.clausura.strategy import EvaluadorPortfolio, build_portfolio  # noqa: E
 
 CHALKS = (1.0, 1.5, 2.2, 3.0)
 MENUS = ((3, 0), (5, 0), (3, 3))
-BASE = (1.0, (3, 0))                      # producción hoy
+# Producción hoy. Configurable porque el punto de comparación se mueve: era
+# (1.0, (3,0)) hasta el 2026-08-11 y pasó a (2.2, (5,0)) al mandar el PR #166.
+# Dejarlo fijo hace que un barrido posterior mida contra una config que ya no existe.
+BASE = (2.2, (5, 0))
 
 
 def q_verdad(pred_grids):
@@ -59,7 +62,10 @@ def main():
     ap.add_argument("--participaciones", type=int, default=12)
     ap.add_argument("--chalks", default="")   # "1.0,2.2"
     ap.add_argument("--menus", default="")    # "3-0,5-0"
+    ap.add_argument("--base", default="")     # "2.2:5-0"
     a = ap.parse_args()
+
+    global BASE
 
     from src.clausura.api import PencaApiClient
     from src.clausura.odds import fetch_primera_odds
@@ -102,9 +108,15 @@ def main():
     # comparación de todos, y sin su creencia el primer build tira KeyError.
     creencia = {c: [pool_distribution(g, PoolConfig(chalk_strength=c))
                     for g in pred_grids]
-                for c in sorted(set(chalks) | {BASE[0]})}
+                for c in sorted(set(chalks) | {BASE[0], 
+                    float(a.base.split(':')[0]) if a.base else BASE[0]})}
 
+    if a.base:
+        bc, bm = a.base.split(':')
+        BASE = (float(bc), tuple(int(v) for v in bm.split('-')))
     brazos = [(c, m) for c, m in itertools.product(chalks, menus)]
+    if BASE not in brazos:
+        brazos.insert(0, BASE)
     print(f"{len(eventos)} eventos · {len(resultados)} jugados · "
           f"{len(brazos)} brazos × {a.reps} reps · {a.sims} sorteos\n", flush=True)
 
@@ -143,7 +155,8 @@ def main():
                 fila.append(f"{k} {c.delta:+,.0f} ± {c.se:,.0f}")
             print(f"  chalk {chalk:<4} menú {menu}   " + "   ·   ".join(fila), flush=True)
 
-    print(f"\n{'='*72}\nRESUMEN — Δ E[premio] vs producción (chalk 1.0, menú (3,0))\n{'='*72}")
+    print(f"\n{'='*72}\nRESUMEN — Δ E[premio] vs la base "
+          f"(chalk {BASE[0]}, menú {BASE[1]})\n{'='*72}")
     print(f"  {'chalk':>6} {'menú':>8}   {'verdad = Q calibrada':>24}   {'control = Q vieja':>22}")
     for b in sorted(brazos, key=lambda x: -float(np.mean(acum[x]["verdad"]))):
         v, c = acum[b]["verdad"], acum[b]["control"]
