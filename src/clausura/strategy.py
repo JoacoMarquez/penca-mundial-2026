@@ -49,24 +49,33 @@ log = logging.getLogger(__name__)
 HUECO_METRIC = "legacy_hueco"
 
 # Tamaño del menú de candidatos por partido: top-K_EV por E[pts] ∪ top-K_HUECO por
-# hueco. Eran 5 y 3 (menú de 8) hasta el 2026-08-08, cuando el barrido midió que el
-# menú chico gana: (3, 0) vale **+$9.737 ± 859 de E[premio], ganando 16 de 16 reps**
-# pareadas (4 temporadas × 4 semillas, evaluación out-of-sample con sorteos comunes),
-# y además corre 3,5× más rápido.
+# hueco.
 #
-# El mecanismo NO es que los candidatos raros sean malos picks — es que cada
-# candidato extra es una comparación más de dos estimaciones Monte Carlo ruidosas, o
-# sea un boleto más para que el ruido gane el argmax. La prueba: a 9.600 sorteos los
-# menús (5,3) y (5,0) producen picks IDÉNTICOS en 16 de 16 reps. Cuando el ascenso ve
-# bien, nunca elige un candidato de la rama de hueco; a los sorteos de producción, a
-# veces lo elige por error. Sacar la rama no cambia el óptimo, cambia cuántas veces
-# se lo pierde.
+# EL TAMAÑO ÓPTIMO DEPENDE DE n_sims. No es una propiedad del menú, es la interacción
+# entre cuántos candidatos hay y cuánto ruido tiene cada comparación. Cada candidato
+# extra es una comparación más de dos estimaciones Monte Carlo, o sea un boleto más
+# para que el ruido gane el argmax; pero también una chance más de encontrar el pick
+# que de verdad conviene. Con pocos sorteos gana el primer efecto, con muchos el
+# segundo. Medido el 2026-08-11, mismos brazos, misma verdad, solo cambian los sorteos:
 #
-# OJO — esto NO contradice el A/B del 8/8, contesta otra pregunta. Aquel comparó cómo
-# ORDENAR la rama de hueco (E[pts]/pool_q vs P/pool_q) y concluyó bien. Nadie había
-# probado SACARLA. Reproducir con:
-#     python -m src.clausura.backtest --experimento-menu-size --reps 4
-K_EV = 3
+#     Δ E[premio] de (5,0) vs (3,0)      a 2.400        a 9.600      a 19.200
+#     chalk 1.0                          −$4.192       +$4.231       +$4.568
+#     chalk 2.2                          −$1.138       +$9.433       +$9.481
+#
+# El signo se da vuelta. Por eso K_EV pasó de 5 a 3 el 2026-08-08 (+$9.737 ± 859,
+# 16/16 reps, medido a 2.400) y vuelve a 5 hoy: aquella medición era correcta PARA SU
+# RÉGIMEN y quedó vencida cuando subimos los sorteos a 9.600 y después a 19.200, sin
+# que nada avisara. Producción hoy corre 19.200 (ver deploy/clausura-picks.service).
+#
+# >>> Si algún día se BAJAN los sorteos, hay que volver a medir esto. <<<
+#
+# K_HUECO sigue en 0: la rama de rareza mide casi no-op ((3,3) queda −$1.505 a +$1.712
+# según el chalk, muy por debajo de (5,0)). Lo que sirve es más candidatos por E[pts],
+# no por rareza — que es distinto de lo que suponíamos al escribir la rama.
+#
+# Reproducir: python scripts/backtest_chalk_menu.py --sims 19200 --reps 3 \
+#                    --chalks 1.0,2.2 --menus 3-0,5-0
+K_EV = 5
 K_HUECO = 0
 
 

@@ -54,7 +54,25 @@ DEFAULT_POPULAR_BIAS: dict[tuple[int, int], float] = {
 
 @dataclass
 class PoolConfig:
-    chalk_strength: float = 1.0
+    # 1.0 → 2.2 el 2026-08-11, calibrado contra 4.791 picks REALES del pool (718
+    # participaciones, 7 partidos de la Fecha 1). El pencista se amontona mucho más de
+    # lo que asumíamos: juega el 2-1 el 21,1% cuando el mercado le da 8,8%. Ajuste por
+    # máxima verosimilitud validado leave-one-match-out (log-loss 2,2712 → 2,1666).
+    #
+    # OJO con qué es este número. Funciona como PERILLA DE DIFERENCIACIÓN, no como
+    # creencia: la planilla con chalk alto gana también cuando la verdad del pool es la
+    # Q vieja (+$1.185 ± 140 a 19.200). Si fuera cuestión de "creer bien" ahí tendría
+    # que perder. Un pool que el modelo ve más apretado nos empuja a separarnos, y nos
+    # venía faltando. Por eso el óptimo es plano entre 1,5 y 3,0 y no hay que leer 2,2
+    # como "el valor verdadero".
+    #
+    # La tabla de 36 sesgos calibrada NO se adoptó: medía +$1.503 ± 439 contra los
+    # +$1.273 ± 194 del chalk solo, o sea empate, y son 36 parámetros ajustados con 7
+    # partidos. Con evidencia empatada gana el cambio de un parámetro.
+    #
+    # >>> La concentración efectiva es chalk/temperature <<< — ver el guardrail en
+    # picks.py, porque el calibrador online mueve `temperature` y puede deshacer esto.
+    chalk_strength: float = 2.2
     temperature: float = 1.0
     default_bias: float = 0.8
     popular_bias: dict[tuple[int, int], float] = field(

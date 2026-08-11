@@ -401,10 +401,16 @@ def test_bias_se_refleja_cuando_el_favorito_es_visitante():
 def test_orientar_al_favorito_se_puede_apagar():
     """Reproducir el comportamiento previo al 2026-08-09.
 
-    Se compara el sesgo RELATIVO AL MERCADO (Q/P), no la Q cruda: el sesgo es un
+    Se compara el sesgo RELATIVO AL MERCADO, no la Q cruda: el sesgo es un
     multiplicador sobre la probabilidad de mercado, y con favorito visitante el
     mercado por sí solo ya hace que 0-1 tenga más masa que 1-0. Lo que distingue a
     los dos modos es hacia dónde empujan RESPECTO del mercado.
+
+    OJO con la fórmula: el sesgo se despeja como Q/P**chalk, no como Q/P. Con
+    `q ∝ p**a · bias` el cociente Q/P vale `p**(a-1) · bias`, así que en cuanto el
+    chalk dejó de ser 1.0 (pasó a 2.2 el 2026-08-11) arrastra un término de mercado
+    que en un partido desparejo domina al sesgo — este test falló por eso, midiendo
+    0.49 donde esperaba >1.2, sin que la orientación tuviera nada roto.
     """
     from src.clausura.economics import flatten_grid, score_index
     from src.clausura.pool import PoolConfig, pool_distribution
@@ -416,12 +422,16 @@ def test_orientar_al_favorito_se_puede_apagar():
 
     def sesgo_rel(cfg):
         q = pool_distribution(visita_fav, cfg)
-        return (q[i10] / p[i10]) / (q[i01] / p[i01])
+        pa = p ** cfg.chalk_strength
+        return (q[i10] / pa[i10]) / (q[i01] / pa[i01])
 
-    # apagado: empuja hacia el 1-0 (tabla en clave local) aunque el favorito sea visita
-    assert sesgo_rel(PoolConfig(orientar_al_favorito=False)) > 1.2
-    # prendido: empuja hacia el 0-1, que es el "gana el favorito por 1"
-    assert sesgo_rel(PoolConfig(orientar_al_favorito=True)) < 0.9
+    for chalk in (1.0, 2.2):
+        # apagado: empuja al 1-0 (tabla en clave local) aunque el favorito sea visita
+        apagado = PoolConfig(chalk_strength=chalk, orientar_al_favorito=False)
+        assert sesgo_rel(apagado) > 1.2, f"chalk={chalk}"
+        # prendido: empuja hacia el 0-1, que es el "gana el favorito por 1"
+        prendido = PoolConfig(chalk_strength=chalk, orientar_al_favorito=True)
+        assert sesgo_rel(prendido) < 0.9, f"chalk={chalk}"
 
 
 def test_partido_parejo_no_rompe_la_orientacion():

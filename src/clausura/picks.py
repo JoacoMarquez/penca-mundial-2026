@@ -647,9 +647,28 @@ def run(
         jugables = [g for g, ev in zip(pred_grids, eventos)
                     if ev["evento_id"] in resultados]
         if jugables:
+            previo = pool_cfg
             pool_cfg = calibrate_from_exact_rate(jugables, exact_rate, pool_cfg)
-            log.info("pool calibrado: temperatura=%.2f (exact_rate=%.3f)",
-                     pool_cfg.temperature, exact_rate)
+            # La concentración efectiva del pool es chalk/temperature: el calibrador
+            # mueve SOLO la temperatura, así que subirla deshace el chalk_strength que
+            # se midió contra 4.791 picks reales (+$8.531 ± 10 a 19.200). Y los dos
+            # canales no valen lo mismo: éste ajusta un escalar (la tasa de exactos del
+            # ranking, que además ya nos mintió una vez dando T=3.0 con el pool real en
+            # ~0.5), contra la distribución completa de picks del otro. Si el escalar
+            # nos lleva a menos de la mitad de la concentración medida, hacemos ruido.
+            efectiva = pool_cfg.chalk_strength / max(pool_cfg.temperature, 1e-6)
+            objetivo = previo.chalk_strength / max(previo.temperature, 1e-6)
+            log.info("pool calibrado: temperatura=%.2f (exact_rate=%.3f) — "
+                     "concentración efectiva chalk/T = %.2f",
+                     pool_cfg.temperature, exact_rate, efectiva)
+            if efectiva < 0.5 * objetivo:
+                log.warning(
+                    "la calibración por tasa de exactos bajó la concentración efectiva "
+                    "de %.2f a %.2f (temperatura %.2f). Eso deshace la calibración "
+                    "contra picks reales, que vale +$8.531 de E[premio]. Revisar si el "
+                    "exact_rate observado (%.3f) es confiable antes de creerle: se "
+                    "llena recién al CIERRE de la fecha.",
+                    objetivo, efectiva, pool_cfg.temperature, exact_rate)
 
     # partidos de la fecha objetivo que ya no se pueden cambiar (jugados o cerrados):
     # se congelan con SUS picks guardados, no se regeneran

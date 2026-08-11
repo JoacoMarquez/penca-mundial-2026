@@ -279,3 +279,44 @@ def test_baselines_son_uniformes(escenario):
     for picks in (baseline_chalk(grids, 4), baseline_ev(grids, pref, 4)):
         for m in range(len(grids)):
             assert len(set(picks[:, m])) == 1
+
+
+# -------------------- el menú y la concentración van juntos con n_sims --------------------
+
+def test_menu_de_cinco_por_ev_sin_rama_de_hueco():
+    """K_EV=5 desde el 2026-08-11; la rama de rareza sigue apagada.
+
+    El tamaño óptimo del menú DEPENDE de n_sims (más candidatos = más comparaciones
+    Monte Carlo ruidosas, pero también más chances de encontrar el pick que conviene).
+    A 2.400 el menú de 5 medía −$4.192; a 19.200 mide +$4.568. Si alguien baja los
+    sorteos, este test no lo detecta — pero el comentario de K_EV avisa por qué hay
+    que volver a medir.
+    """
+    from src.clausura import strategy
+    assert (strategy.K_EV, strategy.K_HUECO) == (5, 0)
+
+
+def test_pool_arranca_concentrado():
+    """chalk_strength calibrado contra picks reales: el pool se amontona más que 1.0."""
+    from src.clausura.pool import PoolConfig
+    cfg = PoolConfig()
+    assert cfg.chalk_strength == 2.2
+    assert cfg.temperature == 1.0, "el barrido midió chalk con T=1; lo que manda es chalk/T"
+
+
+def test_menu_mas_grande_incluye_al_menu_chico():
+    """Subir K_EV solo AGREGA candidatos: nada de lo que ya se jugaba desaparece.
+
+    Importa porque el cambio de menú tiene que ser una ampliación del espacio de
+    búsqueda, no un reemplazo — si sacara candidatos, el resultado del barrido no se
+    podría atribuir a "más opciones".
+    """
+    from src.clausura.pool import PoolConfig, pool_distribution
+    from src.clausura.strategy import build_candidates
+    from src.model.poisson import score_grid
+
+    grid = score_grid(1.4, 1.1, 0.0, max_goals=5)
+    q = pool_distribution(grid, PoolConfig())
+    chicos = {c.pick for c in build_candidates(grid, q, False, k_ev=3, k_hueco=0)}
+    grandes = {c.pick for c in build_candidates(grid, q, False, k_ev=5, k_hueco=0)}
+    assert chicos < grandes and len(grandes) == 5
