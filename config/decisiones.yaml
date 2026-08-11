@@ -1,0 +1,123 @@
+# Registro de decisiones medidas del Clausura.
+#
+# POR QUÉ EXISTE. El 2026-08-11 descubrimos que el tamaño del menú (K_EV=3) había
+# quedado obsoleto: se eligió midiendo bien —+$9.737 ± 859, 16/16 reps— pero a 2.400
+# sorteos, y cuando subimos a 19.200 la respuesta correcta pasó a ser 5 sin que nadie
+# volviera a preguntar. Costaba ~$8.500 y lo encontramos tres días después, de casualidad.
+#
+# Una decisión bien tomada puede vencer cuando cambia algo de lo que dependía, y no avisa.
+# Este archivo hace que avise: cada decisión declara BAJO QUÉ SUPUESTOS se midió, y
+# tests/test_decisiones_vigentes.py falla cuando esos supuestos ya no son los de producción.
+#
+# NO re-mide nada — eso cuesta horas. Solo grita "esto se decidió en otro mundo".
+#
+# CÓMO AGREGAR UNA DECISIÓN: cualquier constante que se eligió COMPARANDO alternativas
+# con Monte Carlo va acá. Las que son criterio de diseño (MARKET_WEIGHT 70/30) o
+# restricción externa (PUNTOS_ESPECIAL=25) no, porque no vencen con el ruido.
+#
+# CÓMO SE APAGA LA ALARMA: re-medir y actualizar `medida_con`; o declarar `vencida:`
+# con el motivo, que la deja pasar pero visible en el listado. `inerte:` es para
+# decisiones que hoy no tienen efecto (el código está pero no se ejecuta).
+
+decisiones:
+  - nombre: tamaño del menú de candidatos
+    donde: src.clausura.strategy.K_EV
+    valor: 5
+    medida_con: {sims: 19200, participaciones: 12}
+    resultado: "+$8.531 ± 10 (control) · +$9.481 ± 106 (Q calibrada), 3 reps pareadas"
+    fecha: 2026-08-11
+    nota: >-
+      Meseta de 5 a 8 (indistinguibles); 10 mide −$1.532 ± 428 en el control. Todo el
+      valor está en 3→5. El óptimo SUBE con los sorteos: a 2.400 el menú de 5 medía
+      −$4.192. Si se bajan los sorteos, esta decisión se da vuelta.
+
+  - nombre: rama de hueco del menú
+    donde: src.clausura.strategy.K_HUECO
+    valor: 0
+    medida_con: {sims: 19200, participaciones: 12}
+    resultado: "(3,3) mide −$1.505 a +$1.712 según el chalk, siempre debajo de (5,0)"
+    fecha: 2026-08-11
+    nota: >-
+      Lo que sirve es más candidatos por E[pts], no por rareza — distinto de lo que
+      suponíamos al escribir la rama.
+
+  - nombre: métrica de orden de la rama de hueco
+    donde: src.clausura.strategy.HUECO_METRIC
+    valor: legacy_hueco
+    medida_con: {sims: 2400, participaciones: 12}
+    resultado: "mispricing mide −$9.486 ± 2.154 (12 reps, negativo en 10/12)"
+    fecha: 2026-08-08
+    inerte: >-
+      K_HUECO=0 desde el 8/8: la rama no se ejecuta. Medida en el régimen viejo, pero
+      no puede hacer daño mientras siga apagada. Re-medir SOLO si se reactiva la rama.
+
+  - nombre: concentración del pool (chalk)
+    donde: src.clausura.pool.PoolConfig.chalk_strength
+    valor: 2.2
+    medida_con: {sims: 19200, participaciones: 12}
+    resultado: "+$1.185 ± 140 (control) por sí sola; +$8.531 junto con el menú"
+    fecha: 2026-08-11
+    nota: >-
+      Calibrada contra 4.791 picks reales (log-loss LOMO 2,2712 → 2,1666) pero funciona
+      como PERILLA DE DIFERENCIACIÓN, no como creencia: gana también cuando la verdad
+      del pool es la Q vieja. Meseta ancha entre 1,5 y 3,0. La concentración efectiva
+      es chalk/temperature — ver el guardrail en picks.py.
+
+  - nombre: sorteos del Monte Carlo
+    donde: deploy/clausura-picks.service --sims
+    valor: 19200
+    medida_con: {sims: 19200, participaciones: 12}
+    resultado: "2.400 → 9.600 +$21.060 ± 936 · 9.600 → 19.200 +$1.452 ± 401"
+    fecha: 2026-08-10
+    nota: >-
+      La curva satura (21k → 1,4k por duplicación). El techo era la MEMORIA del droplet,
+      destrabada con tres reducciones + el pase a 2 GB. Pico real 575 MB de 1.967.
+      ESTE es el supuesto del que cuelgan casi todas las demás decisiones.
+
+  - nombre: pasadas del ascenso por coordenadas
+    donde: src.clausura.strategy.build_portfolio(max_passes=)
+    valor: 3
+    medida_con: {sims: 19200, participaciones: 12}
+    resultado: "6 y 10 pasadas miden +$778 a +$873 (control): positivo pero chico"
+    fecha: 2026-08-11
+    nota: >-
+      El "3→6 es 85% overfitting" del 8/8 se midió explícitamente SIN subir sorteos y
+      quedó vencido. No se cambió porque el efecto es un orden de magnitud menor que el
+      menú y en el control queda en ~1,9 SE. Los brazos COLAPSAN (mismo resultado
+      exacto) porque el ascenso converge: warm start con 3 pasadas ≡ 6 pasadas en frío.
+
+  - nombre: goleador dentro del Monte Carlo
+    donde: src.clausura.picks.GOLEADOR_EN_MC
+    valor: false
+    medida_con: {sims: 9600, participaciones: 12}
+    resultado: "prenderlo mide −$609 ± 308 / −$716 ± 324 / −$199 ± 442 según el prior"
+    fecha: 2026-08-10
+    vencida: >-
+      Medida a 9.600 y producción corre 19.200. El NÚMERO probablemente aguanta (los 12
+      goleadores están congelados y caen en el top-3 junto con el 84,6% del pool, así
+      que los 25 pts son un desplazamiento casi común), pero su EXPLICACIÓN citaba "el
+      mismo mecanismo que hace ganar al menú chico", y ese mecanismo se dio vuelta.
+      Barata de re-medir; el premio esperado es chico.
+
+  - nombre: umbral del aviso por valor del rerun
+    donde: src.clausura.rerun_cierre.UMBRAL_SE
+    valor: 2.0
+    medida_con: {sims: 2400, participaciones: 12}
+    resultado: "avisar por diferencia de picks pedía 56 cambios hacia una planilla PEOR ($238k → $221k)"
+    fecha: 2026-08-08
+    vencida: >-
+      Medida a 2.400. El umbral existe porque el óptimo es plano y el churn produce Δ de
+      cualquier signo; a 19.200 el optimizador es MÁS estable (las reps convergen casi al
+      mismo lugar), así que el umbral podría estar hoy demasiado alto y hacernos perder
+      mejoras reales. Candidata a re-medir: es la que más cambia el comportamiento visible.
+
+  - nombre: fallback de sorteos del rerun
+    donde: src.clausura.rerun_cierre.DEFAULT_SIMS
+    valor: 19200
+    medida_con: {sims: 19200, participaciones: 12}
+    resultado: "no es una medición: tiene que seguir a producción"
+    fecha: 2026-08-11
+    nota: >-
+      Quedó en 2.400 cuando producción pasó a 19.200 y se volvió activamente dañino: con
+      K_EV=5 el menú de producción mide −$4.192 en ese régimen. Hay un test que lo ata al
+      archivo de systemd para que no vuelva a envejecer en silencio.
