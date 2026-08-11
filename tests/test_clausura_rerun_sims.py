@@ -58,3 +58,36 @@ def test_las_dos_metricas_ordenan_distinto():
 
     assert c14.hueco > c13.hueco                      # el hueco prefiere el más exclusivo
     assert c13.mispricing == pytest.approx(c14.mispricing, abs=0.05)   # desajuste igual
+
+
+def test_default_sims_sigue_a_produccion():
+    """El fallback tiene que estar en el régimen de producción, no en el viejo.
+
+    Era 2400 y quedó peligrosamente viejo cuando producción pasó a 19.200: con
+    K_EV=5, correr a 2.400 pone al optimizador donde NUESTRO menú mide negativo.
+    """
+    import re
+    from pathlib import Path
+    from src.clausura.rerun_cierre import DEFAULT_SIMS, SIMS_MIN_SEGURO
+
+    unit = Path(__file__).resolve().parents[1] / "deploy" / "clausura-picks.service"
+    m = re.search(r"--sims (\d+)", unit.read_text())
+    assert m, "el unit de picks ya no pasa --sims"
+    assert DEFAULT_SIMS == int(m.group(1)), (
+        f"DEFAULT_SIMS={DEFAULT_SIMS} pero producción corre con {m.group(1)}")
+    assert SIMS_MIN_SEGURO <= DEFAULT_SIMS
+
+
+def test_avisa_si_corre_bajo_el_piso_seguro(caplog):
+    """Correr con pocos sorteos no se clampea, pero tiene que hacer ruido."""
+    import logging
+    from src.clausura.rerun_cierre import sims_de
+
+    with caplog.at_level(logging.WARNING):
+        assert sims_de({"n_sims": 9600}, pedido=2400) == 2400
+    assert any("piso seguro" in r.message for r in caplog.records)
+
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        assert sims_de({"n_sims": 19200}) == 19200
+    assert not caplog.records, "no tiene que avisar cuando corre en régimen normal"
