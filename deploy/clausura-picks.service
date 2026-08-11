@@ -32,8 +32,8 @@ ExecStartPre=-/opt/penca/.venv/bin/python -m src.clausura.pool_snapshot --if-sta
 # trocear _tilted_sample por rivales, int16 en los picks) bajaron el pico de 620 a
 # 548 MB, y el 2026-08-10 el droplet pasó de 1 a 2 GB. Pico medido allá:
 #     S=9600 → 360 MB · S=19200 → 548 MB, sobre ~1.900 MB   (28% de uso)
-# Tiempo: ~11 min de optimización + ~9 de escaneo, contra una ventana de 2h45 hasta
-# el primer cierre.
+# Tiempo: ~20 min de optimización (max_passes 3→6 el 2026-08-11: +$1.071/día que el
+# rerun capturaba y el gate suprimía) + ~9 de escaneo, contra una ventana de 2h45.
 #
 # No subir más sin volver a medir acá: la curva satura (21k → 1,4k por duplicación) y
 # el próximo escalón difícilmente pague.

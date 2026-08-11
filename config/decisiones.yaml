@@ -76,15 +76,19 @@ decisiones:
 
   - nombre: pasadas del ascenso por coordenadas
     donde: src.clausura.strategy.build_portfolio(max_passes=)
-    valor: 3
+    valor: 6
     medida_con: {sims: 19200, participaciones: 12}
-    resultado: "6 y 10 pasadas miden +$778 a +$873 (control): positivo pero chico"
+    resultado: >-
+      dos mediciones independientes: barrido directo +$778 a +$873 (control), y los
+      reruns warm-starteados +$1.071 de media sobre la planilla de la mañana (8/8
+      positivos, SE 110-180)
     fecha: 2026-08-11
     nota: >-
       El "3→6 es 85% overfitting" del 8/8 se midió explícitamente SIN subir sorteos y
-      quedó vencido. No se cambió porque el efecto es un orden de magnitud menor que el
-      menú y en el control queda en ~1,9 SE. Los brazos COLAPSAN (mismo resultado
-      exacto) porque el ascenso converge: warm start con 3 pasadas ≡ 6 pasadas en frío.
+      quedó vencido. Primero NO se cambió (efecto ~1,9 SE en el barrido directo), hasta
+      que el experimento del umbral lo confirmó por otro camino: el rerun encontraba
+      ~$1.000/día porque warm start + 3 pasadas ≡ 6 pasadas en frío. Subirlo captura
+      eso en la corrida de la mañana, sin recargas manuales. Costo: ~7 min más de CPU.
 
   - nombre: goleador dentro del Monte Carlo
     donde: src.clausura.picks.GOLEADOR_EN_MC
@@ -102,14 +106,17 @@ decisiones:
   - nombre: umbral del aviso por valor del rerun
     donde: src.clausura.rerun_cierre.UMBRAL_SE
     valor: 2.0
-    medida_con: {sims: 2400, participaciones: 12}
+    medida_con: {sims: 19200, participaciones: 12}
     resultado: "avisar por diferencia de picks pedía 56 cambios hacia una planilla PEOR ($238k → $221k)"
     fecha: 2026-08-08
-    vencida: >-
-      Medida a 2.400. El umbral existe porque el óptimo es plano y el churn produce Δ de
-      cualquier signo; a 19.200 el optimizador es MÁS estable (las reps convergen casi al
-      mismo lugar), así que el umbral podría estar hoy demasiado alto y hacernos perder
-      mejoras reales. Candidata a re-medir: es la que más cambia el comportamiento visible.
+    nota: >-
+      RE-MEDIDA el 2026-08-11 a 19.200 (scripts/backtest_umbral_aviso.py, 8 pares de
+      rerun): la condición de ruido pide ~$517 así que el piso de $2.000 es el que manda.
+      Los 8 reruns eran mejores (+$1.071 de media) y el piso suprimía 7 — pero la causa
+      era el pulido del warm start, no el umbral: se resolvió subiendo max_passes a 6.
+      El piso QUEDA en $2.000 para que el aviso vuelva a significar "pasó algo real".
+      RE-CORRER el experimento tras unas fechas: si el rerun sigue encontrando ~$1.000,
+      el pulido no se agota en 6 pasadas.
 
   - nombre: fallback de sorteos del rerun
     donde: src.clausura.rerun_cierre.DEFAULT_SIMS

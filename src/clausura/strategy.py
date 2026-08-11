@@ -221,7 +221,23 @@ def build_portfolio(
     pool_cfg: PoolConfig | None = None,
     prize: PrizeConfig | None = None,
     sim: SimConfig | None = None,
-    max_passes: int = 3,
+    # 3 → 6 el 2026-08-11. Es el MISMO lever que K_EV: cada pasada extra son más
+    # comparaciones de estimaciones Monte Carlo (más chances de que el ruido gane el
+    # argmax) pero también más chances de encontrar la mejora real. La auditoría del
+    # 8/8 midió 3→6 como "85% overfitting" **explícitamente sin subir sorteos**, y con
+    # 19.200 esa conclusión quedó vencida igual que la del menú.
+    #
+    # Dos mediciones independientes lo respaldan:
+    #   * barrido directo de pasadas: +$778 a +$873 (control), ningún brazo negativo;
+    #   * los reruns de cierre, que warm-startean desde la planilla de la mañana y por
+    #     lo tanto le dan pasadas de más, miden +$1.071 de media sobre ella — 8 de 8
+    #     positivos, con errores de 110-180 (scripts/backtest_umbral_aviso.py).
+    #
+    # La segunda es la que convence: llega al mismo número por un camino distinto, y
+    # explica POR QUÉ el rerun venía encontrando plata gratis. Warm start con 3 pasadas
+    # ≡ 6 pasadas en frío; la diferencia es que así la plata se captura sin pedirle al
+    # usuario que recargue 12 planillas a mano.
+    max_passes: int = 6,
     frozen_picks: np.ndarray | None = None,
     frozen_mask: np.ndarray | None = None,
     especiales: EspecialesInput | None = None,
