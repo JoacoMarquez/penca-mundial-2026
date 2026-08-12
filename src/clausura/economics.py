@@ -91,6 +91,11 @@ class SimConfig:
     n_sims: int = 2_000
     n_rivales: int = 151         # totalElements del ranking público
     seed: int = 20260807
+    # El ausentismo real es por FECHA, no por partido (snapshot F1: 87% cargó los
+    # 7 observables vs 56% que predice el Bernoulli por partido). True sortea el
+    # show de cada rival UNA vez por fecha y lo comparte entre sus 8 partidos.
+    # Solo aplica con RivalModel. Ver la medición en config/decisiones.yaml.
+    show_por_fecha: bool = False
 
 
 @dataclass
@@ -207,6 +212,11 @@ class SeasonSimulator:
                 del buffers[fi]
 
         if rivals is not None:
+            # un cache POR SIMULADOR: los 5 simuladores del gate comparten el
+            # RivalModel y cada uno tiene que re-sortear su propio show por fecha
+            show_cache: dict = {}
+            fecha_de = (lambda m: self.match_fecha[m]) if self.cfg.show_por_fecha \
+                else (lambda m: None)
             for m in range(self.n_matches):
                 if rivals.jugado_sin_observar(m):
                     # Jugado DESPUÉS del snapshot: los puntos reales de este partido
@@ -216,12 +226,14 @@ class SeasonSimulator:
                     # los R rivales sumaban 0 en el partido y el premio de $10k de la
                     # fecha se simulaba regalado. Se imputa como futuro (pick ∝ Q^γ,
                     # show ~ p_show) contra el resultado real, SOLO para la fecha.
-                    rp, show = rivals.sample_picks_match(m, pool_q[m], rng, S,
-                                                         forzar_futuro=True)
+                    rp, show = rivals.sample_picks_match(
+                        m, pool_q[m], rng, S, forzar_futuro=True,
+                        fecha=fecha_de(m), show_cache=show_cache)
                     pts = self.pm[m][rp, self.actual[m][None, :]] * show
                     _acumular(m, pts, en_total=False)
                     continue
-                rp, show = rivals.sample_picks_match(m, pool_q[m], rng, S)
+                rp, show = rivals.sample_picks_match(
+                    m, pool_q[m], rng, S, fecha=fecha_de(m), show_cache=show_cache)
                 pts = self.pm[m][rp, self.actual[m][None, :]]
                 pts = pts * show   # no cargó → 0 puntos
                 _acumular(m, pts)

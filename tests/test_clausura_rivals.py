@@ -211,6 +211,69 @@ def test_sample_picks_match_re_sortea_por_simulacion():
     assert all(len(np.unique(picks[r])) > 1 for r in range(1, 5))
 
 
+def test_show_por_fecha_es_todo_o_nada_dentro_de_la_fecha():
+    """El ausentismo real es por fecha (87% cargó los 7 observables de la F1 vs
+    56% que predice el Bernoulli por partido): con `fecha` + `show_cache`, el show
+    de cada (rival, sim) se comparte entre los partidos de la misma fecha y se
+    re-sortea al cambiar de fecha."""
+    q = _q()
+    R, S = 6, 300
+    model = RivalModel(
+        known_picks=np.full((R, 3), -1, dtype=np.int64),
+        played_mask=np.array([False, False, False]),
+        gamma=np.ones(R),
+        p_show=np.full(R, 0.5),
+        residuo=np.zeros(R, dtype=np.int64),
+    )
+    rng = np.random.default_rng(9)
+    cache: dict = {}
+    _, s0 = model.sample_picks_match(0, q, rng, S, fecha=280, show_cache=cache)
+    _, s1 = model.sample_picks_match(1, q, rng, S, fecha=280, show_cache=cache)
+    _, s2 = model.sample_picks_match(2, q, rng, S, fecha=281, show_cache=cache)
+    assert np.array_equal(s0, s1)          # misma fecha: mismo sorteo de carga
+    assert not np.array_equal(s0, s2)      # otra fecha: sorteo nuevo
+    assert abs(s0.mean() - 0.5) < 0.1      # y la marginal sigue siendo p_show
+
+    # dos simuladores (caches separados) sortean shows independientes
+    cache_b: dict = {}
+    _, s0b = model.sample_picks_match(0, q, np.random.default_rng(10), S,
+                                      fecha=280, show_cache=cache_b)
+    assert not np.array_equal(s0, s0b)
+
+    # un pick OBSERVADO siempre muestra, comparta o no el sorteo de la fecha
+    model.known_picks[0, 0] = score_index(2, 0)
+    cache_c: dict = {}
+    picks, show = model.sample_picks_match(0, q, np.random.default_rng(11), S,
+                                           fecha=280, show_cache=cache_c)
+    assert show[0].all() and (picks[0] == score_index(2, 0)).all()
+
+
+def test_show_por_fecha_sube_la_prob_de_planilla_completa():
+    """El motivo del cambio: con p_show=0.5 y 4 partidos, P(cargar los 4) debe ser
+    ~0.5 correlacionado (real) contra ~0.0625 independiente (modelo viejo)."""
+    q = _q()
+    R, S, M = 40, 400, 4
+    model = RivalModel(
+        known_picks=np.full((R, M), -1, dtype=np.int64),
+        played_mask=np.zeros(M, dtype=bool),
+        gamma=np.ones(R),
+        p_show=np.full(R, 0.5),
+        residuo=np.zeros(R, dtype=np.int64),
+    )
+
+    def p_completa(fechas):
+        rng = np.random.default_rng(21)
+        cache: dict = {}
+        shows = [model.sample_picks_match(m, q, rng, S, fecha=fechas[m],
+                                          show_cache=cache)[1] for m in range(M)]
+        return np.stack(shows).all(axis=0).mean()
+
+    correlado = p_completa([280] * M)          # una fecha compartida
+    independiente = p_completa([280, 281, 282, 283])
+    assert abs(correlado - 0.5) < 0.05
+    assert abs(independiente - 0.5 ** M) < 0.05
+
+
 def test_rivales_iid_varian_entre_sims_con_resultado_fijo():
     """Grillas delta (resultado determinístico): la única fuente de varianza del
     máximo del pool son los picks rivales — con el sorteo único era 0 y el

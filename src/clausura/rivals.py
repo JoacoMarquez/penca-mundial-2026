@@ -108,6 +108,8 @@ class RivalModel:
 
     def sample_picks_match(self, m: int, pool_q: np.ndarray, rng: np.random.Generator,
                            n_sims: int, forzar_futuro: bool = False,
+                           fecha: int | None = None,
+                           show_cache: dict | None = None,
                            ) -> tuple[np.ndarray, np.ndarray]:
         """(picks, show) del partido m, ambos (n_rivales, n_sims).
 
@@ -116,6 +118,16 @@ class RivalModel:
         ∝ Q^γ, re-sorteados POR SIMULACIÓN: E[premio] integra la incertidumbre de
         los picks del pool en vez de condicionar a una única realización (que el
         ascenso por coordenadas podía explotar como huecos muestrales inexistentes).
+
+        `fecha` + `show_cache`: el ausentismo real es por FECHA, no por partido —
+        en el snapshot de la F1, 630/727 rivales cargaron los 7 observables (87%)
+        cuando el Bernoulli independiente por partido predice 0.92⁷ ≈ 56% de
+        planillas completas. Ese error reparte los agujeros entre todos y baja el
+        máximo simulado del pool por fecha — los premios de $10k se modelaban más
+        ganables de lo que son. Con `fecha`, el sorteo de show se hace UNA vez por
+        (rival, fecha, sim) y se comparte entre sus partidos vía `show_cache` — un
+        dict POR SIMULADOR (los 5 simuladores del gate comparten este RivalModel y
+        cada uno debe re-sortear). Sin `fecha`, comportamiento viejo por partido.
         """
         R = self.n_rivales
         # int16 y no int64: son índices de marcador (0..35). A 19.200 sorteos y 715
@@ -134,7 +146,14 @@ class RivalModel:
             return picks, show
         libre = ~has
         picks[libre] = _tilted_sample(pool_q, self.gamma[libre], rng, size=n_sims)
-        show[libre] = rng.random((int(libre.sum()), n_sims)) < self.p_show[libre, None]
+        if fecha is not None and show_cache is not None:
+            show_f = show_cache.get(fecha)
+            if show_f is None:
+                show_f = show_cache[fecha] = (
+                    rng.random((R, n_sims)) < self.p_show[:, None])
+            show[libre] = show_f[libre]
+        else:
+            show[libre] = rng.random((int(libre.sum()), n_sims)) < self.p_show[libre, None]
         return picks, show
 
     def resumen(self) -> str:
