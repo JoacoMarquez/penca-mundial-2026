@@ -3,9 +3,10 @@
 La planilla del día se genera a las 12:00 UTC (09:00 UY). Entre esa corrida y los
 cierres (17:45-22:45 UTC) los inputs se mueven: odds de Supermatch, snapshot del
 pool (rivales que cargaron a la tarde), resultados de partidos ya jugados de la
-fecha. Este módulo re-corre el pipeline UNA vez por día de partidos, ~2h antes del
-primer cierre del día, y notifica por Telegram SOLO si algún pick de un partido
-todavía abierto cambió respecto de la planilla vigente.
+fecha. Este módulo re-corre el pipeline una vez por TANDA de cierres (~2h antes de
+cada grupo de cierres; un sábado con partidos a las 13:45 y a las 21:45 recibe dos
+pasadas), y notifica por Telegram SOLO si algún pick de un partido todavía abierto
+cambió respecto de la planilla vigente.
 
 El disparador del aviso es el VALOR, no el diff. Un diff de picks no significa nada:
 el óptimo es plano y dos corridas con insumos idénticos reasignan ~43 de 96 picks
@@ -29,7 +30,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from src.clausura.api import TZ_UY
@@ -56,23 +57,35 @@ EVAL_SEEDS = 5
 
 # -------------------- lógica de ventana (pura, testeable) --------------------
 
-def primer_cierre_del_dia(eventos: list[dict], now: datetime) -> datetime | None:
-    """El cierre abierto más próximo DE HOY (fecha UTC). None si hoy no hay."""
-    cierres = []
+def cierres_en_ventana(eventos: list[dict], now: datetime,
+                       horizon_h: float = TRIGGER_H) -> list[datetime]:
+    """Cierres abiertos dentro del horizonte, SIN filtrar por fecha calendario.
+
+    La versión anterior exigía `cierre.date() == now.date()` en UTC, y eso dejaba
+    ciego el caso real de un partido 21:00+ UY: su cierre cae pasada la medianoche
+    UTC, "mañana" para el tick del viernes de noche y ya pasado para el primer
+    tick del sábado — nunca había rerun. El horizonte rodante no depende del
+    calendario.
+    """
+    out = set()
     for ev in eventos:
         cierre = datetime.fromisoformat(ev["cierre_pronostico_utc"])
-        if cierre > now and cierre.date() == now.date():
-            cierres.append(cierre)
-    return min(cierres) if cierres else None
+        if now < cierre <= now + timedelta(hours=horizon_h):
+            out.add(cierre)
+    return sorted(out)
 
 
 def debe_correr(eventos: list[dict], now: datetime, ya_corridos: set[str]) -> bool:
-    if now.date().isoformat() in ya_corridos:
-        return False
-    cierre = primer_cierre_del_dia(eventos, now)
-    if cierre is None:
-        return False
-    return (cierre - now).total_seconds() / 3600 <= TRIGGER_H
+    """¿Hay algún cierre en ventana que esta tanda todavía no cubrió?
+
+    El estado guarda los CIERRES ya cubiertos (ISO), no el día: así un sábado con
+    tanda de 13:45 y tanda de 21:45 recibe un rerun por tanda (antes era uno solo
+    por día, y los partidos de la noche quedaban con insumos de T-9h), y un fallo
+    del tick no quema la única oportunidad del día — el tick siguiente reintenta
+    mientras el cierre siga en ventana.
+    """
+    return any(c.isoformat() not in ya_corridos
+               for c in cierres_en_ventana(eventos, now))
 
 
 # -------------------- diff de planillas (puro, testeable) --------------------
@@ -229,10 +242,23 @@ def formatear_diff(
 
 # -------------------- estado --------------------
 
-def load_state() -> set[str]:
-    if STATE_PATH.exists():
-        return set(json.loads(STATE_PATH.read_text(encoding="utf-8")))
-    return set()
+def load_state(now: datetime | None = None) -> set[str]:
+    """Cierres ya cubiertos. Poda entradas viejas (>2 días) — incluye las claves
+    por-día del formato anterior, que quedan obsoletas solas."""
+    if not STATE_PATH.exists():
+        return set()
+    now = now or datetime.now(timezone.utc)
+    vivos = set()
+    for k in json.loads(STATE_PATH.read_text(encoding="utf-8")):
+        try:
+            ts = datetime.fromisoformat(k)
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+        if ts > now - timedelta(days=2):
+            vivos.add(k)
+    return vivos
 
 
 def save_state(corridos: set[str]) -> None:
@@ -300,12 +326,16 @@ def run(
     now = now or datetime.now(timezone.utc)
     cfg = picks.load_config()
     eventos = picks.flat_eventos(cfg)
-    estado = load_state()
+    estado = load_state(now)
 
     if not force and not debe_correr(eventos, now, estado):
         log.info("fuera de ventana (primer cierre de hoy a >%sh, sin cierres hoy, "
                  "o ya corrido) — no toca", TRIGGER_H)
         return None
+
+    # Lo que esta corrida cubre: los cierres en ventana AHORA. Se marca al final
+    # (éxito) — si el pipeline muere, el próximo tick reintenta estos mismos cierres.
+    cubiertos = {c.isoformat() for c in cierres_en_ventana(eventos, now)}
 
     target_fecha = picks.resolve_fecha("auto")
     d = picks.fecha_dir(target_fecha)
@@ -342,7 +372,7 @@ def run(
                      "%d picks distintos quedan versionados en %s",
                      comp, sum(len(cs) for _, cs in cambios), new_path.name)
             if not dry_run:
-                save_state(estado | {now.date().isoformat()})
+                save_state(estado | cubiertos)
             return []
 
     if cambios:
@@ -361,7 +391,7 @@ def run(
                  "quedó versionada)", new_path.name)
 
     if not dry_run:
-        save_state(estado | {now.date().isoformat()})
+        save_state(estado | cubiertos)
     return cambios
 
 

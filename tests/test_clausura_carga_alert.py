@@ -38,16 +38,27 @@ def test_tier_activo_elige_el_nivel_mas_urgente_alcanzado():
     assert tier_activo(NOW + timedelta(hours=7), NOW) is None
 
 
-def test_pendientes_deduplica_por_evento_y_tier():
-    evs = [_ev(2, NOW + timedelta(hours=3))]
+def test_pendientes_deduplica_por_evento_cierre_y_tier():
+    cierre = NOW + timedelta(hours=3)
+    evs = [_ev(2, cierre)]
     pend = pendientes_de_alerta(evs, NOW, ya_avisados=set())
     assert len(pend) == 1
     _, _, tier, clave = pend[0]
-    assert tier == 6.0 and clave == "2:6"
+    assert tier == 6.0 and clave == f"2:{cierre:%Y%m%dT%H%M}:6"
     assert pendientes_de_alerta(evs, NOW, ya_avisados={clave}) == []
     # al entrar en la ventana de 2h aparece el nivel siguiente, con otra clave
     pend2 = pendientes_de_alerta(evs, NOW + timedelta(hours=2), ya_avisados={clave})
-    assert pend2[0][3] == "2:2"
+    assert pend2[0][3] == f"2:{cierre:%Y%m%dT%H%M}:2"
+
+
+def test_partido_reprogramado_vuelve_a_avisar():
+    """La clave lleva el cierre: si el admin re-data el partido (Torque-Peñarol, F1),
+    las claves quemadas del cierre original no silencian el makeup."""
+    original = NOW - timedelta(days=5)
+    avisados = {f"2:{original:%Y%m%dT%H%M}:6", f"2:{original:%Y%m%dT%H%M}:2"}
+    makeup = NOW + timedelta(hours=3)
+    pend = pendientes_de_alerta([_ev(2, makeup)], NOW, ya_avisados=avisados)
+    assert len(pend) == 1 and pend[0][3] == f"2:{makeup:%Y%m%dT%H%M}:6"
 
 
 def test_formato_con_faltantes_y_sin_faltantes():

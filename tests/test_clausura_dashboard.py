@@ -38,6 +38,35 @@ def test_fecha_actual_todo_jugado_devuelve_15():
     assert fecha_actual(cfg) == 15
 
 
+def test_fecha_actual_makeup_reprogramado_no_clava_la_fecha_vieja():
+    """Un suspendido de la F1 re-datado DESPUÉS de la F2 (caso Torque-Peñarol) no
+    debe dejar la F1 como "actual" mientras la F2 es lo próximo que se juega."""
+    cfg = {"fechas": {
+        "Fecha 1": {"fecha_id": 280, "eventos": [
+            {"inicio_utc": "2020-01-01T00:00:00+00:00"},     # jugado
+            {"inicio_utc": "2099-03-01T00:00:00+00:00"},     # makeup, lejos
+        ]},
+        "Fecha 2": {"fecha_id": 281, "eventos": [
+            {"inicio_utc": "2099-02-01T00:00:00+00:00"},     # el próximo real
+        ]},
+    }}
+    assert fecha_actual(cfg) == 2
+
+
+def test_fecha_actual_el_dia_del_makeup_vuelve_a_la_fecha_vieja():
+    """Cuando el makeup es lo próximo por jugarse, SU fecha es la actual: hay que
+    generarle planilla y cargarlo."""
+    cfg = {"fechas": {
+        "Fecha 1": {"fecha_id": 280, "eventos": [
+            {"inicio_utc": "2099-01-15T00:00:00+00:00"},     # makeup, lo próximo
+        ]},
+        "Fecha 2": {"fecha_id": 281, "eventos": [
+            {"inicio_utc": "2099-02-01T00:00:00+00:00"},
+        ]},
+    }}
+    assert fecha_actual(cfg) == 1
+
+
 def test_load_planilla_enriquece(tmp_path, monkeypatch):
     import src.clausura.picks as picks_mod
     monkeypatch.setattr(picks_mod, "PRED_DIR", tmp_path)
