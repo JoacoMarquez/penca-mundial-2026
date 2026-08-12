@@ -79,6 +79,9 @@ class Cargado:
     # pre-inicio el endpoint de especiales devuelve 400 (gate): no se puede saber
     # si están cargados — False evita el falso positivo "sin cargar"
     especiales_visibles: bool = True
+    # un fallo HTTP en pronosticosEventos NO significa "no hay pick": False saca a
+    # la participación del diff de esa corrida (mismo patrón que especiales_visibles)
+    picks_visibles: bool = True
 
 
 @dataclass(frozen=True)
@@ -302,13 +305,22 @@ def fetch_cargados(penca_id: int, mis_numeros: set[int]) -> list[Cargado]:
     if faltan:
         log.warning("números no encontrados en el ranking: %s", sorted(faltan))
 
+    # Pacing y backoff como el escaneo del pool (mismo endpoint, mismas ~24
+    # requests): la corrida de las 23:50 llega con el presupuesto de rate-limit
+    # más gastado del día, y un 429 pelado dejaba picks={} — que diff_picks leía
+    # como "cerró sin pick", una alarma falsa POR EVENTO en el canal de señales
+    # reales, con la clave de estado quemada para siempre.
+    from src.clausura.pool_snapshot import REQUEST_PAUSE_S, _get_pacing
+
     out: list[Cargado] = []
     with httpx.Client(base_url=BASE, timeout=20.0, headers=HEADERS) as c:
         for r in mios:
-            resp = c.get(f"/front/pencas/{r.participacion_id}/pronosticosEventos")
+            resp = _get_pacing(c, f"/front/pencas/{r.participacion_id}/pronosticosEventos",
+                               REQUEST_PAUSE_S)
             if resp.status_code == 400 and GATE_MSG in resp.text:
                 raise CampeonatoNoIniciado(resp.text[:120])
             picks: dict[int, tuple[int, int]] = {}
+            picks_visibles = True
             if resp.status_code == 200:
                 for p in resp.json().get("data", []):
                     gl, gv = p.get("golesEquipoLocal"), p.get("golesEquipoVisitante")
@@ -316,11 +328,14 @@ def fetch_cargados(penca_id: int, mis_numeros: set[int]) -> list[Cargado]:
                     if gl is not None and gv is not None and eid is not None:
                         picks[int(eid)] = (int(gl), int(gv))
             else:
-                log.warning("pronosticosEventos %d → %d", r.participacion_id, resp.status_code)
+                log.warning("pronosticosEventos %d → %d — participación NO verificable "
+                            "en esta corrida", r.participacion_id, resp.status_code)
+                picks_visibles = False
 
             campeon = goleador = None
             visibles = True
-            resp = c.get(f"/front/pencas/{r.participacion_id}/pronosticoCampeonGoleador")
+            resp = _get_pacing(c, f"/front/pencas/{r.participacion_id}/pronosticoCampeonGoleador",
+                               REQUEST_PAUSE_S)
             if resp.status_code == 200:
                 d = resp.json()
                 campeon = (d.get("equipoCampeon") or {}).get("nombre")
@@ -334,7 +349,8 @@ def fetch_cargados(penca_id: int, mis_numeros: set[int]) -> list[Cargado]:
 
             out.append(Cargado(numero=r.numero_participacion, picks=picks,
                                campeon=campeon, goleador=goleador,
-                               especiales_visibles=visibles))
+                               especiales_visibles=visibles,
+                               picks_visibles=picks_visibles))
     return out
 
 
@@ -350,6 +366,8 @@ def diff_picks(
     out: list[Discrepancia] = []
 
     for c in cargados:
+        if not c.picks_visibles:
+            continue        # fallo HTTP: no verificable esta corrida, no es drift
         for eid, esp_por_numero in esperado.items():
             ev = ev_by_id.get(eid)
             if ev is None:
