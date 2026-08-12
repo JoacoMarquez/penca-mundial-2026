@@ -363,6 +363,23 @@ def run(fecha: int | None = None, dry_run: bool = False) -> str | None:
 
     mis_numeros = sorted(mis_numeros_env())
     eventos_fecha = [ev for ev in flat_eventos(cfg) if ev["fecha_n"] == fecha]
+
+    # Antes de leer la planilla, re-adoptar lo que la web dice de los partidos
+    # cerrados. La adopción del drift de las 23:50 puede quedar SOMBREADA por un
+    # rerun en vuelo (arranca 23:35, lee la latest pre-adopción y escribe 30-60
+    # min después): sin esta pasada, el postmortem atribuía puntos con picks que
+    # nunca se jugaron — y no se rehace, porque su condición de regeneración mira
+    # resultados nuevos, no cambios de planilla.
+    if not dry_run:
+        try:
+            from src.clausura.drift_audit import adoptar_picks_cerrados, fetch_cargados
+            cargados = fetch_cargados(cfg["pencas"]["paga"]["id"], set(mis_numeros))
+            adoptar_picks_cerrados(cargados, mis_numeros, eventos_fecha,
+                                   datetime.now(timezone.utc))
+        except Exception as e:                                 # noqa: BLE001
+            log.warning("no pude re-adoptar los picks reales antes del postmortem "
+                        "(%s) — sigo con la planilla guardada", e)
+
     picks, e_pts = picks_de_planilla(fecha, mis_numeros)
     pool = latest_snapshot_participaciones()
 
