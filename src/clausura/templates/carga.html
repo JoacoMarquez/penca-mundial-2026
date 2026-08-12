@@ -12,7 +12,8 @@
 
   {# Semilla para el JIT del Tailwind CDN: clases que sólo aparecen por JS #}
   <div class="hidden bg-amber-500/15 !text-amber-300 line-through opacity-40 ring-2 ring-amber-400
-              bg-rose-500/15 text-rose-300 text-emerald-400 bg-slate-700"></div>
+              bg-rose-500/15 text-rose-300 text-emerald-400 bg-slate-700
+              ring-1 ring-indigo-400/70 bg-indigo-500/10 bg-emerald-600 text-white"></div>
 
   <div class="flex flex-wrap items-center gap-x-3 gap-y-2 mb-1">
     <h1 class="text-lg font-bold whitespace-nowrap">📲 Modo carga — Fecha {{ data.fecha_n }}</h1>
@@ -24,6 +25,11 @@
             class="text-sm bg-slate-700 hover:bg-slate-600 text-slate-100 px-3 py-1.5
                    rounded-lg font-medium whitespace-nowrap disabled:opacity-50">
       🔎 Verificar contra la web
+    </button>
+    <button id="btn-filtro" type="button"
+            class="text-sm bg-slate-700 hover:bg-slate-600 text-slate-100 px-3 py-1.5
+                   rounded-lg font-medium whitespace-nowrap">
+      🎯 Solo lo que falta
     </button>
     <a href="/dash/{{ token }}/?fecha={{ data.fecha_n }}"
        class="text-sm text-indigo-300 hover:text-indigo-200 whitespace-nowrap">← planilla</a>
@@ -67,6 +73,9 @@
           {% endif %}
           {% if i == 0 %}<span class="text-indigo-300 text-xs font-medium">ancla EV</span>{% endif %}
           <span class="chip-cambios hidden text-amber-300 text-xs font-semibold"></span>
+          {# cuántas filas abiertas faltan en ESTA participación: sin esto el único
+             progreso visible era 0/12, que no se mueve durante ocho picks seguidos #}
+          <span class="chip-progreso text-slate-400 text-xs font-mono font-normal"></span>
         </span>
         <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer select-none shrink-0">
           <input type="checkbox" class="cargada w-6 h-6 accent-emerald-500">
@@ -139,6 +148,11 @@
     const VER = {{ (data.planilla.version_file if data.planilla else '') | tojson }};
     const kRow = (part, ev) => `carga:v2:${FECHA}:${part}:${ev}`;
     const kEsp = part => `carga:v2:esp:${part}`;   // los especiales son de temporada, no de fecha
+
+    // El filtro sobrevive al refresco: si te vas a la web y volvés, seguís donde
+    // estabas y no con la lista entera otra vez.
+    const kFiltro = `carga:v2:${FECHA}:filtro`;
+    let filtro = localStorage.getItem(kFiltro) === '1';
 
     const filas = [...document.querySelectorAll('.pick-row')];
     const cards = [...document.querySelectorAll('.carga-card')];
@@ -218,6 +232,28 @@
         const listo = abiertas.length > 0 && abiertas.every(tr => estado(tr) === 'cargada');
         card.querySelector('.cargada').checked = listo;
         card.classList.toggle('opacity-50', listo);
+
+        // progreso DENTRO de la participación. El contador global se mueve una vez
+        // cada ocho picks; éste se mueve en cada toque, que es lo que uno necesita
+        // ver cuando está tipeando.
+        const hechas = abiertas.filter(tr => estado(tr) === 'cargada').length;
+        const chipP = card.querySelector('.chip-progreso');
+        chipP.textContent = listo ? '✓' : `${hechas}/${abiertas.length}`;
+
+        // la PRÓXIMA fila pendiente queda con un aro: el ojo cae ahí solo al volver
+        // de la web, sin tener que buscar dónde quedaste.
+        suyas.forEach(tr => tr.classList.remove('ring-1', 'ring-indigo-400/70'));
+        const proxima = abiertas.find(tr => estado(tr) !== 'cargada');
+        if (proxima && !filtro) proxima.classList.add('ring-1', 'ring-indigo-400/70');
+
+        // filtro: se esconde lo cargado y lo cerrado, y la tarjeta entera si terminó.
+        // Lo que quedó en 'cambio' NO se esconde nunca — es justamente lo accionable.
+        suyas.forEach(tr => {
+          const oculta = filtro && (estado(tr) === 'cargada'
+                                    || (tr.dataset.cerrado === '1' && estado(tr) !== 'cambio'));
+          tr.classList.toggle('hidden', oculta);
+        });
+        card.classList.toggle('hidden', filtro && listo && drift.length === 0);
       });
 
       esps.forEach(card => {
@@ -229,8 +265,12 @@
       });
 
       const done = cards.filter(c => c.querySelector('.cargada').checked).length;
+      // Se cuentan también los PICKS: 12 participaciones × 8 partidos es el trabajo
+      // real, y verlo avanzar de a uno se siente muy distinto a un 0/12 congelado.
+      const abiertasTodas = filas.filter(tr => tr.dataset.cerrado !== '1');
+      const picksOk = abiertasTodas.filter(tr => estado(tr) === 'cargada').length;
       document.getElementById('progreso').textContent =
-        `${done}/${cards.length} participaciones cargadas` +
+        `${done}/${cards.length} participaciones · ${picksOk}/${abiertasTodas.length} picks` +
         (done === cards.length && !cambios.length ? ' ✅' : '');
 
       const panel = document.getElementById('drift-panel');
@@ -260,6 +300,21 @@
       else localStorage.setItem(clave(el), el.dataset.val);
       refrescar();
     };
+    const btnFiltro = document.getElementById('btn-filtro');
+    function pintarBotonFiltro() {
+      btnFiltro.classList.toggle('bg-emerald-600', filtro);
+      btnFiltro.classList.toggle('text-white', filtro);
+      btnFiltro.classList.toggle('bg-slate-700', !filtro);
+      btnFiltro.textContent = filtro ? '🎯 Solo lo que falta ✓' : '🎯 Solo lo que falta';
+    }
+    btnFiltro.addEventListener('click', () => {
+      filtro = !filtro;
+      localStorage.setItem(kFiltro, filtro ? '1' : '0');
+      pintarBotonFiltro();
+      refrescar();
+    });
+    pintarBotonFiltro();
+
     filas.forEach(tr => tr.addEventListener('click', () => alternar(tr)));
     esps.forEach(card => card.addEventListener('click', () => alternar(card)));
 
