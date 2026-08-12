@@ -93,32 +93,26 @@ def champions_from_results(
 ) -> np.ndarray:
     """Campeón por simulación: (S,) índice de equipo.
 
-    Tabla: 3/1/0. Desempate por diferencia de gol, luego goles a favor, luego azar.
-    Nota honesta: el reglamento AUF define el título del Clausura con desempate por
-    partido extra si hay igualdad de puntos en la cima; a efectos del modelo lo
-    aproximamos con dif de gol — el error afecta solo a los escenarios empatados.
+    Tabla: 3/1/0. Empate en puntos en la cima → SORTEO UNIFORME entre los
+    empatados. El reglamento AUF define el título del Clausura por partido extra
+    si hay igualdad de puntos: eso es ~50/55% para el mejor equipo, y el modelo
+    viejo (desempate por diferencia de gol) le daba el 100% al de mejor GD —
+    inflaba P(campeón) de los grandes justo donde el pool concentra sus picks,
+    subestimando el valor de diversificar el campeón (la palanca de 25 pts). El
+    uniforme queda mucho más cerca del partido extra que el 100/0.
     """
     n_matches, S = actual.shape
     pts = np.zeros((n_teams, S), dtype=np.int64)
-    gd = np.zeros((n_teams, S), dtype=np.int64)
-    gf = np.zeros((n_teams, S), dtype=np.int64)
-
-    goles_l = np.array([index_score(i)[0] for i in range(SIDE * SIDE)])
-    goles_v = np.array([index_score(i)[1] for i in range(SIDE * SIDE)])
 
     for m in range(n_matches):
         a = actual[m]                      # (S,)
-        li, vi = local_de[m], visita_de[m]
-        pts[li] += _PTS_L[a]
-        pts[vi] += _PTS_V[a]
-        gd[li] += _GD[a]
-        gd[vi] -= _GD[a]
-        gf[li] += goles_l[a]
-        gf[vi] += goles_v[a]
+        pts[local_de[m]] += _PTS_L[a]
+        pts[visita_de[m]] += _PTS_V[a]
 
-    # clave lexicográfica: puntos ≫ dif gol ≫ goles a favor ≫ ruido para desempatar
+    # puntos ≫ ruido: el ruido uniforme desempata la cima con probabilidades
+    # iguales entre los empatados (partido extra ≈ moneda, no tabla del año)
     ruido = rng.random((n_teams, S))
-    clave = pts * 1e9 + gd * 1e5 + gf * 1e2 + ruido
+    clave = pts * 1e9 + ruido
     return np.argmax(clave, axis=0)
 
 

@@ -38,17 +38,22 @@ def test_champion_determinista():
     assert (champs == 0).all()
 
 
-def test_champion_desempata_por_diferencia():
-    """Mismos puntos (1 victoria cada uno), gana el de mejor diferencia."""
-    S = 50
+def test_champion_empate_en_puntos_es_moneda_no_diferencia():
+    """Mismos puntos: el título se sortea uniforme entre los empatados, aunque uno
+    tenga mucha mejor diferencia de gol. El reglamento AUF define el empate en la
+    cima por PARTIDO EXTRA (~moneda), no por la tabla del año — dárselo 100% al
+    de mejor GD inflaba P(campeón) de los grandes y subestimaba diversificar el
+    campeón (la palanca de 25 pts)."""
+    S = 4000
     actual = np.stack([
-        np.full(S, score_index(3, 0)),   # 0 le gana 3-0 al 1
-        np.full(S, score_index(1, 0)),   # 1 le gana 1-0 al 0
+        np.full(S, score_index(3, 0)),   # 0 le gana 3-0 al 1 (dif +3)
+        np.full(S, score_index(1, 0)),   # 1 le gana 1-0 al 0 (dif +1)
     ])
     champs = champions_from_results(
         actual, np.array([0, 1]), np.array([1, 0]), 2, np.random.default_rng(1)
     )
-    assert (champs == 0).all()   # dif +2 vs 0
+    frac = (champs == 0).mean()
+    assert abs(frac - 0.5) < 0.03        # moneda, no 100/0 al de mejor diferencia
 
 
 def test_p_campeon_suma_uno():
