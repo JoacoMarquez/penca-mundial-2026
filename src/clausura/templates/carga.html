@@ -39,6 +39,13 @@
     tocá cada fila cuando la cargues: se guarda <b>el marcador que cargaste</b> y si
     después cambia te lo marco acá
   </div>
+  {% if data.planilla.descartadas_despues %}
+  <div class="text-xs text-slate-500 mb-3 rounded-lg border border-slate-700 px-3 py-2">
+    Hay {{ data.planilla.descartadas_despues }} versión(es) más nueva(s) del rerun que
+    el gate <b>descartó</b> (no mejoran lo suficiente): esta es la planilla que va —
+    cargá esta.
+  </div>
+  {% endif %}
 
   <div class="sticky top-[3.3rem] z-20 bg-slate-900/95 backdrop-blur py-1.5 rounded-lg px-1 mb-4">
     <div class="text-sm text-slate-300 font-medium" id="progreso"></div>

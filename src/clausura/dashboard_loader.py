@@ -89,12 +89,35 @@ def fecha_actual(cfg: dict) -> int:
 
 
 def load_planilla(fecha_n: int) -> dict | None:
-    """Última versión guardada de la planilla de esa fecha, enriquecida para la UI."""
+    """Última versión APROBADA de la planilla de esa fecha, enriquecida para la UI.
+
+    "Aprobada" = sin veredicto del gate, o con veredicto avisar=True. El rerun
+    T-2h versiona su planilla aunque el gate la descarte (regla de trabajo #2), y
+    servir esa —a veces PEOR que la de la mañana, Δ −456 ± 171 el 10/8— al que
+    todavía no cargó lo hacía copiar exactamente lo que el gate resolvió no tocar.
+    Las versiones descartadas quedan en disco y el panel de cambios las explica;
+    `descartadas_despues` dice cuántas hay más nuevas que la servida.
+    """
+    from src.utils.versions import version_num
+
     d = fecha_dir(fecha_n)
-    latest = latest_version(d.glob("v*_*.json")) if d.exists() else None
-    if latest is None:
+    versiones = sorted(d.glob("v*_*.json"), key=version_num) if d.exists() else []
+    if not versiones:
         return None
-    data = json.loads(latest.read_text(encoding="utf-8"))
+    elegida, data, descartadas = None, None, 0
+    for path in reversed(versiones):
+        candidata = json.loads(path.read_text(encoding="utf-8"))
+        veredicto = candidata.get("veredicto_cambio")
+        if veredicto and not veredicto.get("avisar", True):
+            descartadas += 1
+            continue
+        elegida, data = path, candidata
+        break
+    if elegida is None:               # todas descartadas (no debería): la última
+        elegida = versiones[-1]
+        data = json.loads(elegida.read_text(encoding="utf-8"))
+    latest = elegida
+    data["descartadas_despues"] = descartadas
     now = datetime.now(timezone.utc)
     for row in data.get("picks", []):
         cierre = datetime.fromisoformat(row["cierre_pronostico_utc"])
