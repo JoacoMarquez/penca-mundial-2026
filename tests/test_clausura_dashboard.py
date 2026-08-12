@@ -315,3 +315,52 @@ def test_modo_carga_marca_los_cerrados():
 
     assert 'data-cerrado="1"' in html
     assert "ya cerrado" in html
+
+
+# -------------------- modo carga: lo que acelera el tipeo --------------------
+
+def _render_carga_fixture(n_part=3, n_partidos=4, cerrados=0):
+    """Renderiza carga.html sin levantar la app (no necesita fastapi)."""
+    from jinja2 import Environment, FileSystemLoader
+
+    env = Environment(loader=FileSystemLoader("src/clausura/templates"))
+    picks = [{
+        "evento_id": 2000 + j, "partido": f"Local {j} vs Visita {j}",
+        "preferencial": j == 0, "cerrado": j < cerrados,
+        "scores_fmt": [f"{j}-{k}" for k in range(n_part)],
+    } for j in range(n_partidos)]
+    data = {
+        "ok": True, "fecha_n": 2, "supermatch_url": "https://ejemplo",
+        "mis_numeros": [899258848 + i for i in range(n_part)],
+        "planilla": {"n_participaciones": n_part, "picks": picks,
+                     "version_file": "v3_x.json", "generado_uy": "mar 11/08 08:00",
+                     "especiales": None},
+    }
+    return env.get_template("carga.html").render(data=data, token="t")
+
+
+def test_modo_carga_tiene_filtro_y_progreso_por_participacion():
+    """Con 96 picks, un contador global 0/12 no se mueve en ocho toques seguidos.
+
+    El filtro y el contador por tarjeta son lo que hace navegable la carga manual:
+    sin ellos hay que buscar a ojo dónde quedaste cada vez que se vuelve de la web.
+    """
+    html = _render_carga_fixture()
+    assert 'id="btn-filtro"' in html, "falta el toggle de 'solo lo que falta'"
+    # sólo las del marcado; la cuarta aparición es el querySelector del JS
+    assert html.count('class="chip-progreso') == 3, "cada participación necesita su contador"
+    # las clases que sólo aparecen por JS tienen que estar sembradas para el CDN de
+    # Tailwind, si no el aro de la fila siguiente no se ve
+    for clase in ("ring-indigo-400/70", "bg-emerald-600"):
+        assert clase in html, f"{clase} no está sembrada para el JIT"
+
+
+def test_modo_carga_no_esconde_los_picks_que_cambiaron():
+    """El filtro esconde lo hecho, pero un pick en estado 'cambio' es lo accionable.
+
+    Si el filtro lo ocultara, el aviso de drift apuntaría a una fila invisible — que
+    es peor que no filtrar.
+    """
+    html = _render_carga_fixture()
+    i = html.index("const oculta")
+    assert "estado(tr) !== 'cambio'" in html[i:i + 300]
