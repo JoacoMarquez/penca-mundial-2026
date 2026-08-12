@@ -287,20 +287,45 @@ def pm_path(fecha_n: int) -> Path:
 MIN_JUGADOS = 6
 
 
+def _resultados_guardados(n: int) -> int:
+    """Cuántos resultados tiene el postmortem ya escrito de esa fecha. 0 si no hay."""
+    p = pm_path(n)
+    if not p.exists():
+        return 0
+    try:
+        return len(json.loads(p.read_text(encoding="utf-8")).get("resultados") or {})
+    except Exception:                                          # noqa: BLE001
+        return 0
+
+
 def fecha_a_analizar(cfg: dict) -> int | None:
-    """La fecha más vieja con suficientes partidos jugados y sin postmortem.
+    """La fecha más vieja cuyo postmortem falta o quedó INCOMPLETO.
 
     "Suficientes" y no "todos": un partido suspendido —Torque–Peñarol en la Fecha 1—
     se reprograma para dentro de semanas, y exigir la fecha completa dejaba el
     análisis de los otros siete sin correr nunca.
+
+    Pero disparar con el mínimo y no volver nunca congela datos parciales: el
+    postmortem de la Fecha 1 se escribió el 2026-08-10 con **6 de 8** partidos —le
+    faltaban Torque–Peñarol y Maldonado–Racing, que se jugaron esa misma noche— y no
+    se iba a rehacer jamás. La herramienta que existe para aprender de lo que pasó
+    quedaba permanentemente equivocada sobre la primera fecha.
+
+    Por eso la condición no es "existe el archivo" sino "el archivo tiene TODOS los
+    resultados que hoy se pueden ver". Se rehace solo cuando aparecen más.
     """
     nums = sorted(int(n.split()[-1]) for n in cfg["fechas"])
     for n in nums:
-        if pm_path(n).exists():
-            continue
         res = resultados_de_fecha(cfg, n, min_jugados=MIN_JUGADOS)
         if res is None:
             break   # las fechas van en orden: si esta no llegó, las siguientes tampoco
+        disponibles, _ = res
+        guardados = _resultados_guardados(n)
+        if guardados >= len(disponibles):
+            continue          # al día: o está completo, o no aparecieron resultados nuevos
+        if guardados:
+            log.info("rehaciendo el postmortem de la fecha %d: tenía %d resultados y "
+                     "ahora hay %d", n, guardados, len(disponibles))
         return n    # una por corrida: la más vieja pendiente
     return None
 
