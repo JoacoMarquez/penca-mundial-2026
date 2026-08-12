@@ -683,6 +683,22 @@ def run(
              "ACTIVOS" if mercados_ricos_activos() else "sombra",
              sum(s is not None for s in shadow))
 
+    # El snapshot se carga ACÁ (antes iba más abajo) porque de él sale el observable
+    # de calibración: contar los exactos de los rivales sobre sus picks públicos es
+    # exacto y en vivo, mientras que el contador del API liquida al cierre de la fecha
+    # y hasta entonces miente. Ver exact_rate_desde_snapshot.
+    from src.clausura.pool_snapshot import (
+        exact_rate_desde_snapshot, load_latest_snapshot,
+    )
+    snapshot = load_latest_snapshot(max_age_hours=48)
+    rate_snapshot = exact_rate_desde_snapshot(snapshot, resultados, mis_numeros)
+    if rate_snapshot is not None:
+        if exact_rate is not None and abs(rate_snapshot - exact_rate) > 0.02:
+            log.warning("la tasa de exactos del ranking (%.3f) no coincide con la "
+                        "contada de los picks (%.3f) — mando la contada",
+                        exact_rate, rate_snapshot)
+        exact_rate = rate_snapshot
+
     # calibración del pool: SIEMPRE con las grillas predictivas de los jugados —
     # sobre la delta el exacto esperado es ≈1 para cualquier temperatura y el
     # calibrador elige un extremo arbitrario del grid.
@@ -739,10 +755,10 @@ def run(
     from src.clausura.pool import pool_distribution
     from src.clausura.pool_snapshot import (
         blended_q, empirical_campeon_counts, empirical_counts,
-        empirical_goleador_counts, load_latest_snapshot,
+        empirical_goleador_counts,
     )
     pool_qs = [pool_distribution(g, pool_cfg) for g in pred_grids]
-    snapshot = load_latest_snapshot(max_age_hours=48)
+    # `snapshot` ya se cargó arriba, para calibrar con los exactos contados de sus picks
     campeon_counts = None
     if snapshot:
         counts = empirical_counts(snapshot, mis_numeros)
