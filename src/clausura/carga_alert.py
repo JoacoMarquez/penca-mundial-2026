@@ -16,8 +16,9 @@ sí cuesta puntos. Verificar de verdad exigiría autenticarse como el usuario, y
 se descartó a propósito para no exponer la cuenta. Para chequear de verdad está el
 Modo carga del dashboard, que se mira mientras se carga.
 
-Post-cierre el aviso sí puede contar faltantes, pero para entonces solo sirve de
-registro: drift_audit ya cubre ese caso.
+Por eso este módulo NO consulta el API (2026-08-12): quedaban 13 requests por tick
+horario alimentando una rama que nunca se tomaba. Lo que sí cuenta faltantes es
+drift_audit, post-cierre, donde el dato existe.
 
 Uso:
     python -m src.clausura.carga_alert            # chequea y avisa si corresponde
@@ -32,9 +33,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-import httpx
-
-from src.clausura.api import BASE, HEADERS, TZ_UY, PencaApiClient
+from src.clausura.api import TZ_UY
 from src.clausura.rivals import mis_numeros_env
 
 log = logging.getLogger(__name__)
@@ -44,7 +43,6 @@ STATE_PATH = ROOT / "data" / "state" / "carga_alerts.json"
 
 # Horas antes del cierre en que se avisa: recordatorio y alarma.
 TIERS_H = (6.0, 2.0)
-GATE_MSG = "campeonato ya inicio"
 
 
 # -------------------- lógica pura (testeable) --------------------
@@ -102,7 +100,9 @@ def formatear_alerta(
     """Texto del aviso. None si está todo cargado (no hay nada que avisar).
 
     `faltantes` = números de participación sin pick para este evento; None = no se
-    pudo verificar (pre-inicio del campeonato).
+    pudo verificar. Desde el timer SIEMPRE llega None (el gate hace imposible
+    verificar antes del cierre); la rama con faltantes queda para quien tenga el
+    dato de verdad — hoy drift_audit, post-cierre.
     """
     cierre_uy = cierre.astimezone(TZ_UY).strftime("%H:%M")
     icono = "🚨" if tier <= min(TIERS_H) else "⏰"
@@ -151,38 +151,6 @@ def save_state(avisados: set[str]) -> None:
     STATE_PATH.write_text(json.dumps(sorted(avisados)), encoding="utf-8")
 
 
-# -------------------- verificación contra el API --------------------
-
-def cargados_por_participacion(
-    penca_id: int,
-    mis_numeros: set[int],
-) -> dict[int, set[int]] | None:
-    """numero_participacion → evento_ids con pick cargado. None si el gate del API
-    sigue cerrado (pre-inicio) y no se puede verificar."""
-    with PencaApiClient() as api:
-        ranking = api.ranking(penca_id)
-    mios = [r for r in ranking if r.numero_participacion in mis_numeros]
-    if not mios:
-        log.warning("ninguna de mis participaciones (%s) está en el ranking", mis_numeros)
-        return {}
-    out: dict[int, set[int]] = {}
-    with httpx.Client(base_url=BASE, timeout=20.0, headers=HEADERS) as c:
-        for r in mios:
-            resp = c.get(f"/front/pencas/{r.participacion_id}/pronosticosEventos")
-            if resp.status_code == 400 and GATE_MSG in resp.text:
-                return None
-            ids: set[int] = set()
-            if resp.status_code == 200:
-                for p in resp.json().get("data", []):
-                    if (p.get("golesEquipoLocal") is not None
-                            and p.get("encuentroId") is not None):
-                        ids.add(int(p["encuentroId"]))
-            else:
-                log.warning("pronosticosEventos %d → %d", r.participacion_id, resp.status_code)
-            out[r.numero_participacion] = ids
-    return out
-
-
 # -------------------- main --------------------
 
 def run(dry_run: bool = False, now: datetime | None = None) -> list[str]:
@@ -193,38 +161,22 @@ def run(dry_run: bool = False, now: datetime | None = None) -> list[str]:
     eventos = flat_eventos(cfg)
     mis_numeros = mis_numeros_env()
 
-    avisados = load_state()
+    avisados = load_state(now)
     pendientes = pendientes_de_alerta(eventos, now, avisados)
     if not pendientes:
         log.info("sin cierres dentro de %.0fh (o ya avisados)", max(TIERS_H))
         return []
 
-    cargados = None
-    try:
-        cargados = cargados_por_participacion(cfg["pencas"]["paga"]["id"], mis_numeros)
-    except Exception as e:
-        log.warning("no pude verificar la carga (%s) — aviso ciego", e)
-
+    # NO se consulta el API. El gate publica nuestros picks recién al cierre de CADA
+    # partido, y `pendientes` solo trae cierres FUTUROS: la verificación era imposible
+    # por construcción. El código igual la intentaba —13 requests por tick horario— y
+    # el resultado moría en una rama que nunca se tomaba (`cierre > now` siempre era
+    # verdadero). Se sacó el 2026-08-12: menos tráfico contra el 429 y una promesa
+    # menos en el docstring. Para verificar de verdad está el Modo carga del
+    # dashboard (src.clausura.verificar_carga), post-cierre, y drift_audit.
     mensajes = []
     for ev, cierre, tier, clave in pendientes:
-        # El gate del penca-api NO publica NUESTROS propios picks hasta que pasa el
-        # cierre de ESE partido. Y este aviso, por definición, se manda ANTES del
-        # cierre. O sea que para un partido abierto `cargados` nunca lo trae, y
-        # contarlo como faltante da siempre "faltan 12/12" aunque estén las 12.
-        #
-        # Pasó de verdad: 14 avisos falsos al Telegram el 8-9/8, en el mismo canal
-        # donde drift_audit manda lo que sí cuesta puntos. Fatiga de alarma sobre la
-        # señal buena, que es lo peor que le puede pasar a un guardrail.
-        #
-        # No hay forma de verificar antes del cierre sin autenticarse como el usuario,
-        # y eso se descartó a propósito (no exponer la cuenta). Así que el aviso es un
-        # RECORDATORIO honesto, no una verificación: dice que revises, no miente
-        # diciendo que faltan.
-        if cargados is None or cierre > datetime.now(timezone.utc):
-            faltantes = None
-        else:
-            faltantes = [n for n, ids in cargados.items() if ev["evento_id"] not in ids]
-        msg = formatear_alerta(ev, cierre, tier, faltantes, max(len(mis_numeros), 1))
+        msg = formatear_alerta(ev, cierre, tier, None, max(len(mis_numeros), 1))
         if msg:
             mensajes.append(msg)
         avisados.add(clave)   # todo-cargado también se marca: no re-chequear este tier

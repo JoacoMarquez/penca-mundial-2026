@@ -168,6 +168,48 @@ decisiones:
       partidos, cuando la paridad pueda separarse del ruido.
       Reproducir con scripts/calibrar_cero_cero.py.
 
+  - nombre: sorteos de P(campeón) del prior del pool
+    donde: src.clausura.especiales.p_campeon_from_grids(n_sims=)
+    valor: 30000
+    medida_con: {sims: 19200, participaciones: 12}
+    resultado: "3.000 → ±0,85 pp entre semillas en el líder (0,04 s) · 30.000 → ±0,24 pp (0,36 s)"
+    fecha: 2026-08-12
+    nota: >-
+      No es una decisión de estrategia: es error de Monte Carlo comprado a precio de
+      0,3 s en un pipeline de ~6 min. Medido EN EL DROPLET con 6 semillas. Importa
+      porque P(campeón) no tiene mercado que la ancle —no existe outright del
+      campeonato uruguayo en ninguna casa— y con 25 pts en juego por el especial, ±0,85
+      pp de ruido en un equipo de 31% es ruido que no hace falta tener. El transitorio
+      (120×30.000 int64 ≈ 29 MB) se libera antes de construir el simulador grande, así
+      que no toca el pico de 590 MB medido el 12/8. Subir más no aporta: la dispersión
+      ya está debajo de cualquier umbral que cambie una decisión.
+
+  - nombre: γ de los rivales fiteado contra la Q blendeada
+    donde: (nada — se midió y no se cambió)
+    valor: null
+    medida_con: {sims: 19200, participaciones: 12}
+    resultado: "leave-one-out mueve γ −0,0127 en promedio; 90 de 726 rivales cambian de valor"
+    fecha: 2026-08-12
+    inerte: >-
+      No se cambió nada: la entrada documenta un rechazo. La auditoría marcó
+      circularidad —`pool_qs` se blendea con los picks observados y después se fitea γ
+      de cada rival contra ESA Q, o sea que el pick del rival se explica en parte con
+      él mismo— y proponía fitear contra la Q prior (pre-blend).
+      DOS RAZONES PARA NO HACERLO. (1) Rompería la consistencia fit/muestreo: el MISMO
+      `pool_qs` que se usa para fitear γ es el que después usa el simulador para
+      sortear picks futuros (picks.py:919 y :960). Fitear contra el prior y muestrear
+      con la blendeada haría que γ signifique "desvío del prior del modelo" y se aplique
+      como "desvío de la distribución empírica del pool". Esa inconsistencia es de
+      primer orden; la circularidad es de segundo.
+      (2) Medido en el snapshot REAL (726 rivales, leave-one-out por rival): γ pasa de
+      media 1,1006 a 1,0879, mediana idéntica (1,0690), y solo 90 rivales cambian de
+      valor. OJO: el sesgo va en la dirección CONTRARIA a la que decía la auditoría —el
+      fit contaminado INFLA γ (el pool parece más chalk de lo que es), no lo encoge
+      hacia 1. Coherente con el mecanismo: si la Q ya contiene el pick del rival, ese
+      pick tiene Q más alta y el rival parece más concentrado en el modo.
+      Un leave-one-out de verdad cuesta recomputar la Q por rival y por partido (726x),
+      y el efecto sobre E[premio] no está medido ni tiene signo obvio. Si alguna vez se
+      retoma, medir E[premio] pareado — no la magnitud de γ, que ya sabemos que es 1,2%.
   - nombre: cobertura de desenlace en el menú
     donde: src.clausura.strategy.K_COBERTURA
     valor: false

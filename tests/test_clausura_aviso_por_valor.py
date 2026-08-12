@@ -287,3 +287,27 @@ def test_el_panel_apaga_los_cambios_descartados():
     cambios["veredicto"] = {"avisar": True, "medido": False, "n_picks": 7}
     html = tpl.render(data=_data(cambios))
     assert "no pudo medir" in html
+
+
+def test_el_veredicto_no_reformatea_la_planilla(tmp_path):
+    """El rerun reescribe el MISMO archivo que save_version: mismo indent, o el
+    diff de disco muestra un cambio de 34 KB que no es un cambio de datos."""
+    import json
+
+    from src.clausura.rerun_cierre import _guardar_veredicto
+
+    payload = {"picks": [{"evento_id": 1, "scores": [[1, 0], [2, 1]]}],
+               "picks_temporada": [{"evento_id": i, "scores": [[0, 0]]}
+                                   for i in range(20)]}
+    p = tmp_path / "v1_20260812T120000Z.json"
+    p.write_text(json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8")
+    antes = p.read_text(encoding="utf-8")
+
+    _guardar_veredicto(p, None, avisar=True, n_picks=0)
+    despues = p.read_text(encoding="utf-8")
+
+    # lo único que cambió son las líneas del veredicto, no el formato de todo el resto
+    solo_veredicto = [ln for ln in despues.splitlines() if ln not in antes.splitlines()]
+    assert all("veredicto_cambio" in ln or ln.strip().strip(",").startswith(
+        ('"avisar"', '"medido"', '"n_picks"', '}')) for ln in solo_veredicto), solo_veredicto
+    assert len(despues) - len(antes) < 200

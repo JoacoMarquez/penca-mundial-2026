@@ -204,7 +204,11 @@ def _guardar_veredicto(path: Path, comp, avisar: bool, n_picks: int) -> None:
                 "n_seeds": int(comp.n_seeds), "significativa": bool(comp.significativa),
             }),
         }
-        path.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
+        # indent=1 como picks.save_version: es el MISMO archivo reescrito, y con
+        # formato distinto la planilla del rerun pesaba 50% más que la de la mañana
+        # con contenido idéntico (v2 63 KB vs v3 97 KB de la F2) — un diff de disco
+        # que no corresponde a ningún cambio de datos.
+        path.write_text(json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")
     except Exception as e:                                    # noqa: BLE001
         # No es fatal: sin veredicto el panel cae al aviso genérico de siempre.
         log.warning("no pude anotar el veredicto en %s (%s)", path.name, e)
