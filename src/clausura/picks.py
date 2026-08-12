@@ -533,6 +533,19 @@ def goleadores_previos(target_fecha: int, n_participaciones: int) -> list[dict] 
     return None
 
 
+def arrastre_goleador(p_gol, target_fecha: int, n_participaciones: int) -> list[dict] | None:
+    """Goleadores a arrastrar de planillas previas, o None si el MC los asignó.
+
+    La condición es "el goleador NO entró al optimizador" (p_gol is None) — NO la
+    presencia del menú del API: si Supermatch arregla el 500 con GOLEADOR_EN_MC
+    apagado, condicionar por el menú perdía los goleadores ya cargados en la web
+    ({goleador_idx: -1}) y la planilla decía "cargalo apenas aparezca".
+    """
+    if p_gol is not None:
+        return None
+    return goleadores_previos(target_fecha, n_participaciones)
+
+
 def format_especiales(port: PortfolioClausura, equipo_nombres: list[str],
                       opciones_goleador, gol_previos: list[dict] | None = None) -> str:
     """Sección de la planilla con Campeón/Goleador por participación.
@@ -967,8 +980,7 @@ def run(
     else:
         frozen_campeon, frozen_goleador = load_frozen_especiales(
             target_fecha, n_participaciones, opciones_goleador)
-    gol_previos = (goleadores_previos(target_fecha, n_participaciones)
-                   if not opciones_goleador else None)
+    gol_previos = arrastre_goleador(p_gol, target_fecha, n_participaciones)
 
     especiales = EspecialesInput(
         local_de=local_de,

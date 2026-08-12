@@ -449,6 +449,24 @@ def _menu_goleador(nombres):
             for i, n in enumerate(nombres)]
 
 
+def test_arrastre_goleador_no_depende_del_menu(tmp_path, monkeypatch):
+    """El arrastre aplica siempre que el goleador no entró al MC (p_gol None) —
+    aunque el menú del API haya vuelto. Condicionar por el menú perdía los
+    goleadores cargados el día que Supermatch arreglara el 500."""
+    import src.clausura.picks as picks_mod
+    from src.clausura.picks import arrastre_goleador
+    monkeypatch.setattr(picks_mod, "PRED_DIR", tmp_path)
+
+    save_version(1, _planilla_esp([9, 8], [(-1, "Matías Arezo"), (-1, "Maximiliano Gómez")]))
+
+    # MC apagado (p_gol None): se arrastran, con o sin menú disponible
+    previos = arrastre_goleador(None, target_fecha=1, n_participaciones=2)
+    assert [p["goleador"] for p in previos] == ["Matías Arezo", "Maximiliano Gómez"]
+
+    # goleador asignado por el optimizador: no hay arrastre
+    assert arrastre_goleador(np.array([0.5, 0.5]), 1, 2) is None
+
+
 def test_frozen_especiales_resuelve_goleador_por_nombre_contra_menu(tmp_path, monkeypatch):
     """Planilla con goleador por NOMBRE y goleador_idx=-1 (menú en 500 al generarla,
     caso v14 del 7/8): con el menú disponible, el nombre se resuelve y congela.
