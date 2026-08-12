@@ -537,3 +537,36 @@ def test_match_odds_prefiere_la_igualdad_exacta_sin_importar_el_orden():
     cuota = [_odds("Cerro", "Albion")]
     assert match_odds([a, b], cuota).keys() == {1}
     assert match_odds([b, a], cuota).keys() == {1}
+
+
+# -------------------- decay temporal de los ratings (medido, apagado) --------------------
+
+def test_ratings_sin_decay_por_default():
+    """Se midió el 2026-08-12 y NO mejora: +0.0021 ± 0.0026 nats/partido (t=0.81).
+
+    El parámetro queda para re-medirlo con más temporadas, pero apagado. Si alguien lo
+    prende, que sea con evidencia nueva y no por la intuición de que "los datos viejos
+    ensucian" — que es exactamente lo que este test documenta como refutado.
+    """
+    import inspect
+    from src.clausura.ratings import fit_ratings
+    assert inspect.signature(fit_ratings).parameters["half_life_dias"].default is None
+
+
+def test_pesos_por_antiguedad():
+    """El peso cae a la mitad exactamente en una vida media."""
+    from src.clausura.historical import PartidoHistorico
+    from src.clausura.ratings import _pesos_por_antiguedad
+
+    def _p(fecha):
+        return PartidoHistorico(campeonato_id=1, campeonato="x", fecha_nombre="f",
+                                fecha_id=1, evento_id=1, local="A", visitante="B",
+                                goles_local=1, goles_visitante=0, preferencial=False,
+                                inicio_utc=fecha)
+    partidos = [_p("2025-01-01T00:00:00+00:00"), _p("2026-01-01T00:00:00+00:00")]
+    w = _pesos_por_antiguedad(partidos, half_life_dias=365.0)
+    assert abs(w[1] - 1.0) < 1e-9, "el más reciente pesa 1"
+    assert abs(w[0] - 0.5) < 0.01, "a una vida media de distancia pesa 0.5"
+
+    sin = _pesos_por_antiguedad(partidos, half_life_dias=None)
+    assert (sin == 1.0).all(), "sin vida media, pesos uniformes"

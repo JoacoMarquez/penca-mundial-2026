@@ -143,3 +143,49 @@ def test_e_pts_sale_de_la_planilla_PRE_partido(tmp_path, monkeypatch):
     picks, e_pts = pm.picks_de_planilla(1, [111, 222])
     assert picks[111][10] == (1, 0)          # los PICKS sí salen de la última
     assert e_pts[10] == {111: 2.36, 222: 1.98}   # el E[pts], de la PRE-partido
+
+
+# -------------------- no congelar postmortems parciales --------------------
+
+def test_rehace_el_postmortem_si_aparecieron_mas_resultados(tmp_path, monkeypatch):
+    """El de la Fecha 1 se escribió con 6 de 8 y no se iba a rehacer nunca.
+
+    MIN_JUGADOS=6 destrabó el módulo (un partido suspendido ya no lo bloquea) pero
+    hizo que dispare apenas hay seis y congele datos parciales. La herramienta que
+    existe para aprender de lo que pasó quedaba equivocada para siempre.
+    """
+    import json
+    from src.clausura import postmortem as pm
+
+    cfg = {"fechas": {"Fecha 1": {"fecha_id": 280}}}
+    monkeypatch.setattr(pm, "pm_path", lambda n: tmp_path / f"fecha_{n:02d}.json")
+
+    def con(k):
+        return lambda cfg, n, min_jugados: ({i: (1, 0) for i in range(k)}, 8 - k)
+
+    # sin archivo previo → hay que analizarla
+    monkeypatch.setattr(pm, "resultados_de_fecha", con(6))
+    assert pm.fecha_a_analizar(cfg) == 1
+
+    # escrita con 6 y siguen siendo 6 → no se toca
+    (tmp_path / "fecha_01.json").write_text(
+        json.dumps({"resultados": {str(i): [1, 0] for i in range(6)}}), encoding="utf-8")
+    assert pm.fecha_a_analizar(cfg) is None
+
+    # aparecieron los otros dos → se rehace
+    monkeypatch.setattr(pm, "resultados_de_fecha", con(8))
+    assert pm.fecha_a_analizar(cfg) == 1
+
+
+def test_no_rehace_si_el_archivo_esta_al_dia(tmp_path, monkeypatch):
+    """Rehacer de más también es malo: la corrida cuesta y pisaría el análisis bueno."""
+    import json
+    from src.clausura import postmortem as pm
+
+    cfg = {"fechas": {"Fecha 1": {"fecha_id": 280}}}
+    monkeypatch.setattr(pm, "pm_path", lambda n: tmp_path / f"fecha_{n:02d}.json")
+    monkeypatch.setattr(pm, "resultados_de_fecha",
+                        lambda cfg, n, min_jugados: ({i: (1, 0) for i in range(8)}, 0))
+    (tmp_path / "fecha_01.json").write_text(
+        json.dumps({"resultados": {str(i): [1, 0] for i in range(8)}}), encoding="utf-8")
+    assert pm.fecha_a_analizar(cfg) is None

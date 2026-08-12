@@ -46,12 +46,49 @@ class TeamRatings:
         return float(lam_l), float(lam_v)
 
 
-def fit_ratings(partidos: list[PartidoHistorico], ridge: float = 0.05) -> TeamRatings:
+def _pesos_por_antiguedad(partidos: list[PartidoHistorico],
+                          half_life_dias: float | None) -> np.ndarray:
+    """Peso exponencial por antigüedad: 1.0 el más reciente, 0.5 a una vida media.
+
+    `None` devuelve pesos uniformes, que es como se ajustó hasta el 2026-08-12.
+    """
+    if not half_life_dias or half_life_dias <= 0:
+        return np.ones(len(partidos))
+    from datetime import datetime
+    ts = np.array([datetime.fromisoformat(p.inicio_utc.replace("Z", "+00:00")).timestamp()
+                   for p in partidos])
+    dias = (ts.max() - ts) / 86400.0
+    return np.exp(-np.log(2.0) * dias / half_life_dias)
+
+
+def fit_ratings(partidos: list[PartidoHistorico], ridge: float = 0.05,
+                half_life_dias: float | None = None) -> TeamRatings:
     """MLE Poisson de ataque/defensa con regularización ridge.
 
     El ridge evita que equipos con pocos partidos (ascendidos, por ejemplo) exploten
     a valores extremos; con λ≈0.05 el encogimiento es suave y no aplana las diferencias
     reales entre Peñarol/Nacional y el resto.
+
+    `half_life_dias` pondera por antigüedad, y por default está APAGADO: se midió el
+    2026-08-12 y NO mejora las predicciones.
+
+    La premisa parecía sólida — el Elasticsearch solo publica cuotas de la fecha
+    próxima (8 de 120 eventos el 2026-08-11), así que el resto de la temporada y todo
+    P(campeón) salen 100% de estos ratings, y sin ponderar el Apertura 2024 pesa igual
+    que el Intermedio 2026. Pero medido walk-forward sobre 528 predicciones, refitteando
+    antes de cada fecha como hace producción:
+
+        vida media    Δ loglik/partido vs sin decay
+          365 días    +0.0021 ± 0.0026   (t=0.81)
+          270 días    +0.0021 ± 0.0035   (t=0.59)
+          120 días    −0.0020
+
+    La curva tiene forma sensata (meseta en 270-365, se degrada en 120) pero el efecto
+    NO es significativo, y mejora apenas el 53% de los partidos. Como referencia, la
+    calibración del pool movió 0.106 nats — 50 veces más.
+
+    Se deja el parámetro para poder re-medirlo con más temporadas sin reescribir nada.
+    Reproducir: python scripts/backtest_ratings_decay.py --modo fecha
     """
     equipos = sorted({p.local for p in partidos} | {p.visitante for p in partidos})
     idx = {e: i for i, e in enumerate(equipos)}
@@ -67,14 +104,20 @@ def fit_ratings(partidos: list[PartidoHistorico], ridge: float = 0.05) -> TeamRa
         deff = np.concatenate([theta[n - 1: 2 * n - 2], [-theta[n - 1: 2 * n - 2].sum()]])
         return att, deff, theta[-2], theta[-1]
 
+    w = _pesos_por_antiguedad(partidos, half_life_dias)
+    w_total = float(w.sum())
+
     def neg_loglik(theta):
         att, deff, mu, home = unpack(theta)
         log_lam_l = mu + home + att[li] - deff[vi]
         log_lam_v = mu + att[vi] - deff[li]
         lam_l, lam_v = np.exp(log_lam_l), np.exp(log_lam_v)
-        ll = (gl * log_lam_l - lam_l).sum() + (gv * log_lam_v - lam_v).sum()
+        ll = (w * (gl * log_lam_l - lam_l)).sum() + (w * (gv * log_lam_v - lam_v)).sum()
         penal = ridge * (np.sum(att ** 2) + np.sum(deff ** 2))
-        return -ll / len(partidos) + penal
+        # se divide por la SUMA DE PESOS, no por el número de partidos: si no, bajar la
+        # vida media encogería la verosimilitud contra un ridge fijo y el efecto medido
+        # sería el del ridge, no el del decay.
+        return -ll / w_total + penal
 
     theta0 = np.zeros(2 * n - 2 + 2)
     theta0[-2] = np.log(max(gl.mean(), 0.1))   # μ
