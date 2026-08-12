@@ -230,6 +230,18 @@ def main() -> None:
     for p in partidos[-4:]:
         print(f"  {p.fecha_nombre}: {p.local} {p.goles_local}-{p.goles_visitante} "
               f"{p.visitante} ({p.inicio_utc[:10]})")
+    # Piso de sanidad (mismo criterio que sync.py): si Wikipedia cambió el layout
+    # y el parse devolvió MENOS partidos que lo ya guardado, escribir el archivo
+    # mutilado silenciaba el warning de "Intermedio AUSENTE" — que existe porque
+    # sin estos datos P(campeón) se invierte (pasó el 5/8). El torneo terminó, así
+    # que el archivo solo puede crecer o quedar igual.
+    if OUT_PATH.exists():
+        previos = len(json.loads(OUT_PATH.read_text(encoding="utf-8")))
+        if len(partidos) < previos:
+            raise RuntimeError(
+                f"parse sospechoso: {len(partidos)} partidos contra {previos} ya "
+                f"guardados — NO se pisa {OUT_PATH.name} (¿cambió el layout de "
+                "Wikipedia?)")
     if not args.dry_run:
         OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
         OUT_PATH.write_text(json.dumps([asdict(p) for p in partidos], ensure_ascii=False),

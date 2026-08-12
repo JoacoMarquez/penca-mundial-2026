@@ -81,9 +81,34 @@ def build_config() -> dict:
     }
 
 
+def check_contra_anterior(cfg: dict, previo: dict | None) -> None:
+    """Rechaza un config que PIERDE eventos ya conocidos, salvo casos legítimos.
+
+    El piso "n_eventos > 0" dejaba pasar un API en mantenimiento que devolviera
+    una sola fecha: el YAML mutilado apagaba carga_alert/rerun/gate_watch para
+    todos los cierres futuros sin distinguirse de "no hay partidos". Un evento
+    puede desaparecer legítimamente (se anula y re-crea con otro id al
+    reprogramar), pero perder MUCHOS a la vez es un glitch, no el fixture.
+    """
+    if previo is None:
+        return
+    ids_previos = {e["evento_id"] for f in previo.get("fechas", {}).values()
+                   for e in f.get("eventos", [])}
+    ids_nuevos = {e["evento_id"] for f in cfg.get("fechas", {}).values()
+                  for e in f.get("eventos", [])}
+    perdidos = ids_previos - ids_nuevos
+    if len(perdidos) > max(2, len(ids_previos) // 10):
+        raise RuntimeError(
+            f"config sospechoso del API: perdería {len(perdidos)} de "
+            f"{len(ids_previos)} eventos conocidos ({sorted(perdidos)[:8]}…) — "
+            f"NO se pisa {CONFIG_PATH.name}. Si el cambio es real, --force")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--stdout", action="store_true", help="imprimir sin escribir el archivo")
+    ap.add_argument("--force", action="store_true",
+                    help="pisar el config aunque pierda eventos conocidos")
     args = ap.parse_args()
 
     cfg = build_config()
@@ -103,6 +128,8 @@ def main() -> None:
         raise RuntimeError(
             f"config sospechoso del API ({len(cfg.get('fechas', {}))} fechas, "
             f"{n_eventos} eventos) — NO se pisa {CONFIG_PATH.name}")
+    if not args.force and CONFIG_PATH.exists():
+        check_contra_anterior(cfg, yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8")))
 
     # Escritura atómica: gate_watch (10 min), carga_alert (horario) y el dashboard
     # leen este archivo concurrentemente; un write_text a medias les sirve YAML

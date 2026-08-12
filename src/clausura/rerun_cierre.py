@@ -1,6 +1,6 @@
 """Corrida extra cerca del cierre — el T-3h del Mundial, versión Clausura.
 
-La planilla del día se genera a las 12:00 UTC (09:00 UY). Entre esa corrida y los
+La planilla del día se genera a las 11:00 UTC (08:00 UY). Entre esa corrida y los
 cierres (17:45-22:45 UTC) los inputs se mueven: odds de Supermatch, snapshot del
 pool (rivales que cargaron a la tarde), resultados de partidos ya jugados de la
 fecha. Este módulo re-corre el pipeline una vez por TANDA de cierres (~2h antes de
