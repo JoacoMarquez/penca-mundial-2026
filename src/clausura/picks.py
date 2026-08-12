@@ -665,24 +665,39 @@ def run(
     # rivals.build_rival_model).
     puntos_vivos: dict[int, int] = {}
     penca_id = cfg["pencas"]["paga"]["id"]
-    try:
-        with PencaApiClient() as api:
-            # resultados de partidos finalizados
-            for nombre, f in cfg["fechas"].items():
-                data = api._get(f"/front/campeonatos/fechas/{f['fecha_id']}/eventos")
-                for e in data:
-                    res = e.get("resultado") or {}
-                    gl, gv = res.get("golesEquipoLocal"), res.get("golesEquipoVisitante")
-                    if gl is not None and gv is not None:
-                        resultados[e["id"]] = (int(gl), int(gv))
-            ranking = api.ranking(penca_id)
-            propias = sum(r.numero_participacion in mis_numeros for r in ranking)
-            n_rivales = max(len(ranking) - propias, 1)
-            puntos_vivos = {r.numero_participacion: r.puntos_totales for r in ranking}
-            jugados = len(resultados)
-            exact_rate = observed_exact_rate_from_ranking(ranking, jugados, mis_numeros)
-    except Exception as e:  # red caída: seguimos con defaults
-        log.warning("penca-api no disponible (%s) — sigo con defaults", e)
+    # Con el API caído, el fallback silencioso era optimizar contra un pool default
+    # de 151 rivales (el real es ~700): diferenciación mal calculada y ni un aviso
+    # más allá de un warning en el log. Ahora se reintenta (la pasada de la mañana
+    # tiene 2h+ de margen) y, si igual no hay API, la planilla y el Telegram lo
+    # GRITAN — y el tamaño del pool cae al snapshot si hay uno fresco.
+    api_ok = False
+    for intento in range(1, 4):
+        try:
+            with PencaApiClient() as api:
+                # resultados de partidos finalizados
+                for nombre, f in cfg["fechas"].items():
+                    data = api._get(f"/front/campeonatos/fechas/{f['fecha_id']}/eventos")
+                    for e in data:
+                        res = e.get("resultado") or {}
+                        gl, gv = res.get("golesEquipoLocal"), res.get("golesEquipoVisitante")
+                        if gl is not None and gv is not None:
+                            resultados[e["id"]] = (int(gl), int(gv))
+                ranking = api.ranking(penca_id)
+                propias = sum(r.numero_participacion in mis_numeros for r in ranking)
+                n_rivales = max(len(ranking) - propias, 1)
+                puntos_vivos = {r.numero_participacion: r.puntos_totales for r in ranking}
+                jugados = len(resultados)
+                exact_rate = observed_exact_rate_from_ranking(ranking, jugados, mis_numeros)
+            api_ok = True
+            break
+        except Exception as e:
+            log.warning("penca-api no disponible (intento %d/3: %s)", intento, e)
+            if intento < 3:
+                import time
+                time.sleep(60)
+    if not api_ok:
+        log.error("penca-api CAÍDO tras 3 intentos — sin puntos vivos ni calibración; "
+                  "el tamaño del pool cae al snapshot si hay uno fresco")
 
     ratings = ensure_ratings()
 
@@ -707,6 +722,15 @@ def run(
         exact_rate_desde_snapshot, load_latest_snapshot,
     )
     snapshot = load_latest_snapshot(max_age_hours=48)
+    if not api_ok and snapshot:
+        # Fallback del tamaño del pool: la foto de ayer (~700 rivales) le gana por
+        # 4-5× al default de 151 con el que se repartiría el premio simulado.
+        participaciones_snap = snapshot.get("participaciones", [])
+        propias_snap = sum(int(p.get("numero", 0)) in mis_numeros
+                           for p in participaciones_snap)
+        if participaciones_snap:
+            n_rivales = max(len(participaciones_snap) - propias_snap, 1)
+            log.warning("pool desde el snapshot: %d rivales (API caído)", n_rivales)
     rate_snapshot = exact_rate_desde_snapshot(snapshot, resultados, mis_numeros)
     if rate_snapshot is not None:
         if exact_rate is not None and abs(rate_snapshot - exact_rate) > 0.02:
@@ -1009,6 +1033,15 @@ def run(
     if contexto is not None:
         contexto.update(portfolio=port, evaluador=port.evaluador,
                         idx_of=idx_of, eventos=eventos)
+
+    if not api_ok:
+        detalle = (f"pool {'del snapshot' if snapshot else 'DEFAULT'} "
+                   f"({n_rivales} rivales), sin puntos vivos ni calibración")
+        payload["advertencias"] = [f"penca-api caído durante la corrida: {detalle}"]
+        planilla = ("⚠️ <b>PENCA-API CAÍDO durante esta corrida</b> — " + detalle +
+                    ". La diferenciación puede estar mal calculada: si el rerun de "
+                    "la tarde corre con API vivo, va a proponer la corrección.\n\n"
+                    + planilla)
 
     path = save_version(target_fecha, payload)
 

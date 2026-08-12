@@ -186,9 +186,10 @@ class SeasonSimulator:
             self.rivals_fecha = np.zeros((self.n_fechas, R, S), dtype=np.int32)
             self._cache_fecha = None
 
-        def _acumular(m: int, pts: np.ndarray) -> None:
+        def _acumular(m: int, pts: np.ndarray, en_total: bool = True) -> None:
             fi = self.match_fecha[m]
-            self._rivals_total += pts
+            if en_total:
+                self._rivals_total += pts
             if not compactar_fechas:
                 self._rivals_fecha[fi] += pts
                 return
@@ -202,6 +203,19 @@ class SeasonSimulator:
 
         if rivals is not None:
             for m in range(self.n_matches):
+                if rivals.jugado_sin_observar(m):
+                    # Jugado DESPUÉS del snapshot: los puntos reales de este partido
+                    # ya viajan en el residuo (puntos vivos del ranking), así que al
+                    # TOTAL no va nada acá. Pero el premio por FECHA computa solo sus
+                    # partidos (Art. 8) y el residuo no llega ahí: sin esta imputación
+                    # los R rivales sumaban 0 en el partido y el premio de $10k de la
+                    # fecha se simulaba regalado. Se imputa como futuro (pick ∝ Q^γ,
+                    # show ~ p_show) contra el resultado real, SOLO para la fecha.
+                    rp, show = rivals.sample_picks_match(m, pool_q[m], rng, S,
+                                                         forzar_futuro=True)
+                    pts = self.pm[m][rp, self.actual[m][None, :]] * show
+                    _acumular(m, pts, en_total=False)
+                    continue
                 rp, show = rivals.sample_picks_match(m, pool_q[m], rng, S)
                 pts = self.pm[m][rp, self.actual[m][None, :]]
                 pts = pts * show   # no cargó → 0 puntos
