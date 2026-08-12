@@ -78,6 +78,17 @@ HUECO_METRIC = "legacy_hueco"
 K_EV = 5
 K_HUECO = 0
 
+# Garantizar que el menú tenga el MEJOR marcador de cada desenlace (local/empate/
+# visitante), además del top-K_EV. Nace de la Fecha 2 medida el 2026-08-12: en
+# Peñarol vs Central Español el mejor marcador de visitante está en el puesto 19 por
+# E[pts] — ningún tamaño razonable de menú llega (10 ya empeora), así que las 12
+# participaciones salen con CERO exposición al 43% de los desenlaces (visita 19% +
+# empate 24%). Es distinto de la rama de hueco, que elegía por RAREZA y ofrecía 5-1
+# y 5-0 (el optimizador nunca los tomó: (5,3) ≡ (5,0) bit a bit, +0 ± 0 exacto);
+# esto ofrece el 0-1 y el 1-1, los plausibles de su desenlace.
+# Apagado hasta que el A/B lo respalde (regla de trabajo #1).
+K_COBERTURA = False
+
 
 @dataclass(frozen=True)
 class Candidato:
@@ -130,6 +141,7 @@ def build_candidates(
     k_hueco: int | None = None,
     min_prob: float = 0.005,
     metrica: str | None = None,
+    cobertura: bool | None = None,
 ) -> list[Candidato]:
     """Menú de marcadores jugables: top por E[pts] ∪ top por hueco de pool.
 
@@ -143,6 +155,7 @@ def build_candidates(
     """
     k_ev = K_EV if k_ev is None else k_ev
     k_hueco = K_HUECO if k_hueco is None else k_hueco
+    cobertura = K_COBERTURA if cobertura is None else cobertura
     metrica = metrica or HUECO_METRIC
     p = flatten_grid(grid)
     cands = [
@@ -172,8 +185,24 @@ def build_candidates(
         # de ese escalón conviene el que más puntos rinde, no el más raro.
         by_hueco = sorted(cands, key=lambda c: (-c.mispricing, -c.e_points))[:k_hueco]
 
+    # Cobertura de desenlace: si el top-K no trae ningún marcador de algún resultado
+    # (típico: la victoria visitante en un partido desparejo, puesto ~19 por E[pts]),
+    # se agrega EL MEJOR de ese desenlace. Máximo 2 candidatos extra, elegidos por
+    # plausibilidad dentro de su desenlace — no por rareza, que fue el error de la
+    # rama de hueco (ofrecía 5-1/5-0 y el optimizador jamás los tomó).
+    by_cob = []
+    if cobertura:
+        lado = lambda c: (c.pick[0] > c.pick[1]) - (c.pick[0] < c.pick[1])
+        cubiertos = {lado(c) for c in by_ev + by_hueco}
+        for objetivo in (1, 0, -1):
+            if objetivo in cubiertos:
+                continue
+            del_lado = [c for c in cands if lado(c) == objetivo]
+            if del_lado:
+                by_cob.append(max(del_lado, key=lambda c: c.e_points))
+
     out, seen = [], set()
-    for c in by_ev + by_hueco:
+    for c in by_ev + by_hueco + by_cob:
         if c.pick not in seen:
             seen.add(c.pick)
             out.append(c)
