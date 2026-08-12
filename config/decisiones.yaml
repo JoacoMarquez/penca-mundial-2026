@@ -144,3 +144,22 @@ decisiones:
       señal. Referencia de escala: la calibración del pool movió 0.106 nats, 50x más.
       NO usa Monte Carlo: mide calidad de predicción, no E[premio]. Re-medir si
       aparecen más temporadas. Reproducir con scripts/backtest_ratings_decay.py.
+
+  - nombre: sesgo del 0-0 según paridad del partido
+    donde: src.clausura.pool.DEFAULT_POPULAR_BIAS
+    valor: null
+    medida_con: {sims: 19200, participaciones: 12}
+    resultado: "ajustarlo por paridad EMPEORA la log-loss fuera de muestra: 2.2811 → 2.2825"
+    fecha: 2026-08-12
+    inerte: >-
+      No se cambió nada: la entrada documenta un rechazo. La hipótesis (auditoría
+      externa) era que el factor del 0-0 varía ~16x según lo parejo del partido. La
+      VARIACIÓN es real —17,7x sobre 8 partidos— pero NO la explica la paridad: Torque
+      vs Peñarol y Danubio vs Cerro tienen desbalance idéntico (0.20) y ratios 0.04 vs
+      0.66, 16x de diferencia. Ese par solo explica casi todo el rango. Ajustar por
+      paridad aprende ruido y pierde fuera de muestra. Además, con chalk=2.2 el
+      cociente Q/p del 0-0 YA varía 2,5x, así que parte de los 16x estaba cubierta.
+      Coherente con que la tabla de 36 sesgos midiera EMPATE en E[premio]: refinar la
+      FORMA de la Q no se convierte en plata con tan pocos partidos. RE-MEDIR con ~40
+      partidos, cuando la paridad pueda separarse del ruido.
+      Reproducir con scripts/calibrar_cero_cero.py.
