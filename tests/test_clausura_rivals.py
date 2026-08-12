@@ -410,3 +410,61 @@ def test_puntos_vivos_parciales_no_rompen():
     imp_a = supermatch_points((1, 0), (1, 0))
     imp_b = supermatch_points((0, 0), (1, 0))
     assert model.residuo.tolist() == [20 - imp_a, 5 - imp_b]
+
+
+# -------------------- partidos jugados DESPUÉS del snapshot --------------------
+
+def _modelo_fantasma():
+    """2 rivales, 2 jugados: el 1º observable (ambos cargaron), el 2º cerró DESPUÉS
+    del snapshot (known=-1 para todos, pero no porque no cargaran)."""
+    q = _q()
+    known = np.array([
+        [score_index(1, 0), -1],
+        [score_index(1, 0), -1],
+    ], dtype=np.int64)
+    played = np.array([True, True])
+    observable = np.array([True, False])
+    actual = np.array([score_index(1, 0), score_index(1, 1)], dtype=np.int64)
+    implied = np.array([supermatch_points((1, 0), (1, 0))] * 2)
+    return build_rival_model_from_arrays(
+        known, played, [q, q], [False, False], actual,
+        puntos_ranking=implied + 4,          # +4 = puntos reales del partido fantasma
+        numeros=np.array([11, 22]),
+        observable_mask=observable,
+    ), q
+
+
+def test_p_show_no_se_diluye_con_partidos_post_snapshot():
+    model, _ = _modelo_fantasma()
+    # ambos cargaron 1/1 observable: p_show igual al de un solo jugado cargado,
+    # SIN castigo por el partido que el snapshot no pudo ver
+    esperado = (1 + 9.0) / (1 + 9.0 + 1.0)
+    assert np.allclose(model.p_show, esperado)
+    assert model.jugado_sin_observar(1) and not model.jugado_sin_observar(0)
+
+
+def test_fantasma_no_toca_el_total_pero_si_la_fecha():
+    """El total queda anclado a los puntos reales (residuo); la fecha imputa el
+    partido fantasma como futuro en vez de dejar a todos los rivales en 0."""
+    model, q = _modelo_fantasma()
+    d1 = np.zeros((MAX_GOALS + 1, MAX_GOALS + 1)); d1[1, 0] = 1.0
+    d2 = np.zeros((MAX_GOALS + 1, MAX_GOALS + 1)); d2[1, 1] = 1.0
+    sim = SeasonSimulator(
+        [d1, d2], [280, 280], [False, False], [q, q],
+        PrizeConfig(), SimConfig(n_sims=400, seed=9), rivals=model,
+        compactar_fechas=False,
+    )
+    # total = implicados del observable + residuo (que trae los +4 reales), constante
+    esperado_total = supermatch_points((1, 0), (1, 0)) + 4
+    assert np.all(sim.rivals_total == esperado_total)
+    # la fecha suma ALGO por el fantasma en una fracción sustancial de sims
+    # (pick ∝ Q^γ contra el 1-1 real): antes era 0 clavado para todos
+    pts_fecha = sim.rivals_fecha[0]
+    base = supermatch_points((1, 0), (1, 0))
+    assert (pts_fecha > base).mean() > 0.15
+
+
+def test_sin_observable_mask_todo_jugado_es_observable():
+    model, _ = _modelo_2x2()
+    assert model.observable_mask is None
+    assert not model.jugado_sin_observar(0) and not model.jugado_sin_observar(1)

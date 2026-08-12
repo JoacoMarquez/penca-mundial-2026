@@ -79,6 +79,13 @@ class RivalModel:
     gamma: np.ndarray
     p_show: np.ndarray
     residuo: np.ndarray
+    # observable_mask[m] = True si el snapshot PUDO ver los picks del partido m
+    # (su cierre es anterior al escaneo). Un partido jugado DESPUÉS del snapshot
+    # (played y no observable — pasa hasta 6h por --max-edad-h, o 48h si el escaneo
+    # abortó) no es "nadie cargó": es "no lo vimos". Confundirlos bajaba p_show de
+    # TODO el pool y regalaba el premio por fecha (los 700 rivales sumaban 0 en ese
+    # partido). None = todo lo jugado es observable (snapshots frescos, tests).
+    observable_mask: np.ndarray | None = None
     numeros: np.ndarray = field(default_factory=lambda: np.zeros(0, dtype=np.int64))
     campeon_idx: np.ndarray | None = None
     goleador_idx: np.ndarray | None = None
@@ -89,8 +96,15 @@ class RivalModel:
     def n_rivales(self) -> int:
         return self.known_picks.shape[0]
 
+    def jugado_sin_observar(self, m: int) -> bool:
+        """Partido jugado cuyo pick el snapshot no pudo ver (cerró después del escaneo)."""
+        return bool(self.played_mask[m]
+                    and self.observable_mask is not None
+                    and not self.observable_mask[m])
+
     def sample_picks_match(self, m: int, pool_q: np.ndarray, rng: np.random.Generator,
-                           n_sims: int) -> tuple[np.ndarray, np.ndarray]:
+                           n_sims: int, forzar_futuro: bool = False,
+                           ) -> tuple[np.ndarray, np.ndarray]:
         """(picks, show) del partido m, ambos (n_rivales, n_sims).
 
         Observado → su pick tal cual (constante entre sims). Pasado no observado →
@@ -109,7 +123,10 @@ class RivalModel:
         has = known >= 0
         picks[has] = known[has, None]
         show[has] = True
-        if self.played_mask[m] or bool(has.all()):
+        # `forzar_futuro`: imputar un jugado-sin-observar como si fuera futuro
+        # (pick ∝ Q^γ + show ~ p_show) — lo usa el simulador SOLO para el premio
+        # por fecha; el total lo ancla el residuo con los puntos reales.
+        if (self.played_mask[m] and not forzar_futuro) or bool(has.all()):
             return picks, show
         libre = ~has
         picks[libre] = _tilted_sample(pool_q, self.gamma[libre], rng, size=n_sims)
@@ -206,11 +223,18 @@ def build_rival_model_from_arrays(
     goleador_idx: np.ndarray | None = None,
     sin_campeon: np.ndarray | None = None,
     sin_goleador: np.ndarray | None = None,
+    observable_mask: np.ndarray | None = None,
 ) -> RivalModel:
     """Ajusta γ, p_show y residuo desde las matrices ya mapeadas a índices de partido.
 
     `actual_idx[m]` = índice de score del resultado real (solo se usa donde
     played_mask[m]; el resto puede ser -1).
+
+    `observable_mask[m]` = el snapshot pudo ver los picks del partido m (cierre
+    anterior al escaneo). p_show se estima SOLO sobre observables: un partido
+    jugado después del snapshot aparece como jugado-y-no-cargado para los ~700
+    rivales y bajaba p_show de todo el pool (~0.94 → ~0.89 por partido fantasma).
+    None = todo lo jugado es observable.
     """
     R, n_matches = known_picks.shape
     if len(pool_qs) != n_matches or len(preferencial) != n_matches:
@@ -223,10 +247,11 @@ def build_rival_model_from_arrays(
         has = known_picks[r] >= 0
         gamma[r] = fit_gamma(known_picks[r, has], logqs[has])
 
-    # p_show con prior Beta: solo los partidos jugados informan (los futuros aún
-    # pueden cargarse hasta el cierre).
-    jugados = int(played_mask.sum())
-    cargados = (known_picks[:, played_mask] >= 0).sum(axis=1) if jugados else np.zeros(R)
+    # p_show con prior Beta: solo los partidos jugados Y OBSERVABLES informan (los
+    # futuros aún pueden cargarse; los jugados post-snapshot no se vieron).
+    obs = played_mask if observable_mask is None else (played_mask & observable_mask)
+    jugados = int(obs.sum())
+    cargados = (known_picks[:, obs] >= 0).sum(axis=1) if jugados else np.zeros(R)
     p_show = (cargados + SHOW_PRIOR_A) / (jugados + SHOW_PRIOR_A + SHOW_PRIOR_B)
 
     # puntos implicados por los picks del pasado → residuo vs el ranking real
@@ -249,6 +274,8 @@ def build_rival_model_from_arrays(
         gamma=gamma,
         p_show=p_show,
         residuo=residuo,
+        observable_mask=(observable_mask.copy()
+                         if observable_mask is not None else None),
         numeros=numeros if numeros is not None else np.zeros(R, dtype=np.int64),
         campeon_idx=campeon_idx,
         goleador_idx=goleador_idx,
@@ -355,9 +382,29 @@ def build_rival_model(
             played[i] = True
             actual[i] = score_index(min(res[0], MAX_GOALS), min(res[1], MAX_GOALS))
 
+    # ¿Qué partidos PUDO ver el snapshot? Los picks se publican al cierre de cada
+    # evento (gate por partido): un cierre posterior al escaneo es invisible aunque
+    # el partido ya esté jugado (el snapshot se reusa hasta 6h; 48h si el escaneo
+    # abortó). Sin este mask, cada partido de la tarde de un día multi-partido
+    # contaba como "jugado y nadie cargó" — p_show caía para todo el pool y el
+    # premio de la fecha se simulaba regalado.
+    observable = played.copy()
+    snap_utc = snapshot.get("generado_utc")
+    if snap_utc:
+        snap_ts = datetime.fromisoformat(snap_utc)
+        for i, ev in enumerate(eventos):
+            cierre_iso = ev.get("cierre_pronostico_utc")
+            if played[i] and cierre_iso:
+                observable[i] = datetime.fromisoformat(cierre_iso) <= snap_ts
+        fantasmas = int((played & ~observable).sum())
+        if fantasmas:
+            log.info("%d partido(s) jugado(s) DESPUÉS del snapshot: no informan "
+                     "p_show y el premio por fecha los imputa como futuros", fantasmas)
+
     model = build_rival_model_from_arrays(
         known, played, pool_qs, [ev["preferencial"] for ev in eventos],
         actual, puntos, numeros, campeon, goleador, sin_camp, sin_gol,
+        observable_mask=observable,
     )
     if puntos_vivos is None:
         log.warning("modelo de rivales SIN puntos del ranking vivo: uso los del "
