@@ -88,6 +88,15 @@ GOLEADOR_SHRINK = float(os.environ.get("CLAUSURA_GOLEADOR_SHRINK", "0.5"))
 # goleador), o el año que viene antes del lock, cuando la elección sí esté abierta.
 GOLEADOR_EN_MC = os.environ.get("CLAUSURA_GOLEADOR_MC", "0") == "1"
 
+# n_sims de producción, y también el DEFAULT: una corrida manual sin --sims caía a
+# 800 — el régimen donde el menú de 5 mide NEGATIVO (ver el comentario de K_EV en
+# strategy.py) — y esa planilla quedaba de warm start para la siguiente corrida y
+# el rerun T-2h heredaba sus sims. El footgun era silencioso: acá no había ningún
+# warning de piso (rerun_cierre sí lo tenía). Deben coincidir con los de
+# rerun_cierre — hay un test que lo exige.
+DEFAULT_SIMS = 19_200
+SIMS_MIN_SEGURO = 9_600
+
 
 # -------------------- carga de insumos --------------------
 
@@ -621,7 +630,7 @@ def run(
     target_fecha: int,
     n_participaciones: int = 5,
     telegram: bool = False,
-    n_sims: int = 800,
+    n_sims: int = DEFAULT_SIMS,
     liberar_especiales: bool = False,
     contexto: dict | None = None,
 ) -> Path:
@@ -632,6 +641,13 @@ def run(
     el mapa evento→columna. Lo usa src.clausura.rerun_cierre para decidir si el
     cambio de planilla vale la pena en PLATA antes de pedir una recarga manual.
     """
+    if n_sims < SIMS_MIN_SEGURO:
+        log.warning(
+            "⚠️ corriendo con %d sorteos (< %d): a estos niveles el ascenso elige "
+            "ruido y el menú de 5 mide NEGATIVO. Esta planilla además queda de warm "
+            "start y el rerun hereda sus sims — usá --sims %d salvo que sea una "
+            "prueba descartable.", n_sims, SIMS_MIN_SEGURO, DEFAULT_SIMS)
+
     cfg = load_config()
     eventos = flat_eventos(cfg)
     idx_of = {ev["evento_id"]: i for i, ev in enumerate(eventos)}
@@ -821,7 +837,16 @@ def run(
                      "(el API sigue en 500)", len(opciones_goleador))
 
     p_gol, pool_q_gol = None, None
-    if opciones_goleador:
+    if opciones_goleador and not GOLEADOR_EN_MC:
+        # Si Supermatch arregla el 500 del menú, SIN este gate el goleador entraba
+        # solo al Monte Carlo por el camino del prior de ratings — la configuración
+        # que el 10/8 midió −$609/−$716 con los picks congelados post-lock. El flag
+        # gatea AMBOS caminos mientras los goleadores sigan congelados; el menú
+        # igual queda disponible para resolver nombres del freeze.
+        log.info("menú de goleador disponible pero CLAUSURA_GOLEADOR_MC está apagado "
+                 "(medición 2026-08-10: prenderlo con picks congelados EMPEORA) — "
+                 "no entra al Monte Carlo")
+    elif opciones_goleador:
         if desde_snapshot:
             # El snapshot no trae equipo_id, así que el prior de ratings no aplica.
             # Se usa el consenso del pool encogido hacia uniforme — ver
@@ -1014,7 +1039,7 @@ def main() -> None:
     ap.add_argument("--participaciones", type=int, default=None,
                     help="default: cantidad de CLAUSURA_MIS_PARTICIPACIONES (5 sin env)")
     ap.add_argument("--telegram", action="store_true", help="mandar la planilla al bot")
-    ap.add_argument("--sims", type=int, default=800)
+    ap.add_argument("--sims", type=int, default=DEFAULT_SIMS)
     ap.add_argument("--liberar-especiales", action="store_true",
                     help="ignorar el freeze de campeón/goleador y re-optimizarlos "
                          "(solo mientras los especiales siguen editables en la web)")
