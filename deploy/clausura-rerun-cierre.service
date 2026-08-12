@@ -21,8 +21,13 @@ ExecStartPre=-/opt/penca/.venv/bin/python -m src.clausura.pool_snapshot --if-sta
 # coordenadas cae en otro óptimo local y el diff deja de significar "se movieron
 # los insumos". Medido el 8/8 con 1600 acá y 2400 en la pasada principal: 56 de 96
 # picks reasignados con insumos idénticos, y E[premio] out-of-sample $238k → $221k.
-# Tiempos reales en el droplet (1 vCPU): 2400 sims = 33 min, 1600 = 22 min, contra
-# una ventana de ~70 min desde el disparo hasta el primer cierre. Entra.
+# Tiempos reales en el droplet a las sims de PRODUCCIÓN (medido 2026-08-12, con
+# el cache del premio por fecha): 19.200 sims = 33m36s TOTAL, incluida la
+# evaluación del gate (5 semillas, ~22 min). Contra la ventana de ~70 min desde
+# el disparo (T-2.5h) hasta el primer cierre: el aviso llega con ~36 min de
+# margen para recargar. Entra. Si se suben las sims o las semillas, RE-MEDIR:
+# la versión anterior de este comentario decía "Entra" medido a 2.400 y quedó
+# 4 días vencida sin que nadie lo note.
 ExecStart=/opt/penca/.venv/bin/python -m src.clausura.rerun_cierre --participaciones 12
 # Para ver el pico real: el aviso por valor construye un simulador por semilla de
 # evaluación (351 MB medidos a 2400 sims × 684 rivales) encima de la optimización,
