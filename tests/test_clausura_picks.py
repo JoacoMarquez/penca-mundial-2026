@@ -570,3 +570,57 @@ def test_pesos_por_antiguedad():
 
     sin = _pesos_por_antiguedad(partidos, half_life_dias=None)
     assert (sin == 1.0).all(), "sin vida media, pesos uniformes"
+
+
+# -------------------- versionado concurrente --------------------
+
+def test_save_version_no_pierde_escrituras_concurrentes(tmp_path, monkeypatch):
+    """Dos escritores en la misma fecha (el rerun termina ~13:05-13:20 y el
+    drift-audit corre 13:20) no pueden calcular el mismo N: el segundo archivo
+    quedaría invisible para latest_version y su contenido se perdería sin ruido.
+
+    El sleep dentro de latest_version ensancha la ventana leer→escribir para que
+    la carrera sea determinística: sin el lock este test falla siempre.
+    """
+    import threading
+    import time
+
+    import src.clausura.picks as picks_mod
+    from src.utils.versions import version_num
+    monkeypatch.setattr(picks_mod, "PRED_DIR", tmp_path)
+
+    real_latest = picks_mod.latest_version
+
+    def latest_lento(paths):
+        r = real_latest(paths)
+        time.sleep(0.05)
+        return r
+
+    monkeypatch.setattr(picks_mod, "latest_version", latest_lento)
+
+    escritos, lock = [], threading.Lock()
+
+    def escribir(i):
+        p = picks_mod.save_version(7, {"quien": i, "picks": []})
+        with lock:
+            escritos.append(p)
+
+    hilos = [threading.Thread(target=escribir, args=(i,)) for i in range(4)]
+    for h in hilos:
+        h.start()
+    for h in hilos:
+        h.join()
+
+    assert sorted(version_num(p) for p in escritos) == [1, 2, 3, 4]
+    # y las 4 sobreviven en disco: ninguna quedó pisada ni huérfana
+    assert len(list((tmp_path / "fecha_07").glob("v*_*.json"))) == 4
+
+
+def test_el_lock_no_se_cuela_en_el_glob_de_versiones(tmp_path, monkeypatch):
+    import src.clausura.picks as picks_mod
+    monkeypatch.setattr(picks_mod, "PRED_DIR", tmp_path)
+    picks_mod.save_version(3, {"picks": []})
+    d = tmp_path / "fecha_03"
+    assert (d / ".version.lock").exists()
+    assert [p.name for p in d.glob("v*_*.json")] == [
+        p.name for p in d.iterdir() if p.suffix == ".json"]

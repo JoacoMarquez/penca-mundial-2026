@@ -6,11 +6,18 @@ Description=Timer de auditoría anti-drift del Clausura — 3 veces al día
 # 23:50 UTC: post-cierres del día — registra faltantes/drift definitivos.
 # Pre-inicio del campeonato el script sale 0 en silencio (--if-started).
 
+# Persistent=true: si el VPS se reinicia (o el timer queda parado) dentro de
+# la ventana, systemd dispara el tick perdido al arrancar en vez de esperar
+# al siguiente. El script decide igual si corresponde correr (ventana +
+# estado en disco), así que un disparo de más es un no-op silencioso — y un
+# tick perdido acá sí cuesta: son 3 pasadas fijas por día y la de las
+# 23:50 es la que adopta lo cargado en la web.
+
 [Timer]
 OnCalendar=*-*-* 13:20:00 UTC
 OnCalendar=*-*-* 18:20:00 UTC
 OnCalendar=*-*-* 23:50:00 UTC
-Persistent=false
+Persistent=true
 
 [Install]
 WantedBy=timers.target

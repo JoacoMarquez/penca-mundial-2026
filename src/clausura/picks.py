@@ -577,17 +577,30 @@ def format_gratuita(
 
 
 def save_version(target_fecha: int, payload: dict) -> Path:
-    """Escribe v<N>_<ts>.json sin sobreescribir (regla de trabajo #2)."""
+    """Escribe v<N>_<ts>.json sin sobreescribir (regla de trabajo #2).
+
+    Bajo lock de directorio: hay al menos dos escritores que pueden coincidir en
+    la MISMA fecha —el rerun T-2h (que suele terminar 13:05-13:20) y la adopción
+    de picks/goleadores del drift-audit de las 13:20— y sin exclusión los dos leen
+    el mismo `latest`, calculan el mismo N y escriben `vN_<ts1>` y `vN_<ts2>`.
+    `latest_version` desempata por número, así que uno de los dos queda invisible
+    y su contenido se pierde sin ruido.
+    """
+    import fcntl
+
     d = fecha_dir(target_fecha)
     d.mkdir(parents=True, exist_ok=True)
-    prev = latest_version(d.glob("v*_*.json"))
-    n = 1
-    if prev is not None:
-        from src.utils.versions import version_num
-        n = version_num(prev) + 1
-    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    path = d / f"v{n}_{ts}.json"
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8")
+    with open(d / ".version.lock", "w") as lock:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        prev = latest_version(d.glob("v*_*.json"))
+        n = 1
+        if prev is not None:
+            from src.utils.versions import version_num
+            n = version_num(prev) + 1
+        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        path = d / f"v{n}_{ts}.json"
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=1),
+                        encoding="utf-8")
     return path
 
 

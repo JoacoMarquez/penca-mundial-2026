@@ -4,9 +4,16 @@ Description=Timer de alertas de carga del Clausura — cada hora en la ventana d
 # Los cierres reales caen 17:45-22:45 UTC; con el aviso de 6h la ventana útil
 # arranca ~11:45 UTC. Fuera de días de partido el script sale en silencio.
 
+# Persistent=true: si el VPS se reinicia (o el timer queda parado) dentro de
+# la ventana, systemd dispara el tick perdido al arrancar en vez de esperar
+# al siguiente. El script decide igual si corresponde correr (ventana +
+# estado en disco), así que un disparo de más es un no-op silencioso — y un
+# tick perdido acá sí cuesta: es un recordatorio de carga que no vuelve
+# hasta el tier siguiente.
+
 [Timer]
 OnCalendar=*-*-* 11..23:10:00 UTC
-Persistent=false
+Persistent=true
 
 [Install]
 WantedBy=timers.target

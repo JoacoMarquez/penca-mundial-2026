@@ -14,9 +14,16 @@ Description=Timer de la corrida T-2h del Clausura — horario en la ventana prev
 # partido 22:00 UY cierra 00:45 UTC del día SIGUIENTE — con el tope viejo de
 # 21:35 esos quedaban sin rerun. El tick de 23:35 cubre cierres hasta ~02:05 UTC.
 
+# Persistent=true: si el VPS se reinicia (o el timer queda parado) dentro de
+# la ventana, systemd dispara el tick perdido al arrancar en vez de esperar
+# al siguiente. El script decide igual si corresponde correr (ventana +
+# estado en disco), así que un disparo de más es un no-op silencioso — y un
+# tick perdido acá sí cuesta: el del sábado 12:35 es la ÚNICA oportunidad
+# antes del cierre más temprano.
+
 [Timer]
 OnCalendar=*-*-* 12..23:35:00 UTC
-Persistent=false
+Persistent=true
 
 [Install]
 WantedBy=timers.target

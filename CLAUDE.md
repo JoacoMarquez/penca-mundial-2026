@@ -1,4 +1,76 @@
-# Penca JMLM Mundial 2026 — Agente Autónomo
+# Penca — Agente Autónomo
+
+> **Lo que corre hoy es el CLAUSURA (`src/clausura/`).** El sistema del Mundial
+> ganó su penca el 2026-07-16 y está apagado desde el 29/7 (su droplet fue
+> destruido). Todo lo que sigue del Mundial queda como referencia de diseño; para
+> trabajar sobre producción, la sección de abajo es la que manda.
+
+---
+
+# Sistema activo: Penca Supermatch — Clausura 2026
+
+Misma tesis que el Mundial (portfolio de perturbaciones alrededor del óptimo para
+maximizar E[premio], no puntaje esperado), otro torneo y otra plataforma.
+
+- **Penca:** Supermatch, id 46 (paga, $400/participación) + id 47 (gratuita).
+- **Nuestras participaciones:** 12, números 899258848-866 (`CLAUSURA_MIS_PARTICIPACIONES`).
+- **Pool:** ~737 participaciones. Premios: $350.000 al campeón de la penca,
+  $10.000 por fecha, $3.000 grupo amigo.
+- **Torneo:** 15 fechas, 16 equipos. Arrancó el 2026-08-07.
+- **Puntos:** kernel aditivo de Supermatch (máx 8), partido preferencial ×2.
+  Especiales: campeón y goleador, 25 puntos cada uno.
+- **Carga:** **MANUAL** por el usuario (decisión operativa del 4/8, T&C). El
+  sistema genera la planilla y la manda por Telegram; el dashboard tiene un
+  "Modo carga" para copiarla sin errores.
+- **Gate del API:** los picks —propios y de los rivales— son públicos recién al
+  cierre de CADA partido. No se puede verificar lo cargado antes del cierre, que
+  es justo cuando serviría. Nada que diga lo contrario es cierto.
+
+## Módulos (`src/clausura/`)
+
+| Módulo | Qué hace |
+|---|---|
+| `picks.py` | Pipeline completo: config → ratings → odds → grillas → pool → optimizador → planilla versionada. Es el `main` del sistema. |
+| `strategy.py` | Ascenso por coordenadas sobre el portfolio (menú de candidatos K_EV, warm start desde la planilla previa) + `EvaluadorPortfolio` del gate por valor. |
+| `economics.py` | `SeasonSimulator`: Monte Carlo de la temporada, liquidación de premios con reparto entre empatados (Art. 7a). |
+| `scoring.py` | Kernel de puntos de Supermatch (verificado contra el Art. 6). |
+| `rivals.py` | `RivalModel` empírico: picks conocidos, estilo γ por rival, `p_show`, residuo contra el ranking vivo. |
+| `pool.py` / `pool_snapshot.py` | Distribución modelada del pool (chalk, sesgos) y su Q empírica desde el escaneo de picks públicos. |
+| `ratings.py` / `historical.py` / `intermedio.py` | Ratings ofensivo/defensivo por equipo desde el histórico del penca-api + Intermedio 2026 (Wikipedia). |
+| `odds.py` / `market_grid.py` | Cuotas del Elasticsearch público de Supermatch → λ de mercado (blend 70/30 con ratings). |
+| `especiales.py` | P(campeón) y P(goleador) por simulación de la temporada. |
+| `api.py` | Cliente de LECTURA del penca-api (sin auth): ranking, fechas, eventos, picks públicos. |
+| `sync.py` | Regenera `config/clausura2026.yaml` desde el API (el fixture se reprograma seguido). |
+| `rerun_cierre.py` | Corrida T-2h por tanda de cierres; avisa SOLO si el cambio vale plata (gate por valor). |
+| `drift_audit.py` | Compara lo cargado en la web vs la planilla; adopta post-cierre lo que la web dice (la web es la verdad). |
+| `carga_alert.py` | Recordatorios de carga a 6h y 2h del cierre (recordatorio, NO verificación). |
+| `gate_watch.py` | Vigía del gate del API cada 10 min: captura snapshot si se abre una ventana. |
+| `postmortem.py` | Cierre de fecha: puntos reales vs esperados, exactos, distribución del pool. |
+| `heartbeat.py` | Telegram diario que confirma que timers y servicios viven. |
+| `webapp.py` / `dashboard_loader.py` / `verificar_carga.py` | Dashboard local (FastAPI): planilla, modo carga, pool, verificación post-cierre. |
+| `backtest.py` | Validación sobre temporadas reales del penca-api. |
+
+## Operación
+
+**VPS:** DigitalOcean 159.203.66.24, 2 GB. Timers systemd (UTC):
+`picks` 11:00 diario · `rerun-cierre` 12..23:35 · `carga-alert` 11..23:10 ·
+`drift-audit` 13:20/18:20/23:50 · `postmortem` 03:20 · `heartbeat` 12:30 ·
+`gate-watch` cada 10 min.
+
+**Deploy:** `bash deploy/safe_pull.sh` en el VPS — NUNCA `git pull` a secas: los
+units de systemd son copias en `/etc` y el pull no las aplica ni avisa.
+
+**Producción:** `--sims 19200`. Los niveles de E[premio] NO son creíbles; lo único
+que vale son los **deltas pareados sobre los mismos sorteos**.
+
+**Registro de decisiones:** `config/decisiones.yaml` + `tests/test_decisiones_vigentes.py`
+declaran cada constante elegida comparando alternativas y bajo qué supuestos se
+midió. Si cambiás `--sims` u otra perilla, la suite se pone roja y lista qué hay
+que volver a medir. Se apaga re-midiendo o declarando `vencida:`, nunca en silencio.
+
+---
+
+# Referencia histórica: Penca JMLM Mundial 2026 (ganada, apagada)
 
 ## Contexto del proyecto
 
