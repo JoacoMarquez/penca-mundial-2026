@@ -133,7 +133,11 @@ def p_campeon_from_grids(
     visita_de: np.ndarray,
     n_teams: int,
     n_sims: int = 30_000,
-    seed: int = 20260807,
+    # Distinta de SimConfig.seed (20260807) a propósito: con la misma semilla, los
+    # primeros uniformes de este prior son bit a bit los del sorteo de resultados
+    # del simulador — los campeones sobre-representados acá quedaban también
+    # sobre-representados en champ_sim, inflando el acierto simulado de los rivales.
+    seed: int = 920260807,
 ) -> np.ndarray:
     """P(campeón) sorteando temporadas desde las grillas (para el prior del pool).
 

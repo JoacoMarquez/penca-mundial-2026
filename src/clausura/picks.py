@@ -115,11 +115,50 @@ def flat_eventos(cfg: dict) -> list[dict]:
     return out
 
 
-def ensure_ratings() -> TeamRatings:
+def partidos_clausura(cfg: dict, resultados: dict[int, tuple[int, int]]) -> list:
+    """Los partidos YA JUGADOS del propio Clausura como PartidoHistorico.
+
+    Se construyen del config + resultados que el pipeline ya tiene (sin red): son
+    el insumo intra-temporada de los ratings — ver ensure_ratings.
+    """
+    from src.clausura.historical import PartidoHistorico
+
+    out = []
+    for nombre, f in cfg["fechas"].items():
+        for ev in f["eventos"]:
+            res = resultados.get(ev["evento_id"])
+            if res is None:
+                continue
+            out.append(PartidoHistorico(
+                campeonato_id=cfg["campeonato"]["id"],
+                campeonato=cfg["campeonato"]["nombre"],
+                fecha_nombre=nombre,
+                fecha_id=f["fecha_id"],
+                evento_id=ev["evento_id"],
+                local=ev["local"],
+                visitante=ev["visitante"],
+                goles_local=int(res[0]),
+                goles_visitante=int(res[1]),
+                preferencial=bool(ev.get("preferencial", False)),
+                inicio_utc=ev["inicio_utc"],
+            ))
+    return out
+
+
+def ensure_ratings(extra: list | None = None) -> TeamRatings:
     """Ratings con todo lo jugado: 5 temporadas previas + Intermedio 2026 + Clausura.
 
     El Intermedio no está en el penca-api; se ingiere aparte desde Wikipedia
     (src.clausura.intermedio) y load_dataset_completo lo suma si existe.
+
+    `extra` son los partidos jugados del PROPIO Clausura (partidos_clausura): el
+    histórico estático termina en el Apertura, así que sin esto los ratings
+    quedaban congelados pre-torneo toda la temporada — con el ES publicando
+    cuotas solo de la fecha próxima, 112/120 eventos y toda P(campeón) ignoraban
+    los resultados más frescos. Medido walk-forward pareado sobre 391
+    predicciones (scripts/backtest_ratings_intra.py, 2026-08-12): +0.0073 ±
+    0.0041 nats/partido, y la ventaja crece con las fechas acumuladas (+0.0045
+    fechas 2-8 → +0.0096 fechas 9-15), como predice el mecanismo.
     """
     path = DATA_DIR / "primera_uy_historico.json"
     if not path.exists():
@@ -132,7 +171,14 @@ def ensure_ratings() -> TeamRatings:
         finally:
             sys.argv = argv
     from src.clausura.intermedio import load_dataset_completo
-    return fit_ratings(load_dataset_completo())
+    base = load_dataset_completo()
+    if extra:
+        vistos = {p.evento_id for p in base}
+        nuevos = [p for p in extra if p.evento_id not in vistos]
+        if nuevos:
+            log.info("ratings con %d partidos intra-temporada del Clausura", len(nuevos))
+        base = base + nuevos
+    return fit_ratings(base)
 
 
 _STOP_TOKENS = {"de", "del", "la", "las", "los", "el", "club", "fc", "uru"}
@@ -231,16 +277,39 @@ def delta_grid(gl: int, gv: int) -> np.ndarray:
     return g
 
 
-def market_lambdas(o: EventOdds) -> tuple[float, float] | None:
-    """λ del mercado: fit de Poisson contra 1X2 (+ over 2.5 si está)."""
+def eventos_liquidados(cfg: dict, resultados: dict[int, tuple[int, int]]) -> set[int]:
+    """Eventos de fechas COMPLETAS: la base válida para el exact_rate del ranking.
+
+    `cantResultadosExactos` del ranking liquida por fecha cerrada, así que a mitad
+    de una fecha el numerador solo tiene los exactos de las fechas anteriores.
+    Dividir por TODOS los partidos terminados (los de la fecha en curso incluidos)
+    diluía la tasa → temperatura alta → pool modelado disperso con el pool real
+    concentrado: el mecanismo del incidente T=3.0, activo justo los días sin
+    snapshot fresco.
+    """
+    return {
+        e["evento_id"]
+        for f in cfg["fechas"].values()
+        if f["eventos"] and all(e["evento_id"] in resultados for e in f["eventos"])
+        for e in f["eventos"]
+    }
+
+
+def market_lambdas(o: EventOdds) -> tuple[float, float, float] | None:
+    """(λ_L, λ_V, λ12) del mercado: fit bivariado contra 1X2 (+ over 2.5 si está).
+
+    λ12 es la covarianza de goles que el fit usa para clavar el empate del mercado:
+    descartarla dejaba la grilla corta de empates (−4 pp en partidos parejos) y de
+    0-0 — justo el marcador que el pool subjuega. λ_L y λ_V son medias MARGINALES
+    (E[goles]), así que el blend con los ratings no cambia por devolverla.
+    """
     if not o.x1x2:
         return None
     p = devig(o.x1x2, "proportional")
     o25 = devig(o.totals["2.5"], "proportional").get("over") if "2.5" in o.totals else None
     c = MarketConstraints(p_home_win=p["home"], p_draw=p["draw"], p_away_win=p["away"],
                           p_over_2_5=o25)
-    lam_l, lam_v, _ = fit_params(c)
-    return lam_l, lam_v
+    return fit_params(c)
 
 
 def mercados_ricos_activos() -> bool:
@@ -284,11 +353,16 @@ def build_season_grids(
         if lam_mkt:
             lam_l = MARKET_WEIGHT * lam_mkt[0] + (1 - MARKET_WEIGHT) * lam_rt[0]
             lam_v = MARKET_WEIGHT * lam_mkt[1] + (1 - MARKET_WEIGHT) * lam_rt[1]
+            # El lado ratings es Poisson independiente (corr histórica ≈0), así que
+            # su λ12 es 0 y el blend queda en W·λ12_mkt. El clip mantiene la
+            # restricción λ12 ≤ min(λ_L, λ_V) tras mezclar medias.
+            lam12 = min(max(MARKET_WEIGHT * lam_mkt[2], 0.0), lam_l, lam_v)
             fuente = "mercado+ratings"
         else:
             lam_l, lam_v = lam_rt
+            lam12 = 0.0
             fuente = "ratings"
-        base = score_grid(lam_l, lam_v, 0.0, max_goals=MAX_GOALS)
+        base = score_grid(lam_l, lam_v, lam12, max_goals=MAX_GOALS)
         rica, ricos = refine_grid(base, o)
 
         if ricos:
@@ -505,6 +579,19 @@ def goleadores_previos(target_fecha: int, n_participaciones: int) -> list[dict] 
     return None
 
 
+def arrastre_goleador(p_gol, target_fecha: int, n_participaciones: int) -> list[dict] | None:
+    """Goleadores a arrastrar de planillas previas, o None si el MC los asignó.
+
+    La condición es "el goleador NO entró al optimizador" (p_gol is None) — NO la
+    presencia del menú del API: si Supermatch arregla el 500 con GOLEADOR_EN_MC
+    apagado, condicionar por el menú perdía los goleadores ya cargados en la web
+    ({goleador_idx: -1}) y la planilla decía "cargalo apenas aparezca".
+    """
+    if p_gol is not None:
+        return None
+    return goleadores_previos(target_fecha, n_participaciones)
+
+
 def format_especiales(port: PortfolioClausura, equipo_nombres: list[str],
                       opciones_goleador, gol_previos: list[dict] | None = None) -> str:
     """Sección de la planilla con Campeón/Goleador por participación.
@@ -672,7 +759,12 @@ def run(
     from src.clausura.rivals import mis_numeros_env
     mis_numeros = mis_numeros_env()
     resultados: dict[int, tuple[int, int]] = {}
-    n_rivales, exact_rate = 151, None
+    # Fallback del pool si caen API y snapshot a la vez: el último conteo real
+    # (~737 participaciones − 12 nuestras), no el 151 heredado de SimConfig — con
+    # 151 rivales el umbral del máximo baja y la corrida degradada recomendaba
+    # menos diferenciación, el lado caro del error.
+    n_rivales, exact_rate = 725, None
+    liquidados: set[int] = set()
     # numero de participación → puntos del ranking AHORA. El modelo de rivales los
     # prefiere a los del snapshot, que es una foto y puede tener horas (ver
     # rivals.build_rival_model).
@@ -699,8 +791,9 @@ def run(
                 propias = sum(r.numero_participacion in mis_numeros for r in ranking)
                 n_rivales = max(len(ranking) - propias, 1)
                 puntos_vivos = {r.numero_participacion: r.puntos_totales for r in ranking}
-                jugados = len(resultados)
-                exact_rate = observed_exact_rate_from_ranking(ranking, jugados, mis_numeros)
+                liquidados = eventos_liquidados(cfg, resultados)
+                exact_rate = observed_exact_rate_from_ranking(
+                    ranking, len(liquidados), mis_numeros)
             api_ok = True
             break
         except Exception as e:
@@ -712,7 +805,7 @@ def run(
         log.error("penca-api CAÍDO tras 3 intentos — sin puntos vivos ni calibración; "
                   "el tamaño del pool cae al snapshot si hay uno fresco")
 
-    ratings = ensure_ratings()
+    ratings = ensure_ratings(extra=partidos_clausura(cfg, resultados))
 
     try:
         odds = fetch_primera_odds()
@@ -757,8 +850,12 @@ def run(
     # calibrador elige un extremo arbitrario del grid.
     pool_cfg = PoolConfig()
     if exact_rate is not None:
+        # las grillas de calibración tienen que ser las MISMAS sobre las que se
+        # midió la tasa: fechas liquidadas si vino del ranking, todos los jugados
+        # si vino de contar los picks del snapshot
+        base_rate = resultados if rate_snapshot is not None else liquidados
         jugables = [g for g, ev in zip(pred_grids, eventos)
-                    if ev["evento_id"] in resultados]
+                    if ev["evento_id"] in base_rate]
         if jugables:
             previo = pool_cfg
             pool_cfg = calibrate_from_exact_rate(jugables, exact_rate, pool_cfg)
@@ -933,8 +1030,7 @@ def run(
     else:
         frozen_campeon, frozen_goleador = load_frozen_especiales(
             target_fecha, n_participaciones, opciones_goleador)
-    gol_previos = (goleadores_previos(target_fecha, n_participaciones)
-                   if not opciones_goleador else None)
+    gol_previos = arrastre_goleador(p_gol, target_fecha, n_participaciones)
 
     especiales = EspecialesInput(
         local_de=local_de,

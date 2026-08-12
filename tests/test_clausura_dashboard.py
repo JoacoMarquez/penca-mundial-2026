@@ -95,6 +95,46 @@ def test_load_planilla_enriquece(tmp_path, monkeypatch):
     assert row["scores_fmt"] == ["1-0", "0-0"]
 
 
+def test_load_planilla_saltea_las_versiones_descartadas_por_el_gate(tmp_path, monkeypatch):
+    """El rerun versiona su planilla aunque el gate la descarte: al que todavía no
+    cargó, el modo carga le servía la descartada (a veces PEOR que la de la
+    mañana). Se sirve la última APROBADA y se cuenta cuántas quedaron después."""
+    import src.clausura.picks as picks_mod
+    monkeypatch.setattr(picks_mod, "PRED_DIR", tmp_path)
+    import src.clausura.dashboard_loader as dl
+    monkeypatch.setattr(dl, "PRED_DIR", tmp_path)
+
+    d = tmp_path / "fecha_03"
+    d.mkdir(parents=True)
+
+    def _v(n, scores, veredicto=None):
+        payload = {
+            "generado_utc": f"2026-08-04T1{n}:00:00+00:00",
+            "picks": [{"evento_id": 1, "partido": "A vs B", "preferencial": False,
+                       "cierre_pronostico_utc": "2099-01-01T00:00:00+00:00",
+                       "scores": scores}],
+        }
+        if veredicto is not None:
+            payload["veredicto_cambio"] = veredicto
+        (d / f"v{n}_20260804T1{n}0000Z.json").write_text(
+            json.dumps(payload), encoding="utf-8")
+
+    _v(1, [[1, 0]])                                              # mañana: aprobada
+    _v(2, [[2, 2]], {"avisar": False, "medido": True})           # rerun descartado
+    _v(3, [[3, 3]], {"avisar": False, "medido": True})           # otro descartado
+
+    p = load_planilla(3)
+    assert p["version_file"].startswith("v1_")
+    assert p["picks"][0]["scores_fmt"] == ["1-0"]
+    assert p["descartadas_despues"] == 2
+
+    # un rerun cuyo cambio SÍ vale (avisar=True) es la planilla a cargar
+    _v(4, [[4, 0]], {"avisar": True, "medido": True})
+    p = load_planilla(3)
+    assert p["version_file"].startswith("v4_")
+    assert p["descartadas_despues"] == 0
+
+
 def test_load_planilla_fecha_inexistente(tmp_path, monkeypatch):
     import src.clausura.dashboard_loader as dl
     monkeypatch.setattr(dl, "PRED_DIR", tmp_path)

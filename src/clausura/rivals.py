@@ -49,7 +49,11 @@ log = logging.getLogger(__name__)
 # Shrinkage del estilo hacia γ=1 (el pool agregado). Penaliza log-lik con τ·(ln γ)²:
 # con ~10 picks observados hace falta evidencia consistente para alejarse de 1.
 GAMMA_TAU = 3.0
-GAMMA_GRID = np.geomspace(0.35, 4.0, 25)
+# La grilla incluye 1.0 explícito: geomspace(0.35, 4.0, 25) no lo contiene
+# (vecinos 0.9658 y 1.0690) y fit_gamma arrancaba de best_s=-inf, así que todo
+# rival con ≥1 pick recibía un valor ≠1 — la "mediana γ=1.069" de los
+# diagnósticos era un punto de grilla, no señal del pool.
+GAMMA_GRID = np.sort(np.append(np.geomspace(0.35, 4.0, 25), 1.0))
 
 # Prior Beta(a,b) de p_show: el pencista típico carga casi siempre.
 SHOW_PRIOR_A, SHOW_PRIOR_B = 9.0, 1.0
@@ -354,6 +358,7 @@ def build_rival_model(
     sin_camp = np.zeros(R, dtype=bool) if post_lock else None
     sin_gol = np.zeros(R, dtype=bool) if post_lock else None
     n_pisados, delta_max = 0, 0
+    campeones_sin_match: dict[str, int] = {}
     for r, fila in enumerate(filas):
         numeros[r] = int(fila.get("numero", 0))
         del_snap = int(fila.get("puntos", 0))
@@ -366,13 +371,24 @@ def build_rival_model(
             m = idx_by_evento.get(int(eid_str))
             if m is not None:
                 known[r, m] = score_index(min(int(gl), MAX_GOALS), min(int(gv), MAX_GOALS))
-        if campeon is not None and fila.get("campeon") in equipo_idx:
-            campeon[r] = equipo_idx[fila["campeon"]]
+        if campeon is not None and fila.get("campeon"):
+            if fila["campeon"] in equipo_idx:
+                campeon[r] = equipo_idx[fila["campeon"]]
+            else:
+                # sin match, el rival degrada a campeón SORTEADO en el simulador:
+                # un rename del API pasaba en silencio y distorsionaba el especial
+                campeones_sin_match[fila["campeon"]] = (
+                    campeones_sin_match.get(fila["campeon"], 0) + 1)
         if goleador is not None and fila.get("goleador_id") in goleador_op_idx:
             goleador[r] = goleador_op_idx[fila["goleador_id"]]
         if post_lock:
             sin_camp[r] = not fila.get("campeon")
             sin_gol[r] = not fila.get("goleador")
+
+    if campeones_sin_match:
+        log.warning("campeones del snapshot SIN match contra el config (%s) — esos "
+                    "rivales degradan a campeón sorteado; revisar renames del API",
+                    ", ".join(f"{k}×{v}" for k, v in campeones_sin_match.items()))
 
     played = np.zeros(n_matches, dtype=bool)
     actual = np.full(n_matches, -1, dtype=np.int64)

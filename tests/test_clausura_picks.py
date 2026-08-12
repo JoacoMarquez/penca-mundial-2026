@@ -15,6 +15,7 @@ from src.clausura.picks import (
     fecha_dir,
     load_frozen,
     load_warm_start,
+    market_lambdas,
     match_odds,
     save_version,
 )
@@ -122,6 +123,117 @@ def test_build_season_grids_separa_liquidacion_de_predictivas():
     assert fuentes[1] == "ratings"
 
 
+def test_partidos_clausura_construye_solo_los_jugados():
+    """Los resultados del propio Clausura entran a los ratings (sin red): el
+    histórico estático termina en el Apertura y sin esto los ratings quedaban
+    congelados pre-torneo — con 112/120 eventos colgando 100% de ellos."""
+    from src.clausura.picks import partidos_clausura
+
+    cfg = {
+        "campeonato": {"id": 44, "nombre": "Torneo Clausura 2026"},
+        "fechas": {"Fecha 1": {"fecha_id": 280, "eventos": [
+            {"evento_id": 10, "local": "A", "visitante": "B",
+             "inicio_utc": "2026-08-07T22:00:00+00:00", "preferencial": True},
+            {"evento_id": 11, "local": "C", "visitante": "D",
+             "inicio_utc": "2026-08-08T22:00:00+00:00", "preferencial": False},
+        ]}},
+    }
+    ps = partidos_clausura(cfg, {10: (2, 1)})
+    assert len(ps) == 1
+    p = ps[0]
+    assert (p.evento_id, p.local, p.goles_local, p.goles_visitante) == (10, "A", 2, 1)
+    assert p.campeonato_id == 44 and p.preferencial is True
+
+
+def test_ensure_ratings_ingiere_extras_sin_duplicar(monkeypatch):
+    import src.clausura.picks as picks_mod
+    from src.clausura.historical import PartidoHistorico
+
+    def _p(eid, local, visitante, gl, gv):
+        return PartidoHistorico(
+            campeonato_id=44, campeonato="Clausura", fecha_nombre="Fecha 1",
+            fecha_id=280, evento_id=eid, local=local, visitante=visitante,
+            goles_local=gl, goles_visitante=gv, preferencial=False,
+            inicio_utc="2026-08-07T22:00:00+00:00")
+
+    # base sintética suficiente para fitear (dos equipos, resultados parejos)
+    base = [_p(i, "A", "B", 1, 1) for i in range(40)]
+    import src.clausura.intermedio as inter
+    monkeypatch.setattr(inter, "load_dataset_completo", lambda: list(base))
+
+    sin = picks_mod.ensure_ratings()
+    # extras nuevos: A golea sistemáticamente → su ataque tiene que subir
+    extras = [_p(100 + i, "A", "B", 4, 0) for i in range(20)]
+    con = picks_mod.ensure_ratings(extra=extras)
+    assert con.lambdas("A", "B")[0] > sin.lambdas("A", "B")[0]
+
+    # un extra con evento_id ya presente en la base se ignora (dedup)
+    dup = picks_mod.ensure_ratings(extra=[_p(0, "A", "B", 9, 0)])
+    assert dup.lambdas("A", "B")[0] == pytest.approx(sin.lambdas("A", "B")[0])
+
+
+def test_eventos_liquidados_solo_cuenta_fechas_completas():
+    """El denominador del exact_rate son las fechas LIQUIDADAS: contar los partidos
+    de la fecha en curso diluye la tasa (numerador de F1 sobre F1+F2) y calibra un
+    pool más disperso — el mecanismo del incidente T=3.0."""
+    from src.clausura.picks import eventos_liquidados
+
+    cfg = {"fechas": {
+        "Fecha 1": {"eventos": [{"evento_id": 10}, {"evento_id": 11}]},
+        "Fecha 2": {"eventos": [{"evento_id": 20}, {"evento_id": 21}]},
+    }}
+    # F1 completa, F2 a medias: solo cuentan los 2 de F1
+    res = {10: (1, 0), 11: (2, 2), 20: (0, 0)}
+    assert eventos_liquidados(cfg, res) == {10, 11}
+    # nada terminado: conjunto vacío (el exact_rate cae a None, no a 0)
+    assert eventos_liquidados(cfg, {}) == set()
+    # todo terminado: cuentan las dos fechas
+    res[21] = (1, 1)
+    assert eventos_liquidados(cfg, res) == {10, 11, 20, 21}
+
+
+def test_market_lambdas_conserva_el_lam12_del_fit():
+    """El fit bivariado usa λ12 para clavar el empate del mercado; descartarlo
+    dejaba la grilla −4 pp corta de empates en partidos parejos."""
+    from src.model.market_probs import devig
+    from src.model.poisson import marginals
+
+    o = EventOdds(event_id="sm:lam12", home="A", away="B",
+                  start_utc="x", fetched_utc="x",
+                  x1x2={"home": 2.45, "draw": 3.1, "away": 3.0},
+                  totals={"2.5": {"over": 1.85, "under": 1.95}})
+    lam_l, lam_v, lam12 = market_lambdas(o)
+    assert lam12 > 0.05  # partido parejo: el mercado exige covarianza
+
+    objetivo = devig(o.x1x2, "proportional")["draw"]
+    con = marginals(score_grid(lam_l, lam_v, lam12, max_goals=5)).p_draw
+    sin = marginals(score_grid(lam_l, lam_v, 0.0, max_goals=5)).p_draw
+    # con λ12 el empate queda cerca del mercado; sin él, sistemáticamente corto
+    assert abs(con - objetivo) < 0.015
+    assert objetivo - sin > 0.02
+
+
+def test_build_season_grids_propaga_lam12_al_blend():
+    """La grilla con mercado tiene más empate que la que descartaba λ12."""
+    ev = _evento(10, "A", "B")
+    o = EventOdds(event_id="sm:blend", home="A", away="B",
+                  start_utc="x", fetched_utc="x",
+                  x1x2={"home": 2.45, "draw": 3.1, "away": 3.0},
+                  totals={"2.5": {"over": 1.85, "under": 1.95}})
+    grids, fuentes, _, _ = build_season_grids(
+        [ev], _RatingsStub(), odds_by_evento={10: o}, resultados={})
+    assert fuentes[0] == "mercado+ratings"
+
+    from src.model.poisson import marginals
+    lam_mkt = market_lambdas(o)
+    rt_l, rt_v = _RatingsStub().lambdas("A", "B")
+    lam_l = 0.7 * lam_mkt[0] + 0.3 * rt_l
+    lam_v = 0.7 * lam_mkt[1] + 0.3 * rt_v
+    sin_lam12 = score_grid(lam_l, lam_v, 0.0, max_goals=5)
+    assert marginals(grids[0]).p_draw > marginals(sin_lam12).p_draw + 0.015
+    assert grids[0][0, 0] > sin_lam12[0, 0]  # y más 0-0, el hueco del pool
+
+
 # -------------------- versionado en disco --------------------
 
 def test_save_version_no_sobreescribe(tmp_path, monkeypatch):
@@ -198,11 +310,15 @@ def test_warm_start_ignora_planillas_de_otro_tamano(tmp_path, monkeypatch):
 
 
 def test_warm_start_columna_incompleta_cae_al_ancla():
-    """Una columna se hereda entera o nada: no se mezcla warm con ancla."""
+    """Una columna se hereda entera o nada: no se mezcla warm con ancla.
+
+    La fila 0 es la excepción deliberada: es el ancla de EV puro y se re-ancla
+    al modelo de hoy aunque la columna se herede (ver strategy.build_portfolio).
+    """
     g = score_grid(1.3, 1.1, 0.0, max_goals=5)
     grids = [g] * 4
     warm = np.full((3, 4), -1, dtype=np.int64)
-    warm[:, 0] = score_index(4, 4)             # completa: se hereda
+    warm[:, 0] = score_index(4, 4)             # completa: se hereda (filas 1+)
     warm[:2, 1] = score_index(4, 4)            # incompleta: NO se hereda
 
     port = build_portfolio(
@@ -210,7 +326,8 @@ def test_warm_start_columna_incompleta_cae_al_ancla():
         n_participaciones=3, sim=SimConfig(n_sims=60, n_rivales=20),
         max_passes=0, warm_start=warm,
     )
-    assert (port.picks[:, 0] == score_index(4, 4)).all()
+    assert (port.picks[1:, 0] == score_index(4, 4)).all()
+    assert port.picks[0, 0] != score_index(4, 4)   # fila 0 re-anclada al EV de hoy
     assert not (port.picks[:, 1] == score_index(4, 4)).any()
 
 
@@ -379,6 +496,24 @@ def _menu_goleador(nombres):
     from src.clausura.especiales import OpcionGoleador
     return [OpcionGoleador(id=100 + i, nombre=n, equipo_id=-1)
             for i, n in enumerate(nombres)]
+
+
+def test_arrastre_goleador_no_depende_del_menu(tmp_path, monkeypatch):
+    """El arrastre aplica siempre que el goleador no entró al MC (p_gol None) —
+    aunque el menú del API haya vuelto. Condicionar por el menú perdía los
+    goleadores cargados el día que Supermatch arreglara el 500."""
+    import src.clausura.picks as picks_mod
+    from src.clausura.picks import arrastre_goleador
+    monkeypatch.setattr(picks_mod, "PRED_DIR", tmp_path)
+
+    save_version(1, _planilla_esp([9, 8], [(-1, "Matías Arezo"), (-1, "Maximiliano Gómez")]))
+
+    # MC apagado (p_gol None): se arrastran, con o sin menú disponible
+    previos = arrastre_goleador(None, target_fecha=1, n_participaciones=2)
+    assert [p["goleador"] for p in previos] == ["Matías Arezo", "Maximiliano Gómez"]
+
+    # goleador asignado por el optimizador: no hay arrastre
+    assert arrastre_goleador(np.array([0.5, 0.5]), 1, 2) is None
 
 
 def test_frozen_especiales_resuelve_goleador_por_nombre_contra_menu(tmp_path, monkeypatch):

@@ -133,6 +133,24 @@ decisiones:
       K_EV=5 el menú de producción mide −$4.192 en ese régimen. Hay un test que lo ata al
       archivo de systemd para que no vuelva a envejecer en silencio.
 
+  - nombre: ratings con partidos intra-temporada del Clausura
+    donde: src.clausura.picks.ensure_ratings(extra=)
+    valor: null
+    medida_con: {sims: 19200, participaciones: 12}
+    resultado: "+0.0073 ± 0.0041 nats/partido (391 predicciones pareadas, walk-forward)"
+    fecha: 2026-08-12
+    nota: >-
+      El default del parámetro es None; producción pasa partidos_clausura(cfg,
+      resultados) — los jugados del propio torneo, construidos del config sin red.
+      La auditoría del 12/8 encontró que el histórico estático termina en el
+      Apertura y los ratings quedaban congelados pre-torneo TODA la temporada,
+      mientras el backtest del decay refiteaba por fecha CON intra-temporada:
+      medía un régimen que producción no ejecutaba. El efecto es 3.5x el decay
+      rechazado, con la forma que predice el mecanismo (crece con las fechas
+      acumuladas: +0.0045 en fechas 2-8 → +0.0096 en 9-15) y +1 pp de 1X2.
+      NO usa Monte Carlo: mide calidad de predicción.
+      Reproducir con scripts/backtest_ratings_intra.py.
+
   - nombre: decay temporal de los ratings
     donde: src.clausura.ratings.fit_ratings(half_life_dias=)
     valor: null

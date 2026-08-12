@@ -58,6 +58,16 @@ def test_faltante_solo_es_drift_despues_del_cierre():
     assert "planilla decía 2-1" in dis[0].detalle
 
 
+def test_fallo_http_no_es_drift():
+    """Un HTTP ≠200 en pronosticosEventos deja picks={} — que sin la bandera se
+    leía como 'cerró sin pick': alarma falsa por evento en el canal de señales
+    reales, con la clave de estado quemada para siempre."""
+    evs = [_ev(1, NOW - timedelta(hours=2)), _ev(2, NOW - timedelta(hours=2))]
+    esp = {**_esperado(1, [(1, 0)]), **_esperado(2, [(2, 1)])}
+    no_verificable = [Cargado(NUMS[0], {}, picks_visibles=False)]
+    assert diff_picks(evs, esp, no_verificable, NOW) == []
+
+
 def test_pick_cargado_sin_planilla_se_reporta():
     evs = [_ev(9, NOW + timedelta(hours=5))]
     cargados = [Cargado(NUMS[0], {9: (3, 3)})]

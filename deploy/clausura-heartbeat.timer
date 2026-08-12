@@ -1,6 +1,8 @@
 [Unit]
 Description=Heartbeat Clausura — diario 12:30 UTC (09:30 UY)
-Requires=clausura-heartbeat.service
+# Sin Requires= al service: en un timer, Requires arranca el service junto con
+# el TIMER (boot, restart, daemon-reload) — heartbeat fuera de hora en cada
+# arranque. Ningún otro timer del set lo tiene; el service lo dispara OnCalendar.
 
 # 12:30 UTC: DESPUÉS de la pasada de picks (11:00 + ~15 min) para que pueda
 # confirmar que la planilla del día se generó. Si corriera a la misma hora,

@@ -351,6 +351,15 @@ def build_portfolio(
             continue
         best = max(candidatos[m], key=lambda c: c.e_points)
         picks[:, m] = score_index(*best.pick)
+    # La fila 0 es el ancla de EV PURO (y la que copia la penca gratuita): tiene
+    # que seguir al modelo de HOY. Heredarla del warm start la dejaba clavada en
+    # el argmax del primer run que vio cada partido — sin mercado si las cuotas
+    # llegaron después — porque el ascenso nunca la toca. Re-anclarla no agrega
+    # churn: solo cambia cuando cambia el argmax de E[pts], que es señal.
+    for m in range(n_matches):
+        if not frozen_mask[m]:
+            best = max(candidatos[m], key=lambda c: c.e_points)
+            picks[0, m] = score_index(*best.pick)
     if warm_start is not None:
         log.info("warm start: %d/%d partidos heredados de la planilla anterior "
                  "(%d congelados, el resto arranca en el ancla EV)",
