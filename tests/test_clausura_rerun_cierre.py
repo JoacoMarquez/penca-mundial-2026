@@ -69,6 +69,24 @@ def test_dos_tandas_del_mismo_dia_reciben_dos_reruns():
     assert debe_correr(evs, despues, corridos)                     # tanda 2 dispara
 
 
+def test_cierres_cubiertos_solo_marca_la_fecha_que_corrio():
+    """Fechas intercaladas (makeup de F1 + apertura de F2 en la misma ventana): la
+    corrida sobre F1 NO puede marcar el cierre de F2 como cubierto, o F2 se queda
+    sin rerun y sin síntoma."""
+    from src.clausura.rerun_cierre import cierres_cubiertos
+
+    makeup_f1 = NOW + timedelta(hours=1)
+    apertura_f2 = NOW + timedelta(hours=2)
+    evs = [
+        {"evento_id": 1, "fecha_n": 1, "cierre_pronostico_utc": makeup_f1.isoformat()},
+        {"evento_id": 2, "fecha_n": 2, "cierre_pronostico_utc": apertura_f2.isoformat()},
+    ]
+    cubiertos = cierres_cubiertos(evs, target_fecha=1, now=NOW)
+    assert cubiertos == {makeup_f1.isoformat()}
+    # F2 sigue pendiente: el próximo tick dispara por su cierre
+    assert debe_correr(evs, NOW, cubiertos)
+
+
 def test_diff_solo_partidos_abiertos_y_columnas_cambiadas():
     abierto, cerrado = NOW + timedelta(hours=2), NOW - timedelta(hours=1)
     prev = {"picks": [_row(1, [[1, 0], [2, 1], [0, 0]], abierto),

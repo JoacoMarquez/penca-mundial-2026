@@ -75,6 +75,20 @@ def cierres_en_ventana(eventos: list[dict], now: datetime,
     return sorted(out)
 
 
+def cierres_cubiertos(eventos: list[dict], target_fecha: int, now: datetime) -> set[str]:
+    """Cierres que una corrida sobre `target_fecha` puede marcar como cubiertos.
+
+    SOLO los de la fecha que efectivamente se re-optimiza: con fechas intercaladas
+    (makeup de F1 un jueves + apertura de F2 dos horas después, el patrón que
+    Torque–Peñarol ya creó), marcar toda la ventana dejaba el cierre de la otra
+    fecha como "cubierto" sin rerun — y sin síntoma, porque el diff de esos
+    eventos da vacío. El tick siguiente cubre la otra fecha solo (la mecánica de
+    reintento ya existe).
+    """
+    eventos_target = [ev for ev in eventos if ev.get("fecha_n") == target_fecha]
+    return {c.isoformat() for c in cierres_en_ventana(eventos_target, now)}
+
+
 def debe_correr(eventos: list[dict], now: datetime, ya_corridos: set[str]) -> bool:
     """¿Hay algún cierre en ventana que esta tanda todavía no cubrió?
 
@@ -230,7 +244,11 @@ def formatear_diff(
     for row, cs in cambios:
         cierre = datetime.fromisoformat(row["cierre_pronostico_utc"])
         cierre_uy = cierre.astimezone(TZ_UY)
-        hoy = " HOY" if cierre.date() == now.date() else cierre_uy.strftime(" %a").lower()
+        # "HOY" en fecha URUGUAYA: un cierre 00:45 UTC es un partido de ESTA noche
+        # (21:45 UY) — compararlo en UTC lo mandaba al día de semana siguiente e
+        # invitaba a postergar la recarga
+        hoy = (" HOY" if cierre_uy.date() == now.astimezone(TZ_UY).date()
+               else cierre_uy.strftime(" %a").lower())
         pref = " ⭐x2" if row.get("preferencial") else ""
         lines.append(f"\n<b>{row['partido']}</b>{pref} · cierra {cierre_uy:%H:%M}{hoy}")
         for k, old, new in cs:
@@ -337,11 +355,12 @@ def run(
                  "o ya corrido) — no toca", TRIGGER_H)
         return None
 
-    # Lo que esta corrida cubre: los cierres en ventana AHORA. Se marca al final
-    # (éxito) — si el pipeline muere, el próximo tick reintenta estos mismos cierres.
-    cubiertos = {c.isoformat() for c in cierres_en_ventana(eventos, now)}
-
     target_fecha = picks.resolve_fecha("auto")
+
+    # Lo que esta corrida cubre: los cierres en ventana AHORA de la fecha que se
+    # re-optimiza (ver cierres_cubiertos). Se marca al final (éxito) — si el
+    # pipeline muere, el próximo tick reintenta estos mismos cierres.
+    cubiertos = cierres_cubiertos(eventos, target_fecha, now)
     d = picks.fecha_dir(target_fecha)
     prev_path = latest_version(d.glob("v*_*.json")) if d.exists() else None
     if prev_path is None:
