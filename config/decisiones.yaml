@@ -172,6 +172,25 @@ decisiones:
       producción); si alguna vez se reconsidera, medir a escala de producción.
       Reproducir con scripts/backtest_show_fecha.py --reps 3.
 
+  - nombre: premio grupo amigo fuera del objetivo
+    donde: (nada — se decidió no modelarlo)
+    valor: null
+    medida_con: {sims: 19200, participaciones: 12}
+    resultado: "E[grupo amigo] = $0 hoy: no estamos en ningún grupo"
+    fecha: 2026-08-12
+    inerte: >-
+      No es un descuido: la cláusula c) del reglamento (leída 12/8) define el
+      grupo como opt-in social — un jugador lo crea e invita a otros, activo con
+      10 participantes — y no hay grupo nuestro. El premio ($3.000, todo-o-nada
+      al mejor del grupo, desempate por exactos y después sorteo — SIN el
+      reparto del Art. 7a) no interactúa con el general ni con las fechas, así
+      que excluirlo del objetivo no sesga ningún pick. Si algún día entramos a
+      un grupo: (a) si el grupo es solo nuestro (verificar en la web si las 12
+      participaciones cuentan como los 10 "participantes"), el premio es
+      constante y seguiría fuera del argmax; (b) con terceros en el grupo, el
+      efecto sobre el pick óptimo es un empujón marginal hacia exactos vía el
+      desempate — re-evaluar recién ahí.
+
   - nombre: decay temporal de los ratings
     donde: src.clausura.ratings.fit_ratings(half_life_dias=)
     valor: null
