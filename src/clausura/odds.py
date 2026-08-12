@@ -25,6 +25,7 @@ import time
 import unicodedata
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from pathlib import Path
 
 import httpx
 
@@ -178,4 +179,77 @@ def fetch_primera_odds() -> list[EventOdds]:
     events = [parse_event(h) for h in fetch_primera_events()]
     out = [e for e in events if e is not None and e.x1x2]
     log.info("supermatch primera: %d eventos con odds", len(out))
+    return out
+
+
+# -------------------- persistencia --------------------
+#
+# Dos motivos, del análisis del 12/8:
+#   1. Un 500/timeout del ES degradaba TODO a ratings puros en silencio — incluso
+#      el rerun T-2h, y el gate no avisaba porque compara ambas planillas bajo el
+#      mismo modelo degradado. Con cache, un outage corto usa las cuotas de la
+#      corrida anterior (mejor cuota vieja que ninguna) y además GRITA.
+#   2. Las cuotas crudas versionadas son el dato que faltaba para medir el blend
+#      70/30 (criterio de diseño nunca medido): log-loss por fecha contra los
+#      resultados reales para una grilla de pesos.
+
+ODDS_DIR = Path(__file__).resolve().parents[2] / "data" / "odds" / "clausura"
+
+
+def save_odds_snapshot(odds: list[EventOdds]) -> None:
+    """Versiona las cuotas crudas de esta corrida (nunca sobreescribe, regla #2)."""
+    import json
+    from dataclasses import asdict
+
+    if not odds:
+        return
+    ODDS_DIR.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    path = ODDS_DIR / f"odds_{ts}.json"
+    path.write_text(json.dumps([asdict(e) for e in odds], ensure_ascii=False),
+                    encoding="utf-8")
+    log.info("odds versionadas: %s (%d eventos)", path.name, len(odds))
+
+
+def load_cached_odds(max_age_h: float = 24.0) -> tuple[list[EventOdds], float] | None:
+    """(odds del último snapshot, edad en horas), o None si no hay o está viejo.
+
+    24h de tope: la cuota de ayer de un partido de mañana sigue siendo mejor
+    insumo que los ratings solos (blend 70/30), pero una de hace tres días puede
+    ser de un mercado que ya se movió con noticias.
+    """
+    import json
+
+    archivos = sorted(ODDS_DIR.glob("odds_*.json")) if ODDS_DIR.exists() else []
+    if not archivos:
+        return None
+    ultimo = archivos[-1]
+    ts = datetime.strptime(ultimo.stem.split("_")[1], "%Y%m%dT%H%M%SZ").replace(
+        tzinfo=timezone.utc)
+    edad_h = (datetime.now(timezone.utc) - ts).total_seconds() / 3600
+    if edad_h > max_age_h:
+        log.warning("cache de odds demasiado viejo (%.1fh > %.0fh) — no lo uso",
+                    edad_h, max_age_h)
+        return None
+    data = json.loads(ultimo.read_text(encoding="utf-8"))
+    return [EventOdds(**d) for d in data], edad_h
+
+
+def mercados_perdidos(previos: list[EventOdds], actuales: list[EventOdds]) -> list[str]:
+    """Partidos FUTUROS que ayer tenían 1X2 y hoy no — huele a rename del keyword
+    o a un ES a medias, no a ausencia normal (el ES solo publica la fecha próxima,
+    así que 'nunca tuvo cuota' es lo esperado; 'la tenía y la perdió' no)."""
+    now = datetime.now(timezone.utc)
+    vivos_ahora = {(_norm(e.home), _norm(e.away)) for e in actuales if e.x1x2}
+    out = []
+    for e in previos:
+        if not e.x1x2:
+            continue
+        try:
+            if datetime.fromisoformat(e.start_utc) <= now:
+                continue                      # ya empezó: es normal que no esté
+        except ValueError:
+            continue
+        if (_norm(e.home), _norm(e.away)) not in vivos_ahora:
+            out.append(f"{e.home} vs {e.away}")
     return out
