@@ -151,6 +151,27 @@ decisiones:
       NO usa Monte Carlo: mide calidad de predicción.
       Reproducir con scripts/backtest_ratings_intra.py.
 
+  - nombre: ausentismo por fecha en el simulador
+    donde: src.clausura.economics.SimConfig.show_por_fecha
+    valor: false
+    medida_con: {sims: 19200, participaciones: 12}
+    resultado: "Δ E[premio] −626 ± 1.359 (12 reps pareadas, 7/12 a favor) — NEUTRO"
+    fecha: 2026-08-12
+    nota: >-
+      El HECHO es real y está medido en el snapshot de la F1 (727 filas): 630
+      rivales (87%) cargaron los 7 partidos observables, contra el 56% de
+      planillas completas que predice el Bernoulli independiente por partido
+      (0.92⁷). Pero convertirlo en modelo no paga: en el experimento de
+      recuperación (pool verdad con ausentismo por fecha, ambos brazos fitean el
+      MISMO RivalModel y difieren solo en el sorteo de los futuros, 4 temporadas
+      × 3 reps) el portfolio optimizado con show por fecha mide igual que el
+      viejo. Coherente con el rechazo del 0-0 por paridad: refinar la FORMA del
+      modelo del pool no se convierte en plata — el optimizador decide casi lo
+      mismo. La perilla queda implementada y APAGADA. OJO: el harness corre a
+      800 sims de optimización y 151 rivales (recuperación de modelo, no
+      producción); si alguna vez se reconsidera, medir a escala de producción.
+      Reproducir con scripts/backtest_show_fecha.py --reps 3.
+
   - nombre: decay temporal de los ratings
     donde: src.clausura.ratings.fit_ratings(half_life_dias=)
     valor: null
