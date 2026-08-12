@@ -170,6 +170,11 @@ class SeasonSimulator:
         # (fechas contiguas) hay un solo buffer vivo a la vez.
         self._cache_total: tuple[np.ndarray, np.ndarray] | None = None
         self._cache_fecha: list[tuple[np.ndarray, np.ndarray] | None] | None = None
+        # premio liquidado por fecha, cacheado: cada movida del ascenso toca UNA
+        # fecha, pero e_premio_total re-liquidaba las 15 en cada una de las ~25-30k
+        # evaluaciones por corrida. Se invalida por set_pick (esa fecha), por
+        # load_picks (todas) y por el setter de rivals_fecha (cambia el lado rival).
+        self._premio_fecha: list[np.ndarray | None] = [None] * self.n_fechas
         self.rivals_total = np.zeros((R, S), dtype=np.int32)
         self.rivals_fecha = None          # compactado; ver _stats_fecha
 
@@ -291,6 +296,8 @@ class SeasonSimulator:
         if value is not None and value.base is None:
             value.setflags(write=True)
         self._cache_fecha = None
+        if hasattr(self, "_premio_fecha"):
+            self._premio_fecha = [None] * self.n_fechas
 
     @staticmethod
     def _stats(rivals: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -443,6 +450,7 @@ class SeasonSimulator:
             self.mine_fecha[self.match_fecha[m]] += pts
         self.campeon_picks = None
         self.goleador_picks = None
+        self._premio_fecha = [None] * self.n_fechas
 
     def set_pick(self, i: int, m: int, pick_idx: int) -> None:
         """Cambia el pick de la participación i en el partido m, en O(n_sims)."""
@@ -455,6 +463,7 @@ class SeasonSimulator:
         self.mine_total[i] += delta
         self.mine_fecha[self.match_fecha[m]][i] += delta
         self.picks[i, m] = pick_idx
+        self._premio_fecha[self.match_fecha[m]] = None
 
     # ---------- liquidación ----------
 
@@ -487,11 +496,17 @@ class SeasonSimulator:
         rt, rc = self._stats_total()
         premio = self._liquidar(self.mine_total, rt, rc, self.prize.premio_penca)
         for fi in range(self.n_fechas):
+            premio = premio + self._premio_de_fecha(fi)
+        return float(premio.mean())
+
+    def _premio_de_fecha(self, fi: int) -> np.ndarray:
+        """Premio liquidado de la fecha fi, cacheado (ver _premio_fecha)."""
+        if self._premio_fecha[fi] is None:
             ft, fc = self._stats_fecha(fi)
-            premio = premio + self._liquidar(
+            self._premio_fecha[fi] = self._liquidar(
                 self.mine_fecha[fi], ft, fc, self.prize.premio_fecha
             )
-        return float(premio.mean())
+        return self._premio_fecha[fi]
 
     def result(self) -> SimResult:
         """Reporte completo (más caro que e_premio_total, para el final)."""
@@ -500,10 +515,7 @@ class SeasonSimulator:
         premio_fechas = np.zeros(self.cfg.n_sims)
         fechas_ganadas = np.zeros(self.cfg.n_sims)
         for fi in range(self.n_fechas):
-            ft, fc = self._stats_fecha(fi)
-            cobro = self._liquidar(
-                self.mine_fecha[fi], ft, fc, self.prize.premio_fecha
-            )
+            cobro = self._premio_de_fecha(fi)
             premio_fechas += cobro
             fechas_ganadas += (cobro > 0).astype(float)
 

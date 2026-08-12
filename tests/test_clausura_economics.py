@@ -162,6 +162,30 @@ def test_cache_de_rivales_da_identico_a_recalcular():
         assert s.e_premio_total() == referencia()
 
 
+def test_cache_del_premio_por_fecha_se_invalida_por_load_y_por_rivales():
+    """El premio por fecha se cachea (cada movida toca UNA fecha, y re-liquidar
+    las 15 era el 100% del costo del objetivo): load_picks y reescribir el lado
+    rival por fecha tienen que invalidarlo, o el ascenso optimiza contra premios
+    viejos en silencio."""
+    rng = np.random.default_rng(7)
+    s = _sim_16(False)
+    picks_a = rng.integers(0, N_SCORES, size=(4, s.n_matches))
+    picks_b = rng.integers(0, N_SCORES, size=(4, s.n_matches))
+
+    s.load_picks(picks_a)
+    s.e_premio_total()                           # materializa el caché por fecha
+    s.load_picks(picks_b)
+    fresco = _sim_16(False)
+    fresco.load_picks(picks_b)
+    assert s.e_premio_total() == fresco.e_premio_total()
+
+    # reescritura del lado rival por fecha (camino de backtest.realized_prizes)
+    s.e_premio_total()
+    riv = np.zeros((s.n_rivales, s.cfg.n_sims), dtype=np.int32)
+    s.rivals_fecha = np.stack([riv + 100] * s.n_fechas)   # pool imbatible por fecha
+    assert s.result().e_premio_fechas == 0.0
+
+
 def test_reescribir_el_lado_rival_invalida_el_cache():
     """`backtest.realized_prizes` reescribe rivals_total DESPUÉS del constructor.
 
