@@ -48,13 +48,32 @@
       <ul id="verif-list" class="space-y-1 mt-1.5"></ul>
     </div>
 
-    <div id="drift-panel" class="hidden mt-2 bg-amber-500/15 border border-amber-500/50 rounded-lg p-3">
-      <div class="text-sm font-bold text-amber-200 mb-1.5">
-        ⚠️ <span id="drift-n"></span> — corregí en la web
-      </div>
-      <ul id="drift-list" class="space-y-1 text-sm"></ul>
-      <div class="text-[11px] text-amber-200/70 mt-1.5">
-        tocá el ítem para ir a la fila; tocá la fila cuando ya lo corregiste
+    <!-- Plegable y con tope de alto: con 30 diffs (pasa en una fecha entera ya
+         jugada) la lista empujaba las tarjetas fuera de la pantalla y no había
+         forma de cerrarla. El encabezado es el botón y siempre queda a la vista. -->
+    <div id="drift-panel" class="hidden mt-2 bg-amber-500/15 border border-amber-500/50 rounded-lg">
+      <button id="drift-toggle" type="button"
+              class="w-full flex items-center gap-2 text-left px-3 py-2 text-sm font-bold text-amber-200">
+        <span id="drift-caret" class="text-amber-400 w-3 inline-block">▾</span>
+        <span>⚠️ <span id="drift-n"></span></span>
+        <span id="drift-hint" class="ml-auto text-[11px] font-normal text-amber-200/60"></span>
+      </button>
+      <div id="drift-body" class="px-3 pb-3 max-h-[45vh] overflow-y-auto">
+        <div id="drift-abiertos-wrap">
+          <div class="text-[11px] uppercase tracking-wide text-amber-200/70 mb-1">
+            corregí en la web
+          </div>
+          <ul id="drift-list" class="space-y-1 text-sm"></ul>
+        </div>
+        <div id="drift-cerrados-wrap" class="hidden mt-2 pt-2 border-t border-amber-500/25">
+          <div class="text-[11px] uppercase tracking-wide text-slate-400 mb-1">
+            ya cerrados · <span class="normal-case">no se pueden corregir, quedan de registro</span>
+          </div>
+          <ul id="drift-list-cerrados" class="space-y-1 text-sm"></ul>
+        </div>
+        <div class="text-[11px] text-amber-200/70 mt-1.5">
+          tocá el ítem para ir a la fila; tocá la fila cuando ya lo corregiste
+        </div>
       </div>
     </div>
   </div>
@@ -211,6 +230,24 @@
       if (st === 'cambio') aviso.textContent = `⚠️ cargaste ${guardado(card)}`;
     }
 
+    // -------- plegado del panel de cambios (elección recordada) --------
+    const DRIFT_KEY = 'clausura:drift-abierto';
+    let driftAbierto = localStorage.getItem(DRIFT_KEY) === null
+      ? null                                    // sin elección: lo decide refrescar()
+      : localStorage.getItem(DRIFT_KEY) === '1';
+
+    function pintarDrift() {
+      document.getElementById('drift-body').classList.toggle('hidden', !driftAbierto);
+      document.getElementById('drift-caret').textContent = driftAbierto ? '▾' : '▸';
+      document.getElementById('drift-hint').textContent = driftAbierto ? 'ocultar' : 'ver detalle';
+    }
+
+    document.getElementById('drift-toggle').addEventListener('click', () => {
+      driftAbierto = !driftAbierto;
+      localStorage.setItem(DRIFT_KEY, driftAbierto ? '1' : '0');
+      pintarDrift();
+    });
+
     function refrescar() {
       const cambios = [];
       cards.forEach(card => {
@@ -219,6 +256,7 @@
         const drift = suyas.filter(tr => estado(tr) === 'cambio');
         drift.forEach(tr => cambios.push({
           el: tr,
+          cerrado: tr.dataset.cerrado === '1',
           texto: `${card.dataset.num} · ${tr.dataset.partido}: ` +
                  `${guardado(tr)} → ${tr.dataset.val}`,
         }));
@@ -260,6 +298,7 @@
         pintarEsp(card);
         if (estado(card) === 'cambio') cambios.push({
           el: card,
+          cerrado: false,
           texto: `${card.dataset.num} · especiales: ${guardado(card)} → ${card.dataset.val}`,
         });
       });
@@ -275,22 +314,47 @@
 
       const panel = document.getElementById('drift-panel');
       panel.classList.toggle('hidden', cambios.length === 0);
-      document.getElementById('drift-n').textContent = cambios.length === 1
-        ? '1 pick cambió después de que lo cargaste'
-        : `${cambios.length} picks cambiaron después de que los cargaste`;
-      const lista = document.getElementById('drift-list');
-      lista.innerHTML = '';
-      cambios.forEach(c => {
-        const li = document.createElement('li');
-        li.className = 'text-amber-100 cursor-pointer underline decoration-amber-400/40';
-        li.textContent = c.texto;
-        li.addEventListener('click', () => {
-          c.el.scrollIntoView({behavior: 'smooth', block: 'center'});
-          c.el.classList.add('ring-2', 'ring-amber-400');
-          setTimeout(() => c.el.classList.remove('ring-2', 'ring-amber-400'), 2000);
+
+      // Separados por accionabilidad: un pick de partido CERRADO ya no se puede
+      // corregir, así que pedirlo es ruido — pero tampoco se tira, porque significa
+      // que jugamos algo distinto de lo planeado y eso cuesta puntos.
+      const abiertosC = cambios.filter(c => !c.cerrado);
+      const cerradosC = cambios.filter(c => c.cerrado);
+      const n = cambios.length;
+      document.getElementById('drift-n').textContent = abiertosC.length
+        ? (abiertosC.length === 1
+            ? '1 pick cambió y todavía se puede corregir'
+            : `${abiertosC.length} picks cambiaron y todavía se pueden corregir`)
+          + (cerradosC.length ? ` (+${cerradosC.length} ya cerrados)` : '')
+        : (n === 1 ? '1 pick quedó distinto de la planilla (ya cerrado)'
+                   : `${n} picks quedaron distintos de la planilla (ya cerrados)`);
+
+      const pintarLista = (ul, items) => {
+        ul.innerHTML = '';
+        items.forEach(c => {
+          const li = document.createElement('li');
+          li.className = (c.cerrado ? 'text-slate-300' : 'text-amber-100')
+            + ' cursor-pointer underline decoration-amber-400/40';
+          li.textContent = c.texto;
+          li.addEventListener('click', () => {
+            c.el.scrollIntoView({behavior: 'smooth', block: 'center'});
+            c.el.classList.add('ring-2', 'ring-amber-400');
+            setTimeout(() => c.el.classList.remove('ring-2', 'ring-amber-400'), 2000);
+          });
+          ul.appendChild(li);
         });
-        lista.appendChild(li);
-      });
+      };
+      pintarLista(document.getElementById('drift-list'), abiertosC);
+      pintarLista(document.getElementById('drift-list-cerrados'), cerradosC);
+      document.getElementById('drift-abiertos-wrap')
+              .classList.toggle('hidden', abiertosC.length === 0);
+      document.getElementById('drift-cerrados-wrap')
+              .classList.toggle('hidden', cerradosC.length === 0);
+
+      // Arranca plegado si es una lista larga o si NADA es accionable: en los dos
+      // casos lo que hace falta es ver las tarjetas, no el listado.
+      if (driftAbierto === null) driftAbierto = abiertosC.length > 0 && n <= 6;
+      pintarDrift();
     }
 
     // Tocar confirma el valor de ahora; volver a tocar algo ya confirmado lo desmarca.

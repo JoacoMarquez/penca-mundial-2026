@@ -333,7 +333,7 @@ def test_modo_carga_trae_el_panel_de_cambios():
     html = _render_carga([_pick(111, ["2-1", "1-1"])])
 
     assert 'id="drift-panel"' in html and 'id="drift-list"' in html
-    assert "cambiaron después de que los cargaste" in html
+    assert "todavía se pueden corregir" in html
     assert 'class="aviso' in html          # el "cargaste X → corregí a Y" de cada fila
 
 
@@ -393,3 +393,31 @@ def test_modo_carga_no_esconde_los_picks_que_cambiaron():
     html = _render_carga_fixture()
     i = html.index("const oculta")
     assert "estado(tr) !== 'cambio'" in html[i:i + 300]
+
+
+# -------------------- template del modo carga (sin servidor) --------------------
+
+def test_todo_id_que_usa_el_js_existe_en_el_markup():
+    """El modo carga es un template con JS inline: el modo real de romperlo es
+    referenciar un id que no existe (typo, o markup movido sin tocar el script).
+    Un getElementById que devuelve null tira TypeError y mata refrescar() entero,
+    que es lo único que pinta el progreso y los avisos.
+    """
+    import re
+    s = _render_carga([_pick(111, ["2-1", "1-1"])])
+    usados = set(re.findall(r"getElementById\(['\"]([\w-]+)['\"]\)", s))
+    definidos = set(re.findall(r'id="([\w-]+)"', s))
+    assert usados, "no encontré ningún getElementById — ¿cambió la forma del script?"
+    assert not (usados - definidos), f"ids usados por JS y ausentes del markup: {sorted(usados - definidos)}"
+
+
+def test_el_panel_de_cambios_es_plegable_y_acotado():
+    """Con una fecha entera jugada el panel llega a 30 ítems: sin plegado ni tope de
+    alto empujaba las tarjetas fuera de la pantalla y no había forma de cerrarlo.
+    """
+    s = _render_carga([_pick(111, ["2-1", "1-1"])])
+    assert 'id="drift-toggle"' in s                  # se puede cerrar
+    assert "max-h-[45vh]" in s and "overflow-y-auto" in s   # nunca tapa la página
+    # y los cambios se separan por accionabilidad: lo cerrado no se puede corregir
+    assert 'id="drift-list-cerrados"' in s
+    assert "cerrado: tr.dataset.cerrado === '1'" in s
