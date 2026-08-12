@@ -231,16 +231,21 @@ def delta_grid(gl: int, gv: int) -> np.ndarray:
     return g
 
 
-def market_lambdas(o: EventOdds) -> tuple[float, float] | None:
-    """λ del mercado: fit de Poisson contra 1X2 (+ over 2.5 si está)."""
+def market_lambdas(o: EventOdds) -> tuple[float, float, float] | None:
+    """(λ_L, λ_V, λ12) del mercado: fit bivariado contra 1X2 (+ over 2.5 si está).
+
+    λ12 es la covarianza de goles que el fit usa para clavar el empate del mercado:
+    descartarla dejaba la grilla corta de empates (−4 pp en partidos parejos) y de
+    0-0 — justo el marcador que el pool subjuega. λ_L y λ_V son medias MARGINALES
+    (E[goles]), así que el blend con los ratings no cambia por devolverla.
+    """
     if not o.x1x2:
         return None
     p = devig(o.x1x2, "proportional")
     o25 = devig(o.totals["2.5"], "proportional").get("over") if "2.5" in o.totals else None
     c = MarketConstraints(p_home_win=p["home"], p_draw=p["draw"], p_away_win=p["away"],
                           p_over_2_5=o25)
-    lam_l, lam_v, _ = fit_params(c)
-    return lam_l, lam_v
+    return fit_params(c)
 
 
 def mercados_ricos_activos() -> bool:
@@ -284,11 +289,16 @@ def build_season_grids(
         if lam_mkt:
             lam_l = MARKET_WEIGHT * lam_mkt[0] + (1 - MARKET_WEIGHT) * lam_rt[0]
             lam_v = MARKET_WEIGHT * lam_mkt[1] + (1 - MARKET_WEIGHT) * lam_rt[1]
+            # El lado ratings es Poisson independiente (corr histórica ≈0), así que
+            # su λ12 es 0 y el blend queda en W·λ12_mkt. El clip mantiene la
+            # restricción λ12 ≤ min(λ_L, λ_V) tras mezclar medias.
+            lam12 = min(max(MARKET_WEIGHT * lam_mkt[2], 0.0), lam_l, lam_v)
             fuente = "mercado+ratings"
         else:
             lam_l, lam_v = lam_rt
+            lam12 = 0.0
             fuente = "ratings"
-        base = score_grid(lam_l, lam_v, 0.0, max_goals=MAX_GOALS)
+        base = score_grid(lam_l, lam_v, lam12, max_goals=MAX_GOALS)
         rica, ricos = refine_grid(base, o)
 
         if ricos:

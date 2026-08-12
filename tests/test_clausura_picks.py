@@ -15,6 +15,7 @@ from src.clausura.picks import (
     fecha_dir,
     load_frozen,
     load_warm_start,
+    market_lambdas,
     match_odds,
     save_version,
 )
@@ -120,6 +121,48 @@ def test_build_season_grids_separa_liquidacion_de_predictivas():
     # futuros: liquidación y predictiva son la misma grilla
     assert grids[1] is pred[1]
     assert fuentes[1] == "ratings"
+
+
+def test_market_lambdas_conserva_el_lam12_del_fit():
+    """El fit bivariado usa λ12 para clavar el empate del mercado; descartarlo
+    dejaba la grilla −4 pp corta de empates en partidos parejos."""
+    from src.model.market_probs import devig
+    from src.model.poisson import marginals
+
+    o = EventOdds(event_id="sm:lam12", home="A", away="B",
+                  start_utc="x", fetched_utc="x",
+                  x1x2={"home": 2.45, "draw": 3.1, "away": 3.0},
+                  totals={"2.5": {"over": 1.85, "under": 1.95}})
+    lam_l, lam_v, lam12 = market_lambdas(o)
+    assert lam12 > 0.05  # partido parejo: el mercado exige covarianza
+
+    objetivo = devig(o.x1x2, "proportional")["draw"]
+    con = marginals(score_grid(lam_l, lam_v, lam12, max_goals=5)).p_draw
+    sin = marginals(score_grid(lam_l, lam_v, 0.0, max_goals=5)).p_draw
+    # con λ12 el empate queda cerca del mercado; sin él, sistemáticamente corto
+    assert abs(con - objetivo) < 0.015
+    assert objetivo - sin > 0.02
+
+
+def test_build_season_grids_propaga_lam12_al_blend():
+    """La grilla con mercado tiene más empate que la que descartaba λ12."""
+    ev = _evento(10, "A", "B")
+    o = EventOdds(event_id="sm:blend", home="A", away="B",
+                  start_utc="x", fetched_utc="x",
+                  x1x2={"home": 2.45, "draw": 3.1, "away": 3.0},
+                  totals={"2.5": {"over": 1.85, "under": 1.95}})
+    grids, fuentes, _, _ = build_season_grids(
+        [ev], _RatingsStub(), odds_by_evento={10: o}, resultados={})
+    assert fuentes[0] == "mercado+ratings"
+
+    from src.model.poisson import marginals
+    lam_mkt = market_lambdas(o)
+    rt_l, rt_v = _RatingsStub().lambdas("A", "B")
+    lam_l = 0.7 * lam_mkt[0] + 0.3 * rt_l
+    lam_v = 0.7 * lam_mkt[1] + 0.3 * rt_v
+    sin_lam12 = score_grid(lam_l, lam_v, 0.0, max_goals=5)
+    assert marginals(grids[0]).p_draw > marginals(sin_lam12).p_draw + 0.015
+    assert grids[0][0, 0] > sin_lam12[0, 0]  # y más 0-0, el hueco del pool
 
 
 # -------------------- versionado en disco --------------------
