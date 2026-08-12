@@ -20,6 +20,12 @@ Tipos de discrepancia:
   - sin_planilla:        hay un pick cargado para un evento sin planilla guardada
   (faltantes ANTES del cierre no son drift — de eso se ocupa carga_alert)
 
+Además de avisar, el audit ADOPTA: para partidos CERRADOS la web es la verdad
+inmutable, así que si la planilla difiere (típicamente porque el rerun T-2h
+versionó picks que el gate por valor descartó y nadie recargó), se versiona una
+planilla realineada. Sin eso, load_frozen congela picks que nunca jugamos y el
+optimizador diversifica contra una posición propia falsa toda la temporada.
+
 También audita los especiales (campeón/goleador) contra la última planilla que los
 tenga, con una asimetría deliberada (2026-08-05: el usuario cargó especiales por la
 web mientras los endpoints públicos de opciones daban 500 — el front autenticado usa
@@ -423,6 +429,98 @@ def formatear_reporte(discrepancias: list[Discrepancia]) -> str:
     return "\n".join(lines)
 
 
+# -------------------- adopción de picks reales (partidos cerrados) --------------------
+
+def payload_con_picks_reales(
+    payload: dict,
+    cargados: list[Cargado],
+    mis_numeros: list[int],
+    ev_cerrados: set[int],
+) -> tuple[dict, list[tuple[int, int, tuple[int, int], tuple[int, int]]]] | None:
+    """(payload nuevo, [(evento_id, numero, planilla, web)]) reescribiendo los picks
+    de partidos CERRADOS con lo que quedó cargado en la web. None si coinciden.
+
+    Post-cierre la web es la verdad inmutable — el pick de la planilla ya no es una
+    intención, es un registro, y si difiere el registro está MAL. La fuente típica
+    del desvío no es un dedo: es el rerun T-2h, que versiona la planilla nueva
+    aunque el gate por valor descarte el cambio (regla de trabajo #2). Sin esta
+    adopción, load_frozen congela picks que NUNCA jugamos y el optimizador
+    diversifica contra una posición propia falsa el resto de la temporada; el
+    postmortem atribuye puntos con los mismos picks fantasma.
+
+    Los `sin_cargar_cerrado` (la web no tiene pick) NO se adoptan: la planilla no
+    puede representar "sin pick" y ese caso ya tiene alarma propia.
+    """
+    car_por_numero = {c.numero: c.picks for c in cargados}
+    cambios: list[tuple[int, int, tuple[int, int], tuple[int, int]]] = []
+    for row in payload.get("picks", []):
+        eid = int(row["evento_id"])
+        if eid not in ev_cerrados:
+            continue
+        scores = row.get("scores") or []
+        for k, numero in enumerate(mis_numeros):
+            if k >= len(scores):
+                break
+            real = car_por_numero.get(numero, {}).get(eid)
+            if real is None:
+                continue
+            plan = (int(scores[k][0]), int(scores[k][1]))
+            if plan != real:
+                cambios.append((eid, numero, plan, real))
+                scores[k] = [real[0], real[1]]
+    if not cambios:
+        return None
+    payload["picks_adoptados_utc"] = datetime.now(timezone.utc).isoformat()
+    return payload, cambios
+
+
+def adoptar_picks_cerrados(
+    cargados: list[Cargado],
+    mis_numeros: list[int],
+    eventos: list[dict],
+    now: datetime,
+) -> str | None:
+    """Versiona, por cada fecha con desvíos en partidos cerrados, una planilla
+    realineada con la web. Devuelve el texto del aviso, o None si no hubo nada."""
+    import src.clausura.picks as picks
+    from src.utils.versions import latest_version
+
+    por_fecha: dict[int, set[int]] = {}
+    for ev in eventos:
+        if datetime.fromisoformat(ev["cierre_pronostico_utc"]) <= now:
+            por_fecha.setdefault(int(ev["fecha_n"]), set()).add(int(ev["evento_id"]))
+
+    lineas: list[str] = []
+    for f in sorted(por_fecha):
+        d = picks.fecha_dir(f)
+        latest = latest_version(d.glob("v*_*.json")) if d.exists() else None
+        if latest is None:
+            continue
+        payload = json.loads(latest.read_text(encoding="utf-8"))
+        resultado = payload_con_picks_reales(payload, cargados, mis_numeros,
+                                             por_fecha[f])
+        if resultado is None:
+            continue
+        payload, cambios = resultado
+        gate = (payload.get("veredicto_cambio") or {})
+        path = picks.save_version(f, payload)
+        log.info("picks reales adoptados en fecha %d → %s (%d picks)",
+                 f, path.name, len(cambios))
+        detalle = ", ".join(f"{n}: {p[0]}-{p[1]}→{r[0]}-{r[1]}"
+                            for _, n, p, r in cambios[:6])
+        extra = " y más" if len(cambios) > 6 else ""
+        causa = (" — la planilla traía picks que el gate del rerun descartó "
+                 "(esperado, no es error de carga)"
+                 if gate.get("avisar") is False else "")
+        lineas.append(f"  Fecha {f}: {len(cambios)} pick(s) realineados "
+                      f"({detalle}{extra}){causa}")
+    if not lineas:
+        return None
+    return ("<b>🧾 Planilla realineada con la web (partidos cerrados)</b>\n"
+            "Post-cierre la web es la verdad: el freeze del optimizador y el "
+            "postmortem ahora usan lo realmente cargado.\n" + "\n".join(lineas))
+
+
 # -------------------- adopción de especiales reales --------------------
 
 def payload_con_goleadores_reales(
@@ -526,6 +624,17 @@ def run(dry_run: bool = False, now: datetime | None = None) -> list[Discrepancia
         except Exception as e:
             log.warning("adopción de goleadores falló (%s)", e)
 
+    # picks de partidos CERRADOS: la web es la verdad — realinear la planilla para
+    # que load_frozen y el postmortem no arrastren picks que no jugamos. El diff de
+    # abajo usa `esperado` (leído ANTES de adoptar), así que la discrepancia se
+    # avisa igual esta corrida; las siguientes quedan en silencio.
+    aviso_picks = None
+    if not dry_run:
+        try:
+            aviso_picks = adoptar_picks_cerrados(cargados, mis_numeros, eventos, now)
+        except Exception as e:
+            log.warning("adopción de picks cerrados falló (%s)", e)
+
     discrepancias = (diff_picks(eventos, esperado, cargados, now)
                      + diff_especiales(especiales_esperados(mis_numeros), cargados))
 
@@ -549,6 +658,8 @@ def run(dry_run: bool = False, now: datetime | None = None) -> list[Discrepancia
     partes = []
     if aviso_adopcion:
         partes.append(aviso_adopcion)
+    if aviso_picks:
+        partes.append(aviso_picks)
     if nuevas:
         partes.append(formatear_reporte(nuevas))
     if partes:

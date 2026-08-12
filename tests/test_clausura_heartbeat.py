@@ -15,7 +15,10 @@ def test_mensaje_reporta_planilla_y_proximo_cierre(monkeypatch, tmp_path):
 
     msg = hb.construir_mensaje(now=datetime(2026, 8, 6, 11, 0, tzinfo=timezone.utc))
     assert "Clausura vivo" in msg
-    assert "timers: 6/6" in msg
+    n = len(hb.TIMERS)
+    assert f"timers: {n}/{n}" in msg
+    # gate-watch tiene que estar vigilado: su timer caído era silencio total
+    assert "clausura-gate-watch" in hb.TIMERS
     # con el fixture real: hay un próximo cierre por delante
     assert "próximo cierre" in msg
 

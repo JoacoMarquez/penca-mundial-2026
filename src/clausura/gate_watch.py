@@ -45,9 +45,16 @@ log = logging.getLogger(__name__)
 
 ROOT = Path(__file__).resolve().parents[2]
 STATE_PATH = ROOT / "data" / "state" / "gate_watch.json"
+FALLAS_PATH = ROOT / "data" / "state" / "gate_watch_fallas.json"
 
 # Rivales sondeados por tick: suficiente para no depender de UNO que no cargó nada.
 PROBE_N = 3
+
+# Ticks consecutivos fallados antes de escalar UNA vez por OnFailure. Con el timer
+# de 10 min, 12 = ~2h roto. Sin este colchón, un cambio de shape del API (o un 200
+# con HTML de mantenimiento) crashea 144 veces por día en el mismo canal donde
+# viven las señales reales — fatiga de alarma sobre el canal único.
+FALLAS_PARA_ESCALAR = 12
 
 
 # -------------------- lógica pura (testeable) --------------------
@@ -204,10 +211,37 @@ def main() -> None:
     args = ap.parse_args()
     try:
         run(dry_run=args.dry_run)
-    except (httpx.HTTPError, OSError) as e:
-        # Red caída o API 5xx: tick perdido, el próximo es en 10 min. Sin OnFailure.
-        log.warning("tick del vigía falló (%s) — reintento en el próximo timer", e)
+    except Exception as e:
+        # Cualquier fallo de un tick (red, API 5xx, cambio de shape, HTML de
+        # mantenimiento con 200) se traga con warning: el próximo tick es en 10 min.
+        # Pero la rotura PERSISTENTE sí escala — una vez, no 144 veces por día.
+        fallas = _contar_falla()
+        log.warning("tick del vigía falló (%s) — %d consecutivas", e, fallas)
+        if fallas >= FALLAS_PARA_ESCALAR:
+            _reset_fallas()     # escalar una vez y volver a contar desde cero
+            print(f"ERROR: el vigía lleva {fallas} ticks fallando: {e}", file=sys.stderr)
+            sys.exit(1)         # OnFailure → Telegram
         sys.exit(0)
+    else:
+        _reset_fallas()
+
+
+def _contar_falla() -> int:
+    try:
+        n = json.loads(FALLAS_PATH.read_text(encoding="utf-8")).get("consecutivas", 0)
+    except Exception:
+        n = 0
+    n += 1
+    FALLAS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    FALLAS_PATH.write_text(json.dumps({"consecutivas": n}), encoding="utf-8")
+    return n
+
+
+def _reset_fallas() -> None:
+    try:
+        FALLAS_PATH.unlink(missing_ok=True)
+    except OSError:
+        pass
 
 
 if __name__ == "__main__":

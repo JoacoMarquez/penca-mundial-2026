@@ -31,8 +31,17 @@ from pathlib import Path
 
 log = logging.getLogger(__name__)
 
+# clausura-gate-watch ES parte de la lista: es el vigía cuya única razón de ser es
+# cazar ventanas del gate — si su timer queda deshabilitado tras un deploy, un
+# heartbeat que reporta "todo activo" sin contarlo es exactamente el silencio que
+# este módulo existe para cerrar (una sola ventana cazada financió la v13).
 TIMERS = ("clausura-picks", "clausura-rerun-cierre", "clausura-drift-audit",
-          "clausura-carga-alert", "clausura-postmortem", "clausura-goleador-watch")
+          "clausura-carga-alert", "clausura-postmortem", "clausura-goleador-watch",
+          "clausura-gate-watch", "clausura-heartbeat")
+
+# Servicios de larga vida (no-timer) que también tienen que estar corriendo: si
+# uvicorn muere con los Restart agotados, el modo carga desaparece justo el sábado.
+SERVICIOS = ("clausura-dashboard",)
 UY = timezone(timedelta(hours=-3))
 
 
@@ -57,6 +66,21 @@ def _timers_estado() -> tuple[list[str], list[str]]:
     return ok, mal
 
 
+def _servicios_estado() -> list[str]:
+    """Problemas en los servicios de larga vida (lista vacía = todo bien)."""
+    mal = []
+    for s in SERVICIOS:
+        try:
+            r = subprocess.run(["systemctl", "is-active", "--quiet", f"{s}.service"],
+                               timeout=15)
+        except Exception as e:  # entorno sin systemd (dev/test): no es un problema
+            log.info("systemctl no disponible (%s)", e)
+            return []
+        if r.returncode != 0:
+            mal.append(f"{s}: servicio CAÍDO (systemctl restart {s})")
+    return mal
+
+
 def _edad_h(path: Path) -> float | None:
     if not path.exists():
         return None
@@ -79,6 +103,8 @@ def construir_mensaje(now: datetime | None = None) -> str:
         problemas += mal
     elif ok:
         lineas.append(f"timers: {len(ok)}/{len(TIMERS)} activos")
+
+    problemas += _servicios_estado()
 
     try:
         cfg = load_config()

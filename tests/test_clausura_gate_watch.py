@@ -81,3 +81,20 @@ def test_formatear_alerta_sin_snapshot_avisa():
     cur = {"abiertos": [2086], "especiales_pre_inicio": False}
     msg = formatear_alerta(cur, EVENTOS, None)
     assert "No pude capturar" in msg
+
+
+# -------------------- escalación de fallos persistentes --------------------
+
+def test_fallas_consecutivas_escalan_una_vez(tmp_path, monkeypatch):
+    """Un tick fallado se traga (exit 0); FALLAS_PARA_ESCALAR consecutivos escalan
+    UNA vez y el contador vuelve a cero — ni silencio eterno ni 144 avisos/día."""
+    import src.clausura.gate_watch as gw
+    monkeypatch.setattr(gw, "FALLAS_PATH", tmp_path / "fallas.json")
+
+    for i in range(1, gw.FALLAS_PARA_ESCALAR):
+        assert gw._contar_falla() == i
+    assert gw._contar_falla() == gw.FALLAS_PARA_ESCALAR
+    gw._reset_fallas()                      # lo que hace main() al escalar
+    assert gw._contar_falla() == 1          # y se vuelve a contar desde cero
+    gw._reset_fallas()
+    assert not (tmp_path / "fallas.json").exists()

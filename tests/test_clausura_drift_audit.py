@@ -219,3 +219,67 @@ def test_formatear_reporte_soporta_el_tipo_gratuita():
     from src.clausura.drift_audit import Discrepancia, formatear_reporte
     txt = formatear_reporte([Discrepancia("gratuita", 899258816, "algo pasó", "k")])
     assert "🎁" in txt and "899258816" in txt
+
+
+# -------------------- adopción de picks reales (partidos cerrados) --------------------
+
+def test_adopcion_picks_reescribe_solo_cerrados_distintos():
+    from src.clausura.drift_audit import payload_con_picks_reales
+    payload = {"picks": [
+        {"evento_id": 1, "scores": [[1, 0], [2, 1], [0, 0]]},   # cerrado
+        {"evento_id": 2, "scores": [[1, 1], [1, 1], [1, 1]]},   # abierto: no se toca
+    ]}
+    cargados = [
+        Cargado(NUMS[0], {1: (1, 0)}),                          # coincide
+        Cargado(NUMS[1], {1: (3, 0)}),                          # difiere → se adopta
+        Cargado(NUMS[2], {}),                                   # sin cargar → no se toca
+    ]
+    res = payload_con_picks_reales(payload, cargados, NUMS, ev_cerrados={1})
+    assert res is not None
+    nuevo, cambios = res
+    assert cambios == [(1, NUMS[1], (2, 1), (3, 0))]
+    assert nuevo["picks"][0]["scores"] == [[1, 0], [3, 0], [0, 0]]
+    assert nuevo["picks"][1]["scores"] == [[1, 1], [1, 1], [1, 1]]
+    assert "picks_adoptados_utc" in nuevo
+
+
+def test_adopcion_picks_sin_desvios_devuelve_none():
+    from src.clausura.drift_audit import payload_con_picks_reales
+    payload = {"picks": [{"evento_id": 1, "scores": [[1, 0], [2, 1], [0, 0]]}]}
+    cargados = [Cargado(n, {1: (int(s[0]), int(s[1]))})
+                for n, s in zip(NUMS, [[1, 0], [2, 1], [0, 0]])]
+    assert payload_con_picks_reales(payload, cargados, NUMS, {1}) is None
+    # y el payload quedó intacto (no hay versión fantasma)
+    assert payload["picks"][0]["scores"] == [[1, 0], [2, 1], [0, 0]]
+
+
+def test_adoptar_picks_cerrados_versiona_y_reporta_causa_gate(tmp_path, monkeypatch):
+    """El caso real: el rerun versionó picks que el gate descartó; el partido cerró
+    con los picks VIEJOS en la web. La adopción realinea y dice la causa."""
+    import src.clausura.picks as picks_mod
+    from src.clausura.drift_audit import adoptar_picks_cerrados
+    monkeypatch.setattr(picks_mod, "PRED_DIR", tmp_path)
+
+    d = tmp_path / "fecha_01"
+    d.mkdir(parents=True)
+    (d / "v2_20260808T120000Z.json").write_text(json.dumps({
+        "generado_utc": "2026-08-08T12:00:00+00:00",
+        "picks": [{"evento_id": 1, "scores": [[9, 9], [2, 1], [0, 0]],
+                   "cierre_pronostico_utc": (NOW - timedelta(hours=2)).isoformat()}],
+        "veredicto_cambio": {"avisar": False, "delta": -456.0},
+    }), encoding="utf-8")
+
+    eventos = [_ev(1, NOW - timedelta(hours=2))]
+    cargados = [Cargado(NUMS[0], {1: (1, 0)}),                  # la web tiene lo viejo
+                Cargado(NUMS[1], {1: (2, 1)}),
+                Cargado(NUMS[2], {1: (0, 0)})]
+    aviso = adoptar_picks_cerrados(cargados, NUMS, eventos, NOW)
+    assert aviso is not None and "gate del rerun descartó" in aviso
+
+    from src.utils.versions import latest_version
+    nuevo = json.loads(latest_version(d.glob("v*_*.json")).read_text(encoding="utf-8"))
+    assert nuevo["picks"][0]["scores"][0] == [1, 0]             # la web mandó
+    assert "picks_adoptados_utc" in nuevo
+
+    # idempotente: la segunda corrida no versiona de nuevo
+    assert adoptar_picks_cerrados(cargados, NUMS, eventos, NOW) is None
