@@ -134,9 +134,15 @@ def build_candidates(
     """Menú de marcadores jugables: top por E[pts] ∪ top por hueco de pool.
 
     `k_ev`/`k_hueco` en None toman los defaults de módulo K_EV/K_HUECO, que hoy son
-    (3, 0): la rama de hueco está apagada porque el menú chico mide mejor (+$9.737 ±
-    859, 16/16 reps — ver el comentario de K_EV). Se resuelven en tiempo de llamada,
-    no en la firma, para que el A/B del backtest pueda barrer los tamaños.
+    **(5, 0)**: la rama de hueco está apagada porque lo que paga es más candidatos
+    por E[pts], no por rareza —(3,3) mide entre −$1.505 y +$1.712 según el chalk,
+    siempre debajo de (5,0)— y el menú de 5 le gana al de 3 a los sorteos de
+    producción (+$8.531, ver el comentario de K_EV). Se resuelven en tiempo de
+    llamada, no en la firma, para que el A/B del backtest pueda barrer los tamaños.
+
+    OJO al leer esto: el "(3, 0)" que decía antes quedó de cuando K_EV era 3, y el
+    óptimo se dio vuelta al subir los sorteos. Los números viven en el registro
+    (config/decisiones.yaml), no acá — este docstring ya engañó una vez.
 
     `metrica="mispricing"` es la alternativa rechazada por el A/B del 8/8 y existe
     para reproducirlo; solo tiene efecto con k_hueco > 0.

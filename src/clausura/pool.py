@@ -23,7 +23,7 @@ concreto — el 0-0.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 import numpy as np
 
@@ -166,12 +166,13 @@ def calibrate_from_exact_rate(
     base = base or PoolConfig()
     best, best_err = base, float("inf")
     for t in grid_temps:
-        cfg = PoolConfig(
-            chalk_strength=base.chalk_strength,
-            temperature=t,
-            default_bias=base.default_bias,
-            popular_bias=dict(base.popular_bias),
-        )
+        # `replace` y NO un PoolConfig() a mano: el constructor explícito copiaba
+        # cuatro campos y se comía `orientar_al_favorito`, o sea que calibrar
+        # reseteaba en silencio cualquier campo que no estuviera en la lista. Hoy
+        # daba lo mismo (nadie lo pone en False), pero es el patrón de "el flag se
+        # revierte solo" que ya nos costó tres días con n_sims en el VPS — y con
+        # `replace` cualquier campo NUEVO de PoolConfig se conserva gratis.
+        cfg = replace(base, temperature=t, popular_bias=dict(base.popular_bias))
         err = abs(expected_exact_rate(grids, cfg) - observed_exact_rate)
         if err < best_err:
             best, best_err = cfg, err
