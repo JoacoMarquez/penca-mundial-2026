@@ -179,17 +179,19 @@ decisiones:
     resultado: "E[grupo amigo] = $0 hoy: no estamos en ningún grupo"
     fecha: 2026-08-12
     inerte: >-
-      No es un descuido: la cláusula c) del reglamento (leída 12/8) define el
-      grupo como opt-in social — un jugador lo crea e invita a otros, activo con
-      10 participantes — y no hay grupo nuestro. El premio ($3.000, todo-o-nada
-      al mejor del grupo, desempate por exactos y después sorteo — SIN el
-      reparto del Art. 7a) no interactúa con el general ni con las fechas, así
-      que excluirlo del objetivo no sesga ningún pick. Si algún día entramos a
-      un grupo: (a) si el grupo es solo nuestro (verificar en la web si las 12
-      participaciones cuentan como los 10 "participantes"), el premio es
-      constante y seguiría fuera del argmax; (b) con terceros en el grupo, el
-      efecto sobre el pick óptimo es un empujón marginal hacia exactos vía el
-      desempate — re-evaluar recién ahí.
+      No es un descuido. Cláusula c) del reglamento (leída 12/8): premio $3.000
+      POR GRUPO, todo-o-nada al mejor del grupo, desempate por exactos y después
+      sorteo — SIN el reparto del Art. 7a. ACTUALIZADO 12/8 de noche: entra UNA
+      participación por grupo (no las 12 juntas — verificado en la web) y
+      tenemos 3 metidas en grupos de terceros de ~13/~21/13 participaciones
+      (899258854/55/56). EV ≈ $230 por grupo de 13 → ~$700 total hoy: dos
+      órdenes de magnitud debajo del objetivo ($500k), y la serie de
+      refinamientos medidos NEUTROS (ausentismo, 0-0, hueco) dice que un término
+      así no mueve picks — el pick de esas participaciones ya sirve al objetivo
+      global. Se excluye del optimizador a sabiendas. Palanca operativa que SÍ
+      paga: meter las otras 9 participaciones en grupos CHICOS (~$150-300 de EV
+      cada una, gratis). Re-evaluar el modelado solo si las 12 quedan en grupos
+      y el EV agregado supera ~$3.000.
 
   - nombre: decay temporal de los ratings
     donde: src.clausura.ratings.fit_ratings(half_life_dias=)
