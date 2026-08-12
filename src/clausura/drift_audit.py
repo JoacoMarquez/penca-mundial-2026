@@ -50,7 +50,7 @@ import json
 import logging
 import sys
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import httpx
@@ -584,15 +584,46 @@ def adoptar_goleadores(cargados: list[Cargado], mis_numeros: list[int]) -> str |
 
 # -------------------- estado --------------------
 
-def load_state() -> set[str]:
+# Cuánto vive una clave avisada. Generoso a propósito: la clave incluye los VALORES
+# (`distinto:{eid}:{numero}:{esperado}:{cargado}`), así que un cambio real genera
+# clave nueva y se avisa igual — podar solo acota el archivo entre temporadas. Con
+# 90 días ninguna clave expira dentro de un torneo, o sea que la poda nunca puede
+# resucitar un aviso ya dado.
+STATE_TTL_DIAS = 90
+
+
+def load_state(now: datetime | None = None) -> set[str]:
+    """Claves ya avisadas, podando las de más de STATE_TTL_DIAS."""
+    if not STATE_PATH.exists():
+        return set()
+    now = now or datetime.now(timezone.utc)
+    data = json.loads(STATE_PATH.read_text(encoding="utf-8"))
+    if isinstance(data, list):
+        return set(data)     # formato viejo sin fechas: se migra al guardar
+    corte = now - timedelta(days=STATE_TTL_DIAS)
+    vivas = set()
+    for clave, ts in data.items():
+        try:
+            if datetime.fromisoformat(ts) > corte:
+                vivas.add(clave)
+        except (TypeError, ValueError):
+            vivas.add(clave)     # sin fecha legible: se conserva, no se pierde un aviso
+    return vivas
+
+
+def save_state(avisadas: set[str], now: datetime | None = None) -> None:
+    """Guarda {clave: primera_vez_avisada}, conservando la fecha de las ya conocidas."""
+    now = now or datetime.now(timezone.utc)
+    previo: dict[str, str] = {}
     if STATE_PATH.exists():
-        return set(json.loads(STATE_PATH.read_text(encoding="utf-8")))
-    return set()
-
-
-def save_state(avisadas: set[str]) -> None:
+        data = json.loads(STATE_PATH.read_text(encoding="utf-8"))
+        if isinstance(data, dict):
+            previo = data
+    ahora = now.isoformat()
     STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    STATE_PATH.write_text(json.dumps(sorted(avisadas)), encoding="utf-8")
+    STATE_PATH.write_text(
+        json.dumps({c: previo.get(c, ahora) for c in sorted(avisadas)}, indent=0),
+        encoding="utf-8")
 
 
 # -------------------- main --------------------
@@ -646,7 +677,7 @@ def run(dry_run: bool = False, now: datetime | None = None) -> list[Discrepancia
     except Exception as e:
         log.warning("auditoría de la gratuita falló (%s)", e)
 
-    avisadas = load_state()
+    avisadas = load_state(now)
     nuevas = [d for d in discrepancias if d.clave not in avisadas]
     n_eventos = len(esperado)
     if not discrepancias:

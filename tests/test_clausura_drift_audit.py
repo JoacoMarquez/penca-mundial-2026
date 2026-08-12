@@ -283,3 +283,37 @@ def test_adoptar_picks_cerrados_versiona_y_reporta_causa_gate(tmp_path, monkeypa
 
     # idempotente: la segunda corrida no versiona de nuevo
     assert adoptar_picks_cerrados(cargados, NUMS, eventos, NOW) is None
+
+
+# -------------------- poda del estado --------------------
+
+def test_estado_conserva_la_fecha_del_primer_aviso_y_poda_lo_viejo(tmp_path, monkeypatch):
+    import src.clausura.drift_audit as da
+    monkeypatch.setattr(da, "STATE_PATH", tmp_path / "drift.json")
+
+    da.save_state({"a", "b"}, now=NOW)
+    # 'a' persiste con su fecha original aunque se re-guarde más tarde
+    tarde = NOW + timedelta(days=10)
+    da.save_state({"a", "c"}, now=tarde)
+    guardado = json.loads((tmp_path / "drift.json").read_text())
+    assert guardado["a"] == NOW.isoformat()          # no se pisó
+    assert guardado["c"] == tarde.isoformat()
+    assert "b" not in guardado                        # ya no estaba en el set
+
+    # dentro del TTL sigue viva; pasado el TTL se poda
+    assert da.load_state(now=tarde) == {"a", "c"}
+    muy_tarde = NOW + timedelta(days=da.STATE_TTL_DIAS + 5)
+    assert da.load_state(now=muy_tarde) == {"c"}
+
+
+def test_estado_en_formato_viejo_lista_se_lee_igual(tmp_path, monkeypatch):
+    """Migración: el archivo del VPS es una lista sin fechas — no se puede perder
+    ninguna clave o el audit re-avisaría todo lo ya avisado."""
+    import src.clausura.drift_audit as da
+    monkeypatch.setattr(da, "STATE_PATH", tmp_path / "drift.json")
+    (tmp_path / "drift.json").write_text(json.dumps(["vieja:1", "vieja:2"]))
+
+    assert da.load_state(now=NOW) == {"vieja:1", "vieja:2"}
+    da.save_state({"vieja:1", "vieja:2"}, now=NOW)    # se migra a dict con fecha
+    assert json.loads((tmp_path / "drift.json").read_text()) == {
+        "vieja:1": NOW.isoformat(), "vieja:2": NOW.isoformat()}

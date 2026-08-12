@@ -473,7 +473,17 @@ class SeasonSimulator:
         return np.where(total > 0, pozo * k / np.maximum(total, 1), 0.0)
 
     def e_premio_total(self) -> float:
-        """Objetivo escalar: E[premio del portfolio]. Es lo que optimiza la estrategia."""
+        """Objetivo escalar: E[premio del portfolio]. Es lo que optimiza la estrategia.
+
+        Incluye los premios por fecha YA liquidados (las fechas pasadas entran como
+        delta y aportan una constante), así que el número reportado en la planilla y
+        el dashboard es mayor que la plata que queda por delante. Para el argmax da
+        igual —una constante no mueve el óptimo— y para el gate del rerun también,
+        porque compara dos planillas sobre los mismos sorteos y la constante se
+        cancela. No confundirlo con "lo que falta ganar": ese número no es este.
+        Y ver la nota de [[auditoria-clausura]]: los NIVELES no son creíbles, lo
+        único que vale son los deltas pareados.
+        """
         rt, rc = self._stats_total()
         premio = self._liquidar(self.mine_total, rt, rc, self.prize.premio_penca)
         for fi in range(self.n_fechas):
