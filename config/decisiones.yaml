@@ -193,6 +193,25 @@ decisiones:
       cada una, gratis). Re-evaluar el modelado solo si las 12 quedan en grupos
       y el EV agregado supera ~$3.000.
 
+  - nombre: prior de encogimiento para ascendidos
+    donde: (nada — se midió y no se cambió)
+    valor: null
+    medida_con: {sims: 19200, participaciones: 12}
+    resultado: "debutantes walk-forward: +0.089 ± 0.091 goles a favor, −0.082 ± 0.094 en contra vs lo predicho"
+    fecha: 2026-08-12
+    inerte: >-
+      No se cambió nada: la entrada documenta un rechazo. La premisa de la
+      auditoría era que los ascendidos rinden bajo la media y el ridge (que
+      encoge hacia la media de la liga) los sobrestima — Albion con P(campeón)
+      4.4% arriba de Racing parecía el síntoma. El residuo walk-forward dice lo
+      CONTRARIO: en su torneo de debut (cohortes 2025 y 2026, 156
+      partidos-equipo) los debutantes hacen levemente MÁS goles y reciben
+      levemente MENOS que lo que el modelo frío predice — ambos dentro del
+      ruido. Un prior de encogimiento hacia abajo habría empeorado. Sin señal no
+      hay perilla; el encogimiento a la media que ya hace el ridge es, si algo,
+      levemente pesimista. Re-medir con la cohorte 2027 si el sistema sigue.
+      Reproducir con scripts/backtest_ascendidos.py.
+
   - nombre: decay temporal de los ratings
     donde: src.clausura.ratings.fit_ratings(half_life_dias=)
     valor: null
