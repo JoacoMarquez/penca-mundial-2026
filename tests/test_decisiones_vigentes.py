@@ -41,19 +41,32 @@ def produccion() -> dict:
 
 
 def valor_real(donde: str):
-    """Resuelve el valor que el código tiene HOY para esa decisión."""
+    """Resuelve el valor que el código tiene HOY para esa decisión.
+
+    Tres formas de apuntar, para no obligar a que toda decisión sea una constante:
+      deploy/archivo --flag             → lo que corre en producción
+      modulo.funcion(parametro=)        → el default de ese parámetro
+      modulo.CONSTANTE / Clase.campo    → el atributo
+    """
+    import importlib
+    import inspect
+
     if donde.startswith("deploy/"):
         return produccion()["sims"]
-    if "build_portfolio(max_passes=)" in donde:
-        import inspect
-        from src.clausura.strategy import build_portfolio
-        return inspect.signature(build_portfolio).parameters["max_passes"].default
-    if donde == "src.clausura.pool.PoolConfig.chalk_strength":
-        from src.clausura.pool import PoolConfig
-        return PoolConfig().chalk_strength
-    import importlib
+
+    if donde.endswith("=)"):
+        ruta, param = donde[:-2].split("(")
+        mod, fn = ruta.rsplit(".", 1)
+        f = getattr(importlib.import_module(mod), fn)
+        return inspect.signature(f).parameters[param].default
+
     mod, attr = donde.rsplit(".", 1)
-    return getattr(importlib.import_module(mod), attr)
+    try:
+        return getattr(importlib.import_module(mod), attr)
+    except ModuleNotFoundError:
+        # Clase.campo: se instancia para leer el default del dataclass
+        mod, clase, attr = donde.rsplit(".", 2)
+        return getattr(getattr(importlib.import_module(mod), clase)(), attr)
 
 
 @pytest.mark.parametrize("d", cargar(), ids=lambda d: d["nombre"])

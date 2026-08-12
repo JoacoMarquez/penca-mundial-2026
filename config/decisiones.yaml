@@ -128,3 +128,19 @@ decisiones:
       Quedó en 2.400 cuando producción pasó a 19.200 y se volvió activamente dañino: con
       K_EV=5 el menú de producción mide −$4.192 en ese régimen. Hay un test que lo ata al
       archivo de systemd para que no vuelva a envejecer en silencio.
+
+  - nombre: decay temporal de los ratings
+    donde: src.clausura.ratings.fit_ratings(half_life_dias=)
+    valor: null
+    medida_con: {sims: 19200, participaciones: 12}
+    resultado: "365d mide +0.0021 ± 0.0026 nats/partido (t=0.81); 270d t=0.59; 120d negativo"
+    fecha: 2026-08-12
+    nota: >-
+      Medido walk-forward sobre 528 predicciones, refitteando antes de cada fecha como
+      hace producción. La premisa era buena —el ES solo publica cuotas de la fecha
+      próxima, así que 112 de 120 eventos y todo P(campeón) son 100% ratings— pero el
+      efecto no es significativo y mejora apenas el 53% de los partidos. La curva tiene
+      forma sensata (meseta 270-365, se degrada en 120), que es lo único que sugiere
+      señal. Referencia de escala: la calibración del pool movió 0.106 nats, 50x más.
+      NO usa Monte Carlo: mide calidad de predicción, no E[premio]. Re-medir si
+      aparecen más temporadas. Reproducir con scripts/backtest_ratings_decay.py.
