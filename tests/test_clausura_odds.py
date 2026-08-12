@@ -100,3 +100,54 @@ def test_margen_de_victoria_mapeado():
 
 def test_evento_sin_vs_se_descarta():
     assert parse_event({"_id": "x", "_source": {"description": "Especial", "dateTime": 1}}) is None
+
+
+# -------------------- persistencia --------------------
+
+def _ev_odds(home="Peñarol", away="Wanderers", start="2099-01-01T00:00:00+00:00",
+             con_1x2=True):
+    from src.clausura.odds import EventOdds
+    return EventOdds(event_id=f"sm:{home}-{away}", home=home, away=away,
+                     start_utc=start, fetched_utc="x",
+                     x1x2={"home": 2.0, "draw": 3.2, "away": 3.8} if con_1x2 else {})
+
+
+def test_odds_roundtrip_y_edad(tmp_path, monkeypatch):
+    """Un outage del ES degradaba todo a ratings EN SILENCIO: el cache versionado
+    devuelve las cuotas de la corrida anterior con su edad, y vence a las 24h."""
+    import src.clausura.odds as odds_mod
+    from src.clausura.odds import load_cached_odds, save_odds_snapshot
+    monkeypatch.setattr(odds_mod, "ODDS_DIR", tmp_path)
+
+    assert load_cached_odds() is None                       # sin cache: None
+    save_odds_snapshot([_ev_odds()])
+    cargado = load_cached_odds()
+    assert cargado is not None
+    odds, edad_h = cargado
+    assert odds[0].x1x2["home"] == 2.0 and edad_h < 0.1
+
+    # snapshot viejo: no se usa (la cuota de hace 3 días ya se movió con noticias)
+    viejo = tmp_path / "odds_20200101T000000Z.json"
+    for f in tmp_path.glob("odds_*.json"):
+        f.rename(viejo)
+    assert load_cached_odds(max_age_h=24.0) is None
+
+    # lista vacía no pisa el cache con un archivo inútil
+    save_odds_snapshot([])
+    assert sorted(tmp_path.glob("odds_*.json")) == [viejo]
+
+
+def test_mercados_perdidos_solo_futuros_con_1x2():
+    """'Lo tenía y lo perdió' huele a rename del keyword; 'nunca lo tuvo' o 'ya
+    empezó' es lo normal del ES que publica solo la fecha próxima."""
+    from src.clausura.odds import mercados_perdidos
+
+    previos = [
+        _ev_odds("Peñarol", "Wanderers"),                          # futuro con 1x2
+        _ev_odds("Cerro", "Racing", start="2020-01-01T00:00:00+00:00"),  # ya empezó
+        _ev_odds("Danubio", "Albion", con_1x2=False),              # nunca tuvo 1x2
+    ]
+    actuales = [_ev_odds("Nacional", "Liverpool")]
+    assert mercados_perdidos(previos, actuales) == ["Peñarol vs Wanderers"]
+    # si sigue presente, no es pérdida
+    assert mercados_perdidos(previos, previos[:1]) == []

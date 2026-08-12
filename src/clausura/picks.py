@@ -807,11 +807,34 @@ def run(
 
     ratings = ensure_ratings(extra=partidos_clausura(cfg, resultados))
 
+    # Cuotas: fetch en vivo + cache versionado (data/odds/). Un 500 del ES
+    # degradaba TODO a ratings puros en silencio — incluso el rerun, y el gate no
+    # avisaba porque compara ambas planillas bajo el mismo modelo degradado. Con
+    # el cache, un outage corto usa las cuotas de la corrida anterior y GRITA; y
+    # si un partido futuro TENÍA mercado y lo perdió (rename del keyword, ES a
+    # medias), también grita — eso no es la ausencia normal de fechas lejanas.
+    from src.clausura.odds import load_cached_odds, mercados_perdidos, save_odds_snapshot
+    odds_edad_h = 0.0
     try:
         odds = fetch_primera_odds()
+        cache_previo = load_cached_odds()
+        if cache_previo is not None:
+            perdidos = mercados_perdidos(cache_previo[0], odds)
+            if perdidos:
+                log.warning("partidos futuros que TENÍAN mercado y hoy no: %s — "
+                            "¿rename del keyword del ES o índice a medias?",
+                            ", ".join(perdidos))
+        save_odds_snapshot(odds)
     except Exception as e:
-        log.warning("odds de Supermatch no disponibles (%s)", e)
-        odds = []
+        cache = load_cached_odds()
+        if cache is not None:
+            odds, odds_edad_h = cache
+            log.warning("ES de Supermatch caído (%s) — uso las cuotas versionadas "
+                        "de hace %.1fh (%d eventos)", e, odds_edad_h, len(odds))
+        else:
+            log.warning("odds de Supermatch no disponibles (%s) y sin cache fresco — "
+                        "TODO corre con ratings puros", e)
+            odds = []
     odds_by_evento = match_odds(eventos, odds)
 
     grids, fuentes, pred_grids, shadow = build_season_grids(
@@ -1150,6 +1173,15 @@ def run(
         planilla = ("⚠️ <b>PENCA-API CAÍDO durante esta corrida</b> — " + detalle +
                     ". La diferenciación puede estar mal calculada: si el rerun de "
                     "la tarde corre con API vivo, va a proponer la corrección.\n\n"
+                    + planilla)
+
+    if odds_edad_h > 0:
+        aviso = (f"ES de Supermatch caído: se usaron las cuotas versionadas de hace "
+                 f"{odds_edad_h:.1f}h")
+        payload.setdefault("advertencias", []).append(aviso)
+        planilla = ("⚠️ <b>CUOTAS DE CACHE</b> — " + aviso + ". Mejor cuota vieja "
+                    "que ratings puros, pero si el mercado se movió con noticias, "
+                    "el rerun con ES vivo va a proponer la corrección.\n\n"
                     + planilla)
 
     path = save_version(target_fecha, payload)
