@@ -24,16 +24,27 @@ cd /opt/penca
 # Solo toca units YA instalados: dar de alta uno nuevo es trabajo de
 # setup_clausura.sh, que además lo habilita.
 sync_units() {
-    local cambiados=() u dst tipo
+    local cambiados=() faltantes=() u dst tipo
     for src in /opt/penca/deploy/*.service /opt/penca/deploy/*.timer; do
         u=$(basename "$src")
         dst="/etc/systemd/system/$u"
-        [ -f "$dst" ] || continue                  # no instalado: no es asunto nuestro
+        if [ ! -f "$dst" ]; then
+            # Unit del repo que el VPS no tiene: instalarlo requiere decidir si va
+            # habilitado (setup_clausura.sh), pero callarlo es peor — gate-watch y
+            # heartbeat nacieron después del setup inicial y nadie se enteraba.
+            case "$u" in clausura-*) faltantes+=("$u");; esac
+            continue
+        fi
         if ! cmp -s "$src" "$dst"; then
             cp "$src" "$dst"
             cambiados+=("$u")
         fi
     done
+
+    if [ ${#faltantes[@]} -gt 0 ]; then
+        echo "⚠️  Units del repo NO instalados en el VPS: ${faltantes[*]}" >&2
+        echo "    Si tienen que correr, instalalos con: bash deploy/setup_clausura.sh" >&2
+    fi
 
     if [ ${#cambiados[@]} -eq 0 ]; then
         return 0
@@ -124,16 +135,18 @@ except Exception:
     exit 1
 fi
 
-# Validar que los módulos críticos importan
+# Validar que los módulos críticos importan. El stack VIVO es src.clausura (el del
+# Mundial está apagado desde el 29/7): un ImportError en picks/rerun/drift pasaba
+# esta validación y se descubría al día siguiente vía OnFailure, con la ventana de
+# la fecha ya corriendo.
 if .venv/bin/python -c "
 import sys
 try:
-    from src.agent import scheduler
-    from src.agent import pipeline
-    from src.agent import heartbeat
-    from src.model import dossier, qualitative, poisson, anomaly
-    from src.strategy import portfolio, assignment
-    from src.scrapers import espn, news, pinnacle, weather, football_api
+    from src.clausura import (api, carga_alert, dashboard_loader, drift_audit,
+                              gate_watch, heartbeat, picks, pool, pool_snapshot,
+                              postmortem, rerun_cierre, rivals, scoring, strategy,
+                              sync, verificar_carga, webapp)
+    from src.notifier import telegram
     print('OK')
 except Exception as e:
     print(f'IMPORT ERROR: {type(e).__name__}: {e}', file=sys.stderr)

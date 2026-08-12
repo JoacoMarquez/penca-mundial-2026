@@ -93,8 +93,23 @@ def main() -> None:
         sys.stdout.write(text)
         return
 
-    CONFIG_PATH.write_text(text, encoding="utf-8")
+    # Piso de sanidad: este YAML es la fuente de verdad de TODO lo que agenda por
+    # cierres (carga_alert, rerun, gate_watch). Un glitch del API (mantenimiento,
+    # fecha con eventos: []) no puede mutilarlo — mejor quedarse con el config
+    # anterior y que el error suene, que apagar los avisos sin distinguirlo de
+    # "no hay partidos".
     n_eventos = sum(len(f["eventos"]) for f in cfg["fechas"].values())
+    if not cfg.get("fechas") or n_eventos == 0:
+        raise RuntimeError(
+            f"config sospechoso del API ({len(cfg.get('fechas', {}))} fechas, "
+            f"{n_eventos} eventos) — NO se pisa {CONFIG_PATH.name}")
+
+    # Escritura atómica: gate_watch (10 min), carga_alert (horario) y el dashboard
+    # leen este archivo concurrentemente; un write_text a medias les sirve YAML
+    # truncado. rename() en el mismo directorio es atómico en POSIX.
+    tmp = CONFIG_PATH.with_suffix(".yaml.tmp")
+    tmp.write_text(text, encoding="utf-8")
+    tmp.replace(CONFIG_PATH)
     print(f"escrito {CONFIG_PATH} — {len(cfg['fechas'])} fechas, {n_eventos} eventos, "
           f"{len(cfg['equipos'])} equipos")
 
