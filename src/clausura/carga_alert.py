@@ -82,7 +82,11 @@ def pendientes_de_alerta(
         tier = tier_activo(cierre, now)
         if tier is None:
             continue
-        clave = f"{ev['evento_id']}:{tier:g}"
+        # El cierre va EN la clave: si el admin re-programa un partido (pasó con
+        # Torque-Peñarol de la F1), la clave vieja ya está quemada y con
+        # `evento_id:tier` a secas el makeup no recibiría NINGÚN recordatorio —
+        # justo el partido que nadie tiene en la cabeza.
+        clave = f"{ev['evento_id']}:{cierre:%Y%m%dT%H%M}:{tier:g}"
         if clave not in ya_avisados:
             out.append((ev, cierre, tier, clave))
     return out
@@ -122,10 +126,24 @@ def formatear_alerta(
 
 # -------------------- estado --------------------
 
-def load_state() -> set[str]:
-    if STATE_PATH.exists():
-        return set(json.loads(STATE_PATH.read_text(encoding="utf-8")))
-    return set()
+def load_state(now: datetime | None = None) -> set[str]:
+    """Claves ya avisadas. Poda las de cierres viejos (>7 días) y las del formato
+    anterior sin cierre (`evento_id:tier`), que quedan obsoletas solas."""
+    if not STATE_PATH.exists():
+        return set()
+    now = now or datetime.now(timezone.utc)
+    vivas = set()
+    for k in json.loads(STATE_PATH.read_text(encoding="utf-8")):
+        partes = k.split(":")
+        if len(partes) != 3:
+            continue
+        try:
+            cierre = datetime.strptime(partes[1], "%Y%m%dT%H%M").replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+        if cierre > now - timedelta(days=7):
+            vivas.add(k)
+    return vivas
 
 
 def save_state(avisados: set[str]) -> None:

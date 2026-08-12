@@ -1,17 +1,21 @@
 [Unit]
 Description=Timer de la corrida T-2h del Clausura — horario en la ventana previa a los cierres
 
-# El script solo dispara si el primer cierre de HOY está a ≤2.5h y aún no corrió
-# hoy — el resto de las pasadas salen en silencio.
+# El script solo dispara si hay algún cierre a ≤2.5h que su tanda aún no cubrió
+# — el resto de las pasadas salen en silencio.
 #
 # Ventana desde las 12:35: el fixture reprogramado del 5/8 trae cierres a las
 # 13:45 UTC (sáb y dom). Con la ventana vieja (13:35) la primera oportunidad
 # caía 10 min antes del cierre y la corrida terminaba DESPUÉS — inútil justo
 # en los partidos más ajustados. Desde 12:35 dispara 1h10 antes y deja margen
 # para corregir. (ej.: cierre 13:45 → dispara 12:35; cierre 21:45 → 19:35)
+#
+# Hasta 23:35: la F2 ya trae un cierre a las 23:45 UTC (partido 21:00 UY), y un
+# partido 22:00 UY cierra 00:45 UTC del día SIGUIENTE — con el tope viejo de
+# 21:35 esos quedaban sin rerun. El tick de 23:35 cubre cierres hasta ~02:05 UTC.
 
 [Timer]
-OnCalendar=*-*-* 12..21:35:00 UTC
+OnCalendar=*-*-* 12..23:35:00 UTC
 Persistent=false
 
 [Install]

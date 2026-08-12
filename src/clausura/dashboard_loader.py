@@ -67,13 +67,25 @@ def _to_uy(iso: str) -> str:
 
 
 def fecha_actual(cfg: dict) -> int:
-    """Primera fecha con algún partido todavía por jugarse (por hora de inicio)."""
+    """Fecha del PRÓXIMO partido por empezar (el de menor inicio futuro).
+
+    No es "la primera fecha con algo pendiente": un suspendido reprogramado
+    (Torque-Peñarol de la F1, re-datado semanas después) dejaría esa fecha
+    vieja como "actual" todo el intermedio, y picks/rerun/drift-audit/carga
+    apuntarían ahí en vez de a la fecha del fin de semana. Con el mínimo por
+    hora de inicio, la fecha del makeup solo es "actual" los días en que ese
+    partido es realmente lo próximo que se juega — que es cuando hay que
+    generarle planilla y cargarlo.
+    """
     now = datetime.now(timezone.utc)
-    for nombre in sorted(cfg["fechas"], key=lambda n: int(n.split()[-1])):
+    proximo: tuple[datetime, int] | None = None
+    for nombre in cfg["fechas"]:
+        n = int(nombre.split()[-1])
         for ev in cfg["fechas"][nombre]["eventos"]:
-            if datetime.fromisoformat(ev["inicio_utc"]) > now:
-                return int(nombre.split()[-1])
-    return 15
+            inicio = datetime.fromisoformat(ev["inicio_utc"])
+            if inicio > now and (proximo is None or inicio < proximo[0]):
+                proximo = (inicio, n)
+    return proximo[1] if proximo else 15
 
 
 def load_planilla(fecha_n: int) -> dict | None:

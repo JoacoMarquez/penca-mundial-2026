@@ -4,10 +4,10 @@ from datetime import datetime, timedelta, timezone
 
 from src.clausura.rerun_cierre import (
     TRIGGER_H,
+    cierres_en_ventana,
     debe_correr,
     diff_planillas,
     formatear_diff,
-    primer_cierre_del_dia,
 )
 
 NOW = datetime(2026, 8, 8, 15, 40, tzinfo=timezone.utc)
@@ -28,24 +28,45 @@ def _row(eid: int, scores: list, cierre: datetime, pref: bool = False) -> dict:
     }
 
 
-def test_primer_cierre_ignora_pasados_y_otros_dias():
+def test_cierres_en_ventana_ignora_pasados_y_lejanos():
+    cerca = NOW + timedelta(hours=2)
     evs = [
         _ev(NOW - timedelta(hours=1)),                    # ya cerró
-        _ev(NOW + timedelta(hours=2)),                    # hoy → el primero
-        _ev(NOW + timedelta(hours=5)),                    # hoy, más tarde
-        _ev(NOW + timedelta(days=1)),                     # mañana
+        _ev(cerca),                                       # en ventana
+        _ev(cerca),                                       # mismo cierre → dedup
+        _ev(NOW + timedelta(hours=TRIGGER_H + 1)),        # fuera del horizonte
     ]
-    assert primer_cierre_del_dia(evs, NOW) == NOW + timedelta(hours=2)
-    assert primer_cierre_del_dia([_ev(NOW + timedelta(days=1))], NOW) is None
+    assert cierres_en_ventana(evs, NOW) == [cerca]
+    assert cierres_en_ventana([], NOW) == []
 
 
-def test_debe_correr_solo_en_ventana_y_una_vez_por_dia():
-    evs = [_ev(NOW + timedelta(hours=2))]
+def test_debe_correr_solo_en_ventana_y_una_vez_por_cierre():
+    cierre = NOW + timedelta(hours=2)
+    evs = [_ev(cierre)]
     assert debe_correr(evs, NOW, set())
     lejos = [_ev(NOW + timedelta(hours=TRIGGER_H + 1))]
     assert not debe_correr(lejos, NOW, set())                       # muy temprano
-    assert not debe_correr(evs, NOW, {NOW.date().isoformat()})      # ya corrió hoy
-    assert not debe_correr([], NOW, set())                          # sin cierres hoy
+    assert not debe_correr(evs, NOW, {cierre.isoformat()})          # tanda ya cubierta
+    assert not debe_correr([], NOW, set())                          # sin cierres
+
+
+def test_cierre_pasada_la_medianoche_utc_entra_en_ventana():
+    # Partido 22:00 UY viernes = cierre 00:45 UTC del sábado. Con el filtro viejo
+    # por fecha calendario UTC no había rerun NUNCA para este partido.
+    noche = datetime(2026, 8, 14, 23, 35, tzinfo=timezone.utc)     # tick vie 23:35
+    cierre = datetime(2026, 8, 15, 0, 45, tzinfo=timezone.utc)     # sáb 00:45 UTC
+    assert debe_correr([_ev(cierre)], noche, set())
+
+
+def test_dos_tandas_del_mismo_dia_reciben_dos_reruns():
+    temprano = NOW + timedelta(hours=2)                            # tanda 1
+    tarde = NOW + timedelta(hours=8)                               # tanda 2 (fuera aún)
+    evs = [_ev(temprano), _ev(tarde)]
+    assert cierres_en_ventana(evs, NOW) == [temprano]              # solo la tanda 1
+    corridos = {temprano.isoformat()}
+    assert not debe_correr(evs, NOW, corridos)                     # tanda 1 cubierta
+    despues = NOW + timedelta(hours=6)                             # tarde a 2h
+    assert debe_correr(evs, despues, corridos)                     # tanda 2 dispara
 
 
 def test_diff_solo_partidos_abiertos_y_columnas_cambiadas():
