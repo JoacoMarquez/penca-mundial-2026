@@ -123,6 +123,55 @@ def test_build_season_grids_separa_liquidacion_de_predictivas():
     assert fuentes[1] == "ratings"
 
 
+def test_partidos_clausura_construye_solo_los_jugados():
+    """Los resultados del propio Clausura entran a los ratings (sin red): el
+    histórico estático termina en el Apertura y sin esto los ratings quedaban
+    congelados pre-torneo — con 112/120 eventos colgando 100% de ellos."""
+    from src.clausura.picks import partidos_clausura
+
+    cfg = {
+        "campeonato": {"id": 44, "nombre": "Torneo Clausura 2026"},
+        "fechas": {"Fecha 1": {"fecha_id": 280, "eventos": [
+            {"evento_id": 10, "local": "A", "visitante": "B",
+             "inicio_utc": "2026-08-07T22:00:00+00:00", "preferencial": True},
+            {"evento_id": 11, "local": "C", "visitante": "D",
+             "inicio_utc": "2026-08-08T22:00:00+00:00", "preferencial": False},
+        ]}},
+    }
+    ps = partidos_clausura(cfg, {10: (2, 1)})
+    assert len(ps) == 1
+    p = ps[0]
+    assert (p.evento_id, p.local, p.goles_local, p.goles_visitante) == (10, "A", 2, 1)
+    assert p.campeonato_id == 44 and p.preferencial is True
+
+
+def test_ensure_ratings_ingiere_extras_sin_duplicar(monkeypatch):
+    import src.clausura.picks as picks_mod
+    from src.clausura.historical import PartidoHistorico
+
+    def _p(eid, local, visitante, gl, gv):
+        return PartidoHistorico(
+            campeonato_id=44, campeonato="Clausura", fecha_nombre="Fecha 1",
+            fecha_id=280, evento_id=eid, local=local, visitante=visitante,
+            goles_local=gl, goles_visitante=gv, preferencial=False,
+            inicio_utc="2026-08-07T22:00:00+00:00")
+
+    # base sintética suficiente para fitear (dos equipos, resultados parejos)
+    base = [_p(i, "A", "B", 1, 1) for i in range(40)]
+    import src.clausura.intermedio as inter
+    monkeypatch.setattr(inter, "load_dataset_completo", lambda: list(base))
+
+    sin = picks_mod.ensure_ratings()
+    # extras nuevos: A golea sistemáticamente → su ataque tiene que subir
+    extras = [_p(100 + i, "A", "B", 4, 0) for i in range(20)]
+    con = picks_mod.ensure_ratings(extra=extras)
+    assert con.lambdas("A", "B")[0] > sin.lambdas("A", "B")[0]
+
+    # un extra con evento_id ya presente en la base se ignora (dedup)
+    dup = picks_mod.ensure_ratings(extra=[_p(0, "A", "B", 9, 0)])
+    assert dup.lambdas("A", "B")[0] == pytest.approx(sin.lambdas("A", "B")[0])
+
+
 def test_eventos_liquidados_solo_cuenta_fechas_completas():
     """El denominador del exact_rate son las fechas LIQUIDADAS: contar los partidos
     de la fecha en curso diluye la tasa (numerador de F1 sobre F1+F2) y calibra un

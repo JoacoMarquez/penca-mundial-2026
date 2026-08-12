@@ -115,11 +115,50 @@ def flat_eventos(cfg: dict) -> list[dict]:
     return out
 
 
-def ensure_ratings() -> TeamRatings:
+def partidos_clausura(cfg: dict, resultados: dict[int, tuple[int, int]]) -> list:
+    """Los partidos YA JUGADOS del propio Clausura como PartidoHistorico.
+
+    Se construyen del config + resultados que el pipeline ya tiene (sin red): son
+    el insumo intra-temporada de los ratings — ver ensure_ratings.
+    """
+    from src.clausura.historical import PartidoHistorico
+
+    out = []
+    for nombre, f in cfg["fechas"].items():
+        for ev in f["eventos"]:
+            res = resultados.get(ev["evento_id"])
+            if res is None:
+                continue
+            out.append(PartidoHistorico(
+                campeonato_id=cfg["campeonato"]["id"],
+                campeonato=cfg["campeonato"]["nombre"],
+                fecha_nombre=nombre,
+                fecha_id=f["fecha_id"],
+                evento_id=ev["evento_id"],
+                local=ev["local"],
+                visitante=ev["visitante"],
+                goles_local=int(res[0]),
+                goles_visitante=int(res[1]),
+                preferencial=bool(ev.get("preferencial", False)),
+                inicio_utc=ev["inicio_utc"],
+            ))
+    return out
+
+
+def ensure_ratings(extra: list | None = None) -> TeamRatings:
     """Ratings con todo lo jugado: 5 temporadas previas + Intermedio 2026 + Clausura.
 
     El Intermedio no está en el penca-api; se ingiere aparte desde Wikipedia
     (src.clausura.intermedio) y load_dataset_completo lo suma si existe.
+
+    `extra` son los partidos jugados del PROPIO Clausura (partidos_clausura): el
+    histórico estático termina en el Apertura, así que sin esto los ratings
+    quedaban congelados pre-torneo toda la temporada — con el ES publicando
+    cuotas solo de la fecha próxima, 112/120 eventos y toda P(campeón) ignoraban
+    los resultados más frescos. Medido walk-forward pareado sobre 391
+    predicciones (scripts/backtest_ratings_intra.py, 2026-08-12): +0.0073 ±
+    0.0041 nats/partido, y la ventaja crece con las fechas acumuladas (+0.0045
+    fechas 2-8 → +0.0096 fechas 9-15), como predice el mecanismo.
     """
     path = DATA_DIR / "primera_uy_historico.json"
     if not path.exists():
@@ -132,7 +171,14 @@ def ensure_ratings() -> TeamRatings:
         finally:
             sys.argv = argv
     from src.clausura.intermedio import load_dataset_completo
-    return fit_ratings(load_dataset_completo())
+    base = load_dataset_completo()
+    if extra:
+        vistos = {p.evento_id for p in base}
+        nuevos = [p for p in extra if p.evento_id not in vistos]
+        if nuevos:
+            log.info("ratings con %d partidos intra-temporada del Clausura", len(nuevos))
+        base = base + nuevos
+    return fit_ratings(base)
 
 
 _STOP_TOKENS = {"de", "del", "la", "las", "los", "el", "club", "fc", "uru"}
@@ -759,7 +805,7 @@ def run(
         log.error("penca-api CAÍDO tras 3 intentos — sin puntos vivos ni calibración; "
                   "el tamaño del pool cae al snapshot si hay uno fresco")
 
-    ratings = ensure_ratings()
+    ratings = ensure_ratings(extra=partidos_clausura(cfg, resultados))
 
     try:
         odds = fetch_primera_odds()
