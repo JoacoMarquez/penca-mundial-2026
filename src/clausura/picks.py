@@ -136,33 +136,77 @@ def _team_tokens(name: str) -> frozenset[str]:
     return frozenset(t for t in clean.split() if len(t) > 1 and t not in _STOP_TOKENS)
 
 
+def _calidad_nombre(a: str, b: str) -> float:
+    """Cuán específicamente matchean dos nombres de equipo. 0 = no matchean.
+
+    La escala importa más que los valores: igualdad exacta tiene que GANARLE a
+    substring, porque "Cerro" es substring de "Cerro Largo" y son equipos distintos.
+    """
+    na, nb = _norm(a), _norm(b)
+    if na == nb:
+        return 2.0                                  # "Racing" == "Racing"
+    if na in nb or nb in na:
+        return 1.0                                  # "Liverpool" ⊂ "Liverpool (URU)"
+    ta, tb = _team_tokens(a), _team_tokens(b)
+    if not ta or not tb:
+        return 0.0
+    covers = lambda s, g: all(any(bt.startswith(st) for bt in g) for st in s)
+    return 0.5 if (covers(ta, tb) or covers(tb, ta)) else 0.0   # "M.C." → "Montevideo City"
+
+
 def match_odds(eventos: list[dict], odds: list[EventOdds]) -> dict[int, EventOdds]:
-    """evento_id → EventOdds, matcheando por nombres normalizados de ambos equipos.
+    """evento_id → EventOdds, asignando cada cuota al evento que MEJOR le calza.
 
     Los nombres del penca-api y del Elasticsearch difieren en detalles
     ("Montevideo City Torque" vs "M.C. Torque", "Liverpool" vs "Liverpool (URU)",
-    "Juventud" vs "Juventud de Las Piedras"): además del substring, matcheamos por
-    tokens significativos, aceptando abreviaturas por prefijo ("Sp." → "Sporting").
-    El guardia real contra cruces (Cerro vs Cerro Largo) es exigir que matcheen
-    los DOS equipos del partido.
+    "Juventud" vs "Juventud de Las Piedras"), así que hace falta matcheo laxo. Pero el
+    matcheo laxo cruza equipos con nombres anidados, y el guardia que teníamos —exigir
+    que matcheen los DOS equipos— no alcanza cuando el otro equipo es el mismo:
+
+        Fecha  2: Cerro       vs Albion   ← las cuotas son de este partido
+        Fecha 10: Cerro Largo vs Albion   ← y también matcheaban acá
+
+    Comprobado en vivo el 2026-08-11: 8 cuotas producían 9 eventos matcheados, y la
+    Fecha 10 quedaba con la grilla del equipo equivocado alimentando P(campeón) y la
+    vara del premio durante semanas.
+
+    Dos reglas lo cierran:
+
+      * **Especificidad**: se puntúa cada par y gana la igualdad exacta sobre el
+        substring. "Cerro/Albion" calza 4.0 con su partido y 3.0 con el de Cerro Largo.
+      * **Uno a uno**: cada cuota describe UN partido real, así que se consume al
+        asignarse. Que sobre un evento sin cuota es correcto; que dos eventos compartan
+        una es siempre un error.
+
+    NO se desempata por hora de inicio: `start_utc` trae placeholders en los partidos
+    sin confirmar y eso rompía 3 de los eventos en vivo.
     """
-    def covers(small: frozenset[str], big: frozenset[str]) -> bool:
-        return all(any(bt.startswith(st) for bt in big) for st in small)
-
-    def similar(a: str, b: str) -> bool:
-        na, nb = _norm(a), _norm(b)
-        if na == nb or na in nb or nb in na:
-            return True
-        ta, tb = _team_tokens(a), _team_tokens(b)
-        return bool(ta) and bool(tb) and (covers(ta, tb) or covers(tb, ta))
-
-    out = {}
+    pares = []
     for ev in eventos:
         for o in odds:
-            if similar(ev["local"], o.home) and similar(ev["visitante"], o.away):
-                out[ev["evento_id"]] = o
-                break
-    sin_match = [o for o in odds if o.event_id not in {m.event_id for m in out.values()}]
+            cl = _calidad_nombre(ev["local"], o.home)
+            cv = _calidad_nombre(ev["visitante"], o.away)
+            if cl and cv:
+                pares.append((cl + cv, ev["evento_id"], o))
+    pares.sort(key=lambda p: -p[0])
+
+    out: dict[int, EventOdds] = {}
+    usadas: set[str] = set()
+    disputadas: dict[str, list[int]] = {}
+    for score, eid, o in pares:
+        disputadas.setdefault(o.event_id, []).append(eid)
+        if eid in out or o.event_id in usadas:
+            continue
+        out[eid] = o
+        usadas.add(o.event_id)
+
+    for oid, eids in disputadas.items():
+        if len(eids) > 1:
+            ganador = next((e for e in eids if out.get(e) and out[e].event_id == oid), None)
+            log.info("cuota %s la disputaban %d eventos (%s) — se la queda %s por "
+                     "especificidad de nombres", oid, len(eids), eids, ganador)
+
+    sin_match = [o for o in odds if o.event_id not in usadas]
     if sin_match:
         log.info("odds sin evento matcheado (posible drift de nombres): %s",
                  ["%s vs %s" % (o.home, o.away) for o in sin_match])
