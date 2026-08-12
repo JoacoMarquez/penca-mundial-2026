@@ -132,13 +132,22 @@ def p_campeon_from_grids(
     local_de: np.ndarray,
     visita_de: np.ndarray,
     n_teams: int,
-    n_sims: int = 3000,
+    n_sims: int = 30_000,
     seed: int = 20260807,
 ) -> np.ndarray:
     """P(campeón) sorteando temporadas desde las grillas (para el prior del pool).
 
     Es un pre-cálculo independiente del simulador del portfolio (que después deriva
     su propio campeón de SUS sorteos, correlacionado con los marcadores).
+
+    3.000 → 30.000 el 2026-08-12. No es una decisión de estrategia, es error de
+    Monte Carlo gratis: medido en el droplet, 3.000 sorteos cuestan 0,04 s y dejan
+    ±0,85 pp de dispersión entre semillas en el líder (Peñarol 31,6%); 30.000
+    cuestan 0,36 s y la bajan a ±0,24 pp. Importa porque P(campeón) NO tiene
+    mercado que la ancle —no existe outright del campeonato uruguayo en ninguna
+    casa— así que es 100% modelo propio, y 0,3 s en un pipeline de ~6 min no se
+    siente. El transitorio (120×30.000 int64 ≈ 29 MB) se libera antes de construir
+    el simulador grande, así que no toca el pico de memoria.
     """
     from src.clausura.economics import flatten_grid
     rng = np.random.default_rng(seed)

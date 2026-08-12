@@ -76,6 +76,26 @@ def test_calibracion_recupera_la_temperatura(grid):
     assert ajustada.temperature == pytest.approx(0.7)
 
 
+def test_calibrar_conserva_los_campos_que_no_toca(grid):
+    """La calibración solo mueve `temperature`: cualquier otro campo de PoolConfig
+    tiene que sobrevivir. El constructor explícito copiaba cuatro campos a mano y se
+    comía `orientar_al_favorito` —y se habría comido cualquier campo nuevo—
+    reseteándolo al default en silencio.
+    """
+    base = PoolConfig(chalk_strength=1.7, default_bias=0.6,
+                      orientar_al_favorito=False, popular_bias={(0, 0): 3.3})
+
+    cal = calibrate_from_exact_rate([grid] * 4, 0.09, base=base)
+
+    assert cal.orientar_al_favorito is False        # <- lo que se perdía
+    assert cal.chalk_strength == 1.7
+    assert cal.default_bias == 0.6
+    assert cal.popular_bias == {(0, 0): 3.3}
+    # y popular_bias es una COPIA: mutar el calibrado no toca el base
+    cal.popular_bias[(1, 1)] = 9.9
+    assert (1, 1) not in base.popular_bias
+
+
 def test_observed_exact_rate_desde_ranking():
     class Row:
         def __init__(self, e): self.cant_resultados_exactos = e
