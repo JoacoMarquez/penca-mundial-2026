@@ -43,13 +43,18 @@ def produccion() -> dict:
 def valor_real(donde: str):
     """Resuelve el valor que el código tiene HOY para esa decisión.
 
-    Tres formas de apuntar, para no obligar a que toda decisión sea una constante:
+    Cuatro formas de apuntar, para no obligar a que toda decisión sea una constante:
       deploy/archivo --flag             → lo que corre en producción
       modulo.funcion(parametro=)        → el default de ese parámetro
       modulo.CONSTANTE / Clase.campo    → el atributo
+      (nada — ...)                      → un RECHAZO: se midió y no se cambió nada,
+                                          así que no hay valor que verificar
     """
     import importlib
     import inspect
+
+    if donde.startswith("("):
+        return None
 
     if donde.startswith("deploy/"):
         return produccion()["sims"]

@@ -18,6 +18,10 @@
 # CÓMO SE APAGA LA ALARMA: re-medir y actualizar `medida_con`; o declarar `vencida:`
 # con el motivo, que la deja pasar pero visible en el listado. `inerte:` es para
 # decisiones que hoy no tienen efecto (el código está pero no se ejecuta).
+#
+# RECHAZOS: un experimento que se midió y NO cambió nada también va acá — es la forma
+# de que no se vuelva a intentar por intuición. Se marca con `donde: (nada — ...)`, que
+# saltea la verificación contra el código porque no hay valor que verificar.
 
 decisiones:
   - nombre: tamaño del menú de candidatos
@@ -146,7 +150,7 @@ decisiones:
       aparecen más temporadas. Reproducir con scripts/backtest_ratings_decay.py.
 
   - nombre: sesgo del 0-0 según paridad del partido
-    donde: src.clausura.pool.DEFAULT_POPULAR_BIAS
+    donde: (nada — se midió y no se cambió)
     valor: null
     medida_con: {sims: 19200, participaciones: 12}
     resultado: "ajustarlo por paridad EMPEORA la log-loss fuera de muestra: 2.2811 → 2.2825"
