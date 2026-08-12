@@ -346,3 +346,56 @@ def test_build_portfolio_acepta_pool_qs_externo():
         build_portfolio(grids, [1, 1, 2, 2], [False] * 4, n_participaciones=2,
                         sim=SimConfig(n_sims=150, n_rivales=20, seed=3),
                         pool_qs=[q] * 3)
+
+
+# -------------------- exactos contados de los picks, no del contador del API --------------------
+
+def _snap(participaciones):
+    return {"n_participaciones": len(participaciones), "participaciones": participaciones}
+
+
+def test_exact_rate_cuenta_los_picks_reales():
+    """El numerador y el denominador salen del MISMO conjunto de pares rival-partido.
+
+    Ese era el bug del canal viejo: el denominador contaba todos los partidos jugados
+    de la temporada, incluidos los de la fecha en curso que el contador del API —que
+    liquida al cierre— todavía no podía ver. Cuanto más avanzada la fecha, más abajo
+    la tasa, y más disperso el pool modelado.
+    """
+    from src.clausura.pool_snapshot import exact_rate_desde_snapshot
+
+    resultados = {1: (1, 0), 2: (2, 1)}
+    snap = _snap([
+        {"numero": 100, "picks": {"1": [1, 0], "2": [2, 1]}},   # 2 de 2
+        {"numero": 101, "picks": {"1": [1, 0], "2": [0, 0]}},   # 1 de 2
+        {"numero": 102, "picks": {"1": [3, 3], "2": [3, 3]}},   # 0 de 2
+    ])
+    assert exact_rate_desde_snapshot(snap, resultados) == 3 / 6
+
+
+def test_exact_rate_ignora_partidos_sin_resultado():
+    """Un pick de un partido que no se jugó no puede entrar en el denominador."""
+    from src.clausura.pool_snapshot import exact_rate_desde_snapshot
+
+    snap = _snap([{"numero": 100, "picks": {"1": [1, 0], "9": [2, 2]}}])
+    assert exact_rate_desde_snapshot(snap, {1: (1, 0)}) == 1.0
+
+
+def test_exact_rate_excluye_nuestras_participaciones():
+    """El observable calibra a los RIVALES: nuestras 12 diversificadas lo sesgarían."""
+    from src.clausura.pool_snapshot import exact_rate_desde_snapshot
+
+    snap = _snap([
+        {"numero": 899258848, "picks": {"1": [1, 0]}},   # nuestra, acierta
+        {"numero": 500, "picks": {"1": [0, 0]}},         # rival, falla
+    ])
+    assert exact_rate_desde_snapshot(snap, {1: (1, 0)}, {899258848}) == 0.0
+
+
+def test_exact_rate_sin_datos_devuelve_none():
+    """Sin pares observables no se calibra: mejor el prior que un 0 que miente."""
+    from src.clausura.pool_snapshot import exact_rate_desde_snapshot
+
+    assert exact_rate_desde_snapshot(None, {1: (1, 0)}) is None
+    assert exact_rate_desde_snapshot(_snap([]), {1: (1, 0)}) is None
+    assert exact_rate_desde_snapshot(_snap([{"numero": 1, "picks": {}}]), {}) is None

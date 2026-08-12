@@ -377,6 +377,51 @@ def empirical_goleador_counts(
     return counts
 
 
+def exact_rate_desde_snapshot(
+    snapshot: dict | None,
+    resultados: dict[int, tuple[int, int]],
+    mis_numeros: set[int] | None = None,
+) -> float | None:
+    """Tasa de exactos del pool contada de los PICKS PÚBLICOS, no del contador del API.
+
+    Reemplaza a `observed_exact_rate_from_ranking`, que dependía de
+    `cantResultadosExactos` — un campo que el API liquida recién al CIERRE de la fecha
+    y que trajo dos problemas encadenados:
+
+      * **Canal muerto**: en vivo viene en 0 aunque ya haya exactos. Tomarlo literal
+        calibraba al pool más disperso (T=3.0) cuando el real estaba en el más
+        concentrado (T=0.5) — al revés, y del lado que nos hace jugar chalk.
+      * **Dilución**: el denominador contaba TODOS los partidos jugados de la
+        temporada, incluidos los de la fecha en curso que el numerador todavía no
+        puede ver. Cuanto más avanzada la fecha, más abajo la tasa.
+
+    Acá el numerador y el denominador salen del MISMO conjunto —los pares
+    (rival, partido) donde vemos su pick y el resultado— así que no pueden desfasarse.
+    Todo el insumo ya estaba en el snapshot; no hace falta ningún endpoint nuevo.
+
+    `mis_numeros` excluye nuestras participaciones: el observable calibra a los
+    RIVALES, y nuestras 12 planillas diversificadas sesgarían la tasa.
+    """
+    if not snapshot or not resultados:
+        return None
+    mis = mis_numeros or set()
+    aciertos = pares = 0
+    for part in snapshot.get("participaciones") or []:
+        if part.get("numero") in mis:
+            continue
+        for eid, pick in (part.get("picks") or {}).items():
+            real = resultados.get(int(eid))
+            if real is None or not pick:
+                continue
+            pares += 1
+            aciertos += (int(pick[0]), int(pick[1])) == (int(real[0]), int(real[1]))
+    if not pares:
+        return None
+    log.info("tasa de exactos del pool: %.3f (%d aciertos en %d pares rival-partido "
+             "observados, calculada de los picks públicos)", aciertos / pares, aciertos, pares)
+    return aciertos / pares
+
+
 def snapshot_summary(snapshot: dict) -> str:
     """Resumen humano para el log/Telegram."""
     n = snapshot.get("n_participaciones", 0)
