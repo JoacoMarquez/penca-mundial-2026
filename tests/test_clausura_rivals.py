@@ -52,6 +52,20 @@ def test_fit_gamma_sin_observaciones_es_neutro():
     assert fit_gamma(np.array([], dtype=np.int64), np.zeros((0, 36))) == 1.0
 
 
+def test_fit_gamma_puede_devolver_exactamente_uno():
+    """γ=1 tiene que ser alcanzable: la geomspace no lo contiene (vecinos 0.9658 y
+    1.0690) y todo rival con ≥1 pick recibía un valor ≠1 — la mediana de los
+    diagnósticos era cuantización, no señal del pool."""
+    from src.clausura.rivals import GAMMA_GRID
+    assert 1.0 in GAMMA_GRID
+
+    # con Q uniforme la likelihood es plana en γ y decide solo el prior τ·(ln γ)²,
+    # cuyo máximo exacto es γ=1 — antes del fix caía al punto de grilla 0.9658
+    logqs = np.full((3, 36), np.log(1 / 36))
+    obs = np.array([0, 7, 14])
+    assert fit_gamma(obs, logqs) == 1.0
+
+
 # -------------------- construcción del modelo --------------------
 
 def _modelo_2x2(puntos_extra=0):

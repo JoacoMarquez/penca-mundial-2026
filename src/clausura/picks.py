@@ -713,7 +713,11 @@ def run(
     from src.clausura.rivals import mis_numeros_env
     mis_numeros = mis_numeros_env()
     resultados: dict[int, tuple[int, int]] = {}
-    n_rivales, exact_rate = 151, None
+    # Fallback del pool si caen API y snapshot a la vez: el último conteo real
+    # (~737 participaciones − 12 nuestras), no el 151 heredado de SimConfig — con
+    # 151 rivales el umbral del máximo baja y la corrida degradada recomendaba
+    # menos diferenciación, el lado caro del error.
+    n_rivales, exact_rate = 725, None
     liquidados: set[int] = set()
     # numero de participación → puntos del ranking AHORA. El modelo de rivales los
     # prefiere a los del snapshot, que es una foto y puede tener horas (ver
