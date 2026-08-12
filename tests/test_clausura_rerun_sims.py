@@ -91,3 +91,14 @@ def test_avisa_si_corre_bajo_el_piso_seguro(caplog):
     with caplog.at_level(logging.WARNING):
         assert sims_de({"n_sims": 19200}) == 19200
     assert not caplog.records, "no tiene que avisar cuando corre en régimen normal"
+
+
+def test_default_sims_de_picks_y_rerun_coinciden():
+    """El footgun original: picks.py defaulteaba a 800 mientras producción corre a
+    19.200, y el rerun heredaba los sims de la planilla previa. Si estos dos números
+    divergen, una corrida manual sin --sims vuelve a envenenar el warm start."""
+    import src.clausura.picks as picks
+    import src.clausura.rerun_cierre as rerun
+    assert picks.DEFAULT_SIMS == rerun.DEFAULT_SIMS
+    assert picks.SIMS_MIN_SEGURO == rerun.SIMS_MIN_SEGURO
+    assert picks.DEFAULT_SIMS >= picks.SIMS_MIN_SEGURO

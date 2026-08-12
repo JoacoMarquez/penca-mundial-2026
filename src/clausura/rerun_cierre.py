@@ -375,6 +375,15 @@ def run(
                 save_state(estado | cubiertos)
             return []
 
+    # El estado se marca ANTES de intentar el Telegram: con el orden inverso, una
+    # tarde con la Bot API caída re-corría el pipeline COMPLETO cada tick (~30 min
+    # de CPU por hora, pila de versiones churn sobre churn) justo en la ventana de
+    # cierres. El costo del orden nuevo es acotado: si el send falla, el aviso de
+    # ESTA tanda se pierde (la planilla igual quedó versionada y visible en el
+    # dashboard) y el fallo suena una vez vía OnFailure.
+    if not dry_run:
+        save_state(estado | cubiertos)
+
     if cambios:
         msg = formatear_diff(cambios, mis_numeros, now, comp)
         if prev.get("n_sims") and sims != prev["n_sims"]:
@@ -389,9 +398,6 @@ def run(
     else:
         log.info("sin cambios en partidos abiertos — no se notifica (planilla %s igual "
                  "quedó versionada)", new_path.name)
-
-    if not dry_run:
-        save_state(estado | cubiertos)
     return cambios
 
 

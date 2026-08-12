@@ -149,9 +149,20 @@ def picks_de_planilla(fecha_n: int, mis_numeros: list[int]) -> tuple[dict, dict]
 
 
 def latest_snapshot_participaciones() -> list[dict]:
+    """Participaciones del último snapshot FRESCO (≤48h, la misma cota que picks).
+
+    Sin la cota: si el escaneo del ExecStartPre aborta (429), el postmortem
+    comparaba contra un snapshot sin los picks de los partidos recién cerrados →
+    puntos del pool subestimados → "ganaste la fecha" en el reporte sin haberla
+    ganado. Mejor un postmortem sin distribución del pool que uno que miente.
+    """
     from src.clausura.pool_snapshot import load_latest_snapshot
-    snap = load_latest_snapshot()
-    return snap.get("participaciones", []) if snap else []
+    snap = load_latest_snapshot(max_age_hours=48)
+    if snap is None:
+        log.warning("sin snapshot fresco (≤48h) — el postmortem sale sin "
+                    "distribución del pool en vez de usar una vieja que miente")
+        return []
+    return snap.get("participaciones", [])
 
 
 # -------------------- cómputo (puro, testeable) --------------------
