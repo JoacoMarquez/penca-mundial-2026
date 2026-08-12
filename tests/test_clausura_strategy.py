@@ -273,6 +273,34 @@ def test_participacion_0_es_el_ancla_ev(escenario):
     assert np.array_equal(port.picks[0], esperado)
 
 
+def test_warm_start_no_congela_la_fila_0(escenario):
+    """La fila 0 (EV puro, la que copia la gratuita) se re-ancla al modelo de HOY:
+    heredarla del warm start la dejaba clavada en el argmax del primer run que vio
+    cada partido, porque el ascenso nunca la perturba."""
+    grids, fechas, pref = escenario
+    sim = SimConfig(n_sims=200, n_rivales=30, seed=5)
+    ev_hoy = baseline_ev(grids, pref, 1)[0]
+
+    # warm start con la fila 0 deliberadamente distinta del argmax actual
+    warm = np.tile(ev_hoy, (3, 1))
+    for m in range(len(grids)):
+        warm[0, m] = 0 if ev_hoy[m] != 0 else 1
+
+    port = build_portfolio(grids, fechas, pref, n_participaciones=3,
+                           sim=sim, max_passes=1, warm_start=warm)
+    assert np.array_equal(port.picks[0], ev_hoy)
+
+    # los partidos congelados no se re-anclan: ahí manda lo ya cargado
+    frozen_mask = np.zeros(len(grids), dtype=bool)
+    frozen_mask[0] = True
+    frozen = np.array(warm)
+    port2 = build_portfolio(grids, fechas, pref, n_participaciones=3,
+                            sim=sim, max_passes=1, warm_start=warm,
+                            frozen_picks=frozen, frozen_mask=frozen_mask)
+    assert port2.picks[0, 0] == frozen[0, 0]
+    assert np.array_equal(port2.picks[0, 1:], ev_hoy[1:])
+
+
 def test_resultado_reportado_es_out_of_sample(escenario):
     """El E[premio] del portfolio se evalúa con semilla fresca: no puede coincidir
     con el valor in-sample del optimizador (winner's curse), y sigue determinístico."""

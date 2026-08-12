@@ -241,11 +241,15 @@ def test_warm_start_ignora_planillas_de_otro_tamano(tmp_path, monkeypatch):
 
 
 def test_warm_start_columna_incompleta_cae_al_ancla():
-    """Una columna se hereda entera o nada: no se mezcla warm con ancla."""
+    """Una columna se hereda entera o nada: no se mezcla warm con ancla.
+
+    La fila 0 es la excepción deliberada: es el ancla de EV puro y se re-ancla
+    al modelo de hoy aunque la columna se herede (ver strategy.build_portfolio).
+    """
     g = score_grid(1.3, 1.1, 0.0, max_goals=5)
     grids = [g] * 4
     warm = np.full((3, 4), -1, dtype=np.int64)
-    warm[:, 0] = score_index(4, 4)             # completa: se hereda
+    warm[:, 0] = score_index(4, 4)             # completa: se hereda (filas 1+)
     warm[:2, 1] = score_index(4, 4)            # incompleta: NO se hereda
 
     port = build_portfolio(
@@ -253,7 +257,8 @@ def test_warm_start_columna_incompleta_cae_al_ancla():
         n_participaciones=3, sim=SimConfig(n_sims=60, n_rivales=20),
         max_passes=0, warm_start=warm,
     )
-    assert (port.picks[:, 0] == score_index(4, 4)).all()
+    assert (port.picks[1:, 0] == score_index(4, 4)).all()
+    assert port.picks[0, 0] != score_index(4, 4)   # fila 0 re-anclada al EV de hoy
     assert not (port.picks[:, 1] == score_index(4, 4)).any()
 
 
