@@ -3,6 +3,8 @@
 import json
 
 import numpy as np
+import itertools
+
 import pytest
 
 from src.clausura.economics import SimConfig, score_index
@@ -29,8 +31,14 @@ def _evento(eid, local, visitante, fecha_n=1, pref=False):
     }
 
 
-def _odds(home, away):
-    return EventOdds(event_id="sm:1", home=home, away=away,
+_odds_seq = itertools.count(1)
+
+
+def _odds(home, away, eid=None):
+    # id único por defecto: cada cuota del ES describe UN partido, y match_odds se
+    # apoya en eso para no repartir la misma dos veces. Con un id fijo compartido,
+    # dos cuotas del fixture se pisaban entre sí.
+    return EventOdds(event_id=eid or f"sm:{next(_odds_seq)}", home=home, away=away,
                      start_utc="2026-08-07T22:00:00+00:00", fetched_utc="x",
                      x1x2={"home": 2.0, "draw": 3.2, "away": 3.8})
 
@@ -467,3 +475,65 @@ def test_format_especiales_muestra_goleadores_arrastrados():
                                          {"goleador_idx": 5, "goleador": "Abel"}])
     assert "Gómez" in txt and "Abel" in txt
     assert "menú aún no publicado" not in txt
+
+
+# -------------------- cruce de equipos con nombres anidados --------------------
+
+def test_match_odds_no_cruza_cerro_con_cerro_largo():
+    """El caso real del 2026-08-11: 8 cuotas producían 9 eventos matcheados.
+
+    "Cerro" es substring de "Cerro Largo", y el guardia viejo —exigir que matcheen
+    los DOS equipos— no servía porque el rival era el mismo en los dos partidos:
+
+        Fecha  2: Cerro       vs Albion   ← las cuotas son de acá
+        Fecha 10: Cerro Largo vs Albion   ← y también matcheaban acá
+
+    La Fecha 10 quedaba con la grilla del equipo equivocado alimentando P(campeón)
+    durante semanas.
+    """
+    evs = [_evento(1, "Cerro", "Albion", fecha_n=2),
+           _evento(2, "Cerro Largo", "Albion", fecha_n=10)]
+    m = match_odds(evs, [_odds("Cerro", "Albion")])
+
+    assert m.get(1) is not None, "el partido de Cerro tiene que quedarse su cuota"
+    assert 2 not in m, "Cerro Largo NO puede heredar la cuota de Cerro"
+
+
+def test_match_odds_no_reparte_la_misma_cuota_dos_veces():
+    """Una cuota describe UN partido real: compartirla es siempre un error.
+
+    Que sobre un evento sin cuota es correcto y esperable (el ES solo publica la
+    fecha próxima); que dos eventos compartan una nunca lo es.
+    """
+    evs = [_evento(1, "Cerro", "Albion"), _evento(2, "Cerro Largo", "Albion"),
+           _evento(3, "Cerro Largo", "Danubio")]
+    m = match_odds(evs, [_odds("Cerro", "Albion", eid="sm:A"),
+                         _odds("Cerro Largo", "Danubio", eid="sm:B")])
+    ids = [o.event_id for o in m.values()]
+    assert len(ids) == len(set(ids)), f"cuota repartida dos veces: {ids}"
+    assert m[1].event_id == "sm:A" and m[3].event_id == "sm:B"
+
+
+def test_match_odds_sigue_aceptando_los_alias_reales():
+    """Apretar el matcheo no puede romper los alias que sí son el mismo equipo.
+
+    Los tres salen del Elasticsearch real de Supermatch.
+    """
+    evs = [_evento(1, "Defensor Sporting", "Liverpool"),
+           _evento(2, "Juventud", "Montevideo City Torque")]
+    m = match_odds(evs, [_odds("Defensor Sporting", "Liverpool (URU)", eid="sm:A"),
+                         _odds("Juventud de Las Piedras", "M.C. Torque", eid="sm:B")])
+    assert m[1].event_id == "sm:A"
+    assert m[2].event_id == "sm:B"
+
+
+def test_match_odds_prefiere_la_igualdad_exacta_sin_importar_el_orden():
+    """La asignación no puede depender de en qué orden vengan los eventos.
+
+    Con matcheo laxo y 'primero que pinta gana', el resultado dependía del orden del
+    fixture — un bug que aparece y desaparece según la fecha.
+    """
+    a, b = _evento(1, "Cerro", "Albion"), _evento(2, "Cerro Largo", "Albion")
+    cuota = [_odds("Cerro", "Albion")]
+    assert match_odds([a, b], cuota).keys() == {1}
+    assert match_odds([b, a], cuota).keys() == {1}
