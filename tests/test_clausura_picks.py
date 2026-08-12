@@ -123,6 +123,26 @@ def test_build_season_grids_separa_liquidacion_de_predictivas():
     assert fuentes[1] == "ratings"
 
 
+def test_eventos_liquidados_solo_cuenta_fechas_completas():
+    """El denominador del exact_rate son las fechas LIQUIDADAS: contar los partidos
+    de la fecha en curso diluye la tasa (numerador de F1 sobre F1+F2) y calibra un
+    pool más disperso — el mecanismo del incidente T=3.0."""
+    from src.clausura.picks import eventos_liquidados
+
+    cfg = {"fechas": {
+        "Fecha 1": {"eventos": [{"evento_id": 10}, {"evento_id": 11}]},
+        "Fecha 2": {"eventos": [{"evento_id": 20}, {"evento_id": 21}]},
+    }}
+    # F1 completa, F2 a medias: solo cuentan los 2 de F1
+    res = {10: (1, 0), 11: (2, 2), 20: (0, 0)}
+    assert eventos_liquidados(cfg, res) == {10, 11}
+    # nada terminado: conjunto vacío (el exact_rate cae a None, no a 0)
+    assert eventos_liquidados(cfg, {}) == set()
+    # todo terminado: cuentan las dos fechas
+    res[21] = (1, 1)
+    assert eventos_liquidados(cfg, res) == {10, 11, 20, 21}
+
+
 def test_market_lambdas_conserva_el_lam12_del_fit():
     """El fit bivariado usa λ12 para clavar el empate del mercado; descartarlo
     dejaba la grilla −4 pp corta de empates en partidos parejos."""

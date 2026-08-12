@@ -231,6 +231,24 @@ def delta_grid(gl: int, gv: int) -> np.ndarray:
     return g
 
 
+def eventos_liquidados(cfg: dict, resultados: dict[int, tuple[int, int]]) -> set[int]:
+    """Eventos de fechas COMPLETAS: la base válida para el exact_rate del ranking.
+
+    `cantResultadosExactos` del ranking liquida por fecha cerrada, así que a mitad
+    de una fecha el numerador solo tiene los exactos de las fechas anteriores.
+    Dividir por TODOS los partidos terminados (los de la fecha en curso incluidos)
+    diluía la tasa → temperatura alta → pool modelado disperso con el pool real
+    concentrado: el mecanismo del incidente T=3.0, activo justo los días sin
+    snapshot fresco.
+    """
+    return {
+        e["evento_id"]
+        for f in cfg["fechas"].values()
+        if f["eventos"] and all(e["evento_id"] in resultados for e in f["eventos"])
+        for e in f["eventos"]
+    }
+
+
 def market_lambdas(o: EventOdds) -> tuple[float, float, float] | None:
     """(λ_L, λ_V, λ12) del mercado: fit bivariado contra 1X2 (+ over 2.5 si está).
 
@@ -683,6 +701,7 @@ def run(
     mis_numeros = mis_numeros_env()
     resultados: dict[int, tuple[int, int]] = {}
     n_rivales, exact_rate = 151, None
+    liquidados: set[int] = set()
     # numero de participación → puntos del ranking AHORA. El modelo de rivales los
     # prefiere a los del snapshot, que es una foto y puede tener horas (ver
     # rivals.build_rival_model).
@@ -709,8 +728,9 @@ def run(
                 propias = sum(r.numero_participacion in mis_numeros for r in ranking)
                 n_rivales = max(len(ranking) - propias, 1)
                 puntos_vivos = {r.numero_participacion: r.puntos_totales for r in ranking}
-                jugados = len(resultados)
-                exact_rate = observed_exact_rate_from_ranking(ranking, jugados, mis_numeros)
+                liquidados = eventos_liquidados(cfg, resultados)
+                exact_rate = observed_exact_rate_from_ranking(
+                    ranking, len(liquidados), mis_numeros)
             api_ok = True
             break
         except Exception as e:
@@ -767,8 +787,12 @@ def run(
     # calibrador elige un extremo arbitrario del grid.
     pool_cfg = PoolConfig()
     if exact_rate is not None:
+        # las grillas de calibración tienen que ser las MISMAS sobre las que se
+        # midió la tasa: fechas liquidadas si vino del ranking, todos los jugados
+        # si vino de contar los picks del snapshot
+        base_rate = resultados if rate_snapshot is not None else liquidados
         jugables = [g for g, ev in zip(pred_grids, eventos)
-                    if ev["evento_id"] in resultados]
+                    if ev["evento_id"] in base_rate]
         if jugables:
             previo = pool_cfg
             pool_cfg = calibrate_from_exact_rate(jugables, exact_rate, pool_cfg)
