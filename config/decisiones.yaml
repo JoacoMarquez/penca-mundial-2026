@@ -210,3 +210,23 @@ decisiones:
       Un leave-one-out de verdad cuesta recomputar la Q por rival y por partido (726x),
       y el efecto sobre E[premio] no está medido ni tiene signo obvio. Si alguna vez se
       retoma, medir E[premio] pareado — no la magnitud de γ, que ya sabemos que es 1,2%.
+  - nombre: cobertura de desenlace en el menú
+    donde: src.clausura.strategy.K_COBERTURA
+    valor: false
+    medida_con: {sims: 19200, participaciones: 12}
+    resultado: >-
+      E[premio] +153 ± 499 / +450 ± 732 (neutro en las dos verdades); contra las 4
+      temporadas REALES caza 4/37 batacazos y cuesta 6 pts de mejor planilla
+    fecha: 2026-08-12
+    nota: >-
+      El hallazgo estructural es REAL: en partidos desparejos el mejor marcador de
+      visitante queda ~puesto 19 por E[pts] y las 12 participaciones salen sin ninguno
+      (la F1 realizó eso: 3 batacazos, 0/12). Y el optimizador SÍ toma los candidatos
+      de cobertura cuando se le ofrecen (a diferencia de la rama de hueco, que ofrecía
+      5-1/5-0 y quedó intacta: (5,3) ≡ (5,0) bit a bit). Pero el seguro no funciona:
+      ~20 pólizas sobre 113 partidos cubren el 18% de los batacazos, no los batacazos
+      — en la realidad cazó 4/37 y costó puntos y premio. Para cazarlos de verdad
+      habría que asegurar la mayoría de los partidos, y esos boletos salen carísimos.
+      La Fecha 1 fue frecuencia normal (~10 batacazos/temporada), no modelo roto.
+      K_COBERTURA queda implementado y APAGADO. Reproducir:
+      scripts/backtest_cobertura.py --etapa 1|2|3.
