@@ -309,3 +309,33 @@ decisiones:
       La Fecha 1 fue frecuencia normal (~10 batacazos/temporada), no modelo roto.
       K_COBERTURA queda implementado y APAGADO. Reproducir:
       scripts/backtest_cobertura.py --etapa 1|2|3.
+
+  - nombre: warm start desde la planilla previa
+    donde: src.clausura.picks.run(usar_warm_start=)
+    valor: true
+    medida_con: {sims: 2400, participaciones: 12, max_passes: 3}
+    resultado: "+$3.622 ± 699 de E[premio] y churn de picks 49% → 22%"
+    fecha: 2026-08-08
+    vencida: >-
+      Medida a 2.400 sorteos y max_passes=3; producción corre 19.200 y 6 pasadas. Se
+      deja VENCIDA a la vista en vez de re-medirla de una: el brazo "frío" de esa
+      medición cuesta una corrida completa por réplica, y el mismo contraste se está
+      obteniendo gratis en continuo con src.clausura.cold_check (una corrida fría por
+      semana, comparada con sorteos comunes). Si el cold_check acumula fechas sin que
+      la fría gane nunca, eso ES la re-medición y acá se actualiza `medida_con`.
+    nota: >-
+      La auditoría del 13/8 encontró que esta decisión NUNCA se había registrado, y es
+      la que más lo necesitaba: se midió con max_passes=3 y 2.400 sorteos, y hoy
+      producción corre 6 pasadas y 19.200. La propia entrada de max_passes dice que
+      "warm start + 3 pasadas ≡ 6 pasadas en frío", así que con 6 pasadas el valor
+      marginal en E[premio] es una INCÓGNITA (el beneficio de churn sí sobrevive: menos
+      recargas manuales por saltos entre óptimos equivalentes).
+      Riesgo estructural aparte del nivel: el ascenso hereda la columna entera y solo la
+      reemplaza si un candidato del menú de HOY la supera — un pick heredado nunca se
+      compara contra "¿entrarías al menú desde cero?", así que puede sobrevivir
+      indefinidamente. La cadena lleva ~10 generaciones y el gate del rerun compara warm
+      nueva vs warm vigente, dos habitantes del mismo pozo.
+      Por eso NO se re-mide acá sino que se vigila en continuo: src.clausura.cold_check
+      corre el pipeline en frío una vez por semana y avisa si le gana a la cadena por
+      >2·SE y >$2.000 (mismo doble umbral del gate). Reproducir a mano:
+      python -m src.clausura.cold_check --dry-run

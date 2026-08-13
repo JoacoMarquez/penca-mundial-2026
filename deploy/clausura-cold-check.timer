@@ -1,0 +1,17 @@
+[Unit]
+Description=Timer del control frío del warm start — semanal, martes de madrugada
+
+# Martes 04:30 UTC (01:30 UY): sin fútbol, con el postmortem del lunes (03:20) ya
+# terminado y muy lejos del timer de picks de las 11:00. Una vez por semana alcanza:
+# lo que se vigila es si la CADENA de warm starts se atascó, y la cadena avanza de a
+# una corrida por día — un óptimo local no aparece y desaparece en 24h.
+#
+# Persistent=true: si el droplet estuvo caído el martes, la corrida se recupera. No
+# es urgente pero tampoco se quiere perder semanas enteras de vigilancia en silencio.
+
+[Timer]
+OnCalendar=Tue *-*-* 04:30:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

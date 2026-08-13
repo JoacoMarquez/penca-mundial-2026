@@ -459,6 +459,26 @@ def run(fecha: int | None = None, dry_run: bool = False) -> str | None:
     except Exception as e:                                     # noqa: BLE001
         log.warning("tripwire de puntos vs ranking falló (%s)", e)
 
+    # PIT del pool: ¿el modelo genera una cola tan gorda como la real? Es el único
+    # observable que puede convertir "los niveles no son creíbles" en un factor de
+    # corrección medido — y si la cola está corta, TODOS los deltas de
+    # diferenciación quedan sesgados en la misma dirección.
+    try:
+        from src.clausura.pool_pit import acumular, correr_fecha, formatear
+        from src.clausura.pool_snapshot import load_latest_snapshot
+
+        snap = load_latest_snapshot()
+        if snap and st.pool_puntos:
+            pit = correr_fecha(fecha, cfg, snap, resultados, st.pool_puntos,
+                               set(mis_numeros))
+            if pit is not None:
+                # Acumulado: el PIT de UNA fecha no dice nada (es un percentil de una
+                # muestra de 1). La señal es la tendencia sobre 3-4 fechas.
+                todos = acumular(pit, persistir=not dry_run)
+                reporte += "\n\n" + formatear(todos)
+    except Exception as e:                                     # noqa: BLE001
+        log.warning("PIT del pool falló (%s) — el postmortem sigue sin esa sección", e)
+
     print(reporte.replace("<b>", "").replace("</b>", "").replace("<i>", "").replace("</i>", ""))
     if not dry_run:
         PM_DIR.mkdir(parents=True, exist_ok=True)

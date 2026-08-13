@@ -733,13 +733,26 @@ def run(
     n_sims: int = DEFAULT_SIMS,
     liberar_especiales: bool = False,
     contexto: dict | None = None,
-) -> Path:
+    usar_warm_start: bool = True,
+    guardar: bool = True,
+) -> Path | None:
     """Corre el pipeline de una fecha y versiona la planilla.
 
     `contexto` es un dict de salida opcional: si se pasa, se le cargan el portfolio,
     el evaluador (para re-liquidar otras matrices de picks con los mismos sorteos) y
     el mapa evento→columna. Lo usa src.clausura.rerun_cierre para decidir si el
     cambio de planilla vale la pena en PLATA antes de pedir una recarga manual.
+
+    `usar_warm_start=False` arranca el ascenso desde el ancla EV en vez de heredar
+    la planilla previa: es el control FRÍO de src.clausura.cold_check. La cadena de
+    warm starts lleva ~10 generaciones y un pick heredado solo se abandona si un
+    candidato del menú de HOY lo supera — nunca se lo compara contra "¿entrarías al
+    menú desde cero?". Sin una corrida fría, un óptimo local heredado es invisible:
+    el gate del rerun compara warm nueva vs warm vigente, dos habitantes del mismo pozo.
+
+    `guardar=False` no versiona ni notifica y devuelve None: la corrida fría es un
+    CONTROL, y guardarla la convertiría en el warm start de la próxima corrida —
+    justo la cadena que viene a auditar.
     """
     if n_sims < SIMS_MIN_SEGURO:
         log.warning(
@@ -1077,7 +1090,8 @@ def run(
         especiales=especiales,
         pool_qs=pool_qs,
         rivals=rival_model,
-        warm_start=load_warm_start(eventos, target_fecha, n_participaciones),
+        warm_start=(load_warm_start(eventos, target_fecha, n_participaciones)
+                    if usar_warm_start else None),
     )
 
     eventos_fecha = [ev for ev in eventos if ev["fecha_n"] == target_fecha]
@@ -1183,9 +1197,15 @@ def run(
                     "el rerun con ES vivo va a proponer la corrección.\n\n"
                     + planilla)
 
-    path = save_version(target_fecha, payload)
-
     print(planilla.replace("<b>", "").replace("</b>", "").replace("<i>", "").replace("</i>", ""))
+
+    if not guardar:
+        # Corrida de control (cold_check): no versiona ni notifica. El contexto ya
+        # lleva el portfolio y el evaluador, que es todo lo que el llamador necesita.
+        log.info("corrida sin guardar (control) — no se versiona ni se notifica")
+        return None
+
+    path = save_version(target_fecha, payload)
     print(f"\nguardado: {path}")
 
     if telegram:
@@ -1216,13 +1236,19 @@ def main() -> None:
     ap.add_argument("--liberar-especiales", action="store_true",
                     help="ignorar el freeze de campeón/goleador y re-optimizarlos "
                          "(solo mientras los especiales siguen editables en la web)")
+    ap.add_argument("--cold", action="store_true",
+                    help="arrancar el ascenso desde el ancla EV en vez de heredar la "
+                         "planilla previa. Es un CONTROL: no versiona ni notifica "
+                         "(guardarlo lo volvería el warm start de la próxima corrida). "
+                         "Para el chequeo automático usá src.clausura.cold_check")
     args = ap.parse_args()
     n_part = args.participaciones
     if n_part is None:
         from src.clausura.rivals import mis_numeros_env
         n_part = len(mis_numeros_env()) or 5
     run(resolve_fecha(args.fecha), n_part, args.telegram, args.sims,
-        liberar_especiales=args.liberar_especiales)
+        liberar_especiales=args.liberar_especiales,
+        usar_warm_start=not args.cold, guardar=not args.cold)
 
 
 if __name__ == "__main__":
