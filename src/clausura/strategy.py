@@ -544,6 +544,27 @@ class EvaluadorPortfolio:
         self._campeon = campeon_picks
         self._goleador = goleador_picks
 
+    def con_grids(self, grids) -> "EvaluadorPortfolio":
+        """Mismo evaluador pero liquidando contra OTRA verdad (otras grillas).
+
+        Existe para comparar dos portfolios que fueron OPTIMIZADOS con modelos
+        distintos. Evaluar cada uno bajo su propio modelo compara mundos, no
+        decisiones: el brazo A gana bajo la verdad A y el B bajo la B, siempre, y el
+        número no dice nada sobre qué conviene jugar. Es el error que ya mató tres
+        veces a un "número grande" en este proyecto (el override de fuerza de
+        Peñarol, el desglose +3.2pp, los mercados ricos).
+
+        Lo correcto es fijar UNA verdad —la mejor estimación disponible— y liquidar
+        los dos portfolios ahí, con sorteos comunes. Todo lo demás (pool, rivales,
+        premios, especiales, semillas) se hereda intacto, así que la única
+        diferencia entre las dos evaluaciones son los picks.
+        """
+        gemelo = EvaluadorPortfolio(
+            grids, *self._args[1:], cfg=self._cfg, especiales=self._especiales,
+            rivals=self._rivals, campeon_picks=self._campeon,
+            goleador_picks=self._goleador)
+        return gemelo
+
     def _simulador(self, seed: int) -> SeasonSimulator:
         """Simulador con el lado RIVAL listo. Nuestros picks los pone `_cargar`.
 

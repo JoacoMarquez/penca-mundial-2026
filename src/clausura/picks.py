@@ -295,6 +295,26 @@ def eventos_liquidados(cfg: dict, resultados: dict[int, tuple[int, int]]) -> set
     }
 
 
+def devig_1x2_metodo() -> str:
+    """Método de de-vig del 1X2. Perilla para medir proportional vs Shin.
+
+    Producción usa `proportional` desde el principio, por el criterio de
+    `odds.py`: Shin para el marcador exacto ("favoritos fuertes, mercado de colas")
+    y proporcional para 1X2 y totales, tratados como "mercados balanceados".
+
+    Ese supuesto quedó en duda el 13/8, midiendo contra Pinnacle desde el droplet
+    (scripts/odds_sharp_vs_supermatch.py, 8 partidos de la F2): el overround del
+    1X2 de Supermatch es 14,7% medio contra 6,3% de Pinnacle, y con proporcional
+    nuestras probabilidades subvalúan al favorito en −1,49 pp ± 0,42 (t=−3,53,
+    7/8 partidos). Con Shin el mismo contraste cae a −0,42 pp ± 0,37 (t=−1,15).
+    O sea: con vig alto, el reparto a prorrata le saca sistemáticamente al favorito.
+
+    Lo que ESO no dice es si mueve plata — que es lo que decide en este proyecto.
+    Mientras no esté medido con Δ E[premio] pareado, el default no se toca.
+    """
+    return os.getenv("CLAUSURA_DEVIG_1X2", "proportional").strip().lower()
+
+
 def market_lambdas(o: EventOdds) -> tuple[float, float, float] | None:
     """(λ_L, λ_V, λ12) del mercado: fit bivariado contra 1X2 (+ over 2.5 si está).
 
@@ -305,8 +325,9 @@ def market_lambdas(o: EventOdds) -> tuple[float, float, float] | None:
     """
     if not o.x1x2:
         return None
-    p = devig(o.x1x2, "proportional")
-    o25 = devig(o.totals["2.5"], "proportional").get("over") if "2.5" in o.totals else None
+    metodo = devig_1x2_metodo()
+    p = devig(o.x1x2, metodo)
+    o25 = devig(o.totals["2.5"], metodo).get("over") if "2.5" in o.totals else None
     c = MarketConstraints(p_home_win=p["home"], p_draw=p["draw"], p_away_win=p["away"],
                           p_over_2_5=o25)
     return fit_params(c)
@@ -1177,7 +1198,12 @@ def run(
     }
     if contexto is not None:
         contexto.update(portfolio=port, evaluador=port.evaluador,
-                        idx_of=idx_of, eventos=eventos)
+                        idx_of=idx_of, eventos=eventos,
+                        # `grids` son las de LIQUIDACIÓN (delta en lo jugado):
+                        # scripts/backtest_devig_1x2.py las usa de base para armar
+                        # una verdad alternativa sin recalcular los 112 partidos
+                        # que no tienen mercado.
+                        grids=grids, odds_by_evento=odds_by_evento)
 
     if not api_ok:
         detalle = (f"pool {'del snapshot' if snapshot else 'DEFAULT'} "
