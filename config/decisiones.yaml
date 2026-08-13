@@ -381,6 +381,52 @@ decisiones:
       Monte Carlo. Si se re-mide, más reps antes que más sorteos.
       Reproducir: scripts/backtest_cobertura.py --etapa 1|2|3.
 
+  - nombre: dependencia entre goles en las grillas de ratings (λ12 / Dixon-Coles)
+    donde: (nada — se midió y no se cambió)
+    valor: null
+    medida_con: {sims: 19200, participaciones: 12}
+    resultado: >-
+      bivariate λ12 −0.00124 ± 0.00507 nats/partido (t=−0.24) · Dixon-Coles ρ
+      −0.00266 ± 0.00205 (t=−1.30), 528 partidos walk-forward; empate real 27,46%
+      vs 26,92% del Poisson independiente
+    delta: -0.00124
+    se: 0.00507
+    unidad: nats
+    fecha: 2026-08-13
+    inerte: >-
+      No se cambió nada: la entrada documenta un rechazo y, sobre todo, CIERRA una
+      contradicción que el sistema venía sosteniendo sin saberlo.
+    nota: >-
+      LA CONTRADICCIÓN (auditoría 13/8): en los 8 partidos con mercado,
+      `market_lambdas` fitea un λ12 libre y lo propaga al blend (dependencia
+      positiva); en los otros 112 —y en el 100% de P(campeón)— `ratings.py` usa
+      λ12 = 0 citando "corr +0.002". Las dos no pueden ser ciertas.
+      SE MIDIERON DOS MODELOS, porque la correlación de Pearson ≈ 0 refuta la
+      bivariada pero NO la otra forma de dependencia: Dixon-Coles reajusta solo los
+      cuatro marcadores bajos y puede subir la diagonal dejando la correlación
+      intacta. Walk-forward por fecha (ratings y parámetro extra fiteados sobre lo
+      ANTERIOR), evaluando la verosimilitud del marcador exacto.
+      RESULTADO: ninguno mejora fuera de muestra, y el Poisson independiente
+      CALIBRA MEJOR el empate que los dos (26,92% vs 27,46% real, dentro de ±1,94
+      pp de error; la bivariada se pasa a 28,98%). El 0-0 sí queda 1,4 pp corto con
+      el independiente (9,35% vs 10,80% real), pero es ~1 SE y la bivariada lo
+      arregla al precio de inflar TODOS los empates.
+      El lado ratings queda VALIDADO: λ12 = 0 ahora está medido, no supuesto.
+      SOBRE LA POTENCIA: el brazo de verosimilitud es ciego a efectos menores a
+      0,0144 nats (bivariada) y 0,0058 (Dixon-Coles), y la ingesta intra-temporada
+      —adoptada— valió 0,0073. O sea que el log-lik NO descarta un efecto del
+      tamaño que nos importa; lo que sí es evidencia dura es la calibración, donde
+      el independiente ya es el mejor de los tres y no hay nada que arreglar.
+      LO QUE ABRE: del lado MERCADO, λ12 no es una creencia sobre dependencia sino
+      el tercer grado de libertad que el fit necesita para clavar las tres patas
+      del 1X2. Reporta λ12 > 0 siempre que el mercado pida más empate del que
+      implican sus marginales — esperable con 14,7% de overround (el empate de
+      Supermatch viene +0,53 pp vs Pinnacle, medido el 13/8). Sospecha razonable:
+      ese λ12 absorbe vig, no estructura. Cambiarlo exige Δ E[premio] pareado.
+      Control que hace informativo al nulo: el fit RECUPERA un λ12 sembrado
+      (0,25 → 0,25 ± 0,06) y devuelve ~0 cuando no hay dependencia (tests).
+      Reproducir con scripts/backtest_lambda12.py.
+
   - nombre: warm start desde la planilla previa
     donde: src.clausura.picks.run(usar_warm_start=)
     valor: true
