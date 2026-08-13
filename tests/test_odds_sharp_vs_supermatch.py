@@ -211,3 +211,36 @@ def test_historial_separa_los_metodos(tmp_path, monkeypatch):
     guardado = json.loads((tmp_path / "sharp_vs_supermatch.json").read_text(encoding="utf-8"))
     assert len(guardado["pares"]) == 2
     assert {p["metodo"] for p in guardado["pares"]} == {"proportional", "shin"}
+
+
+def test_devig_1x2_es_configurable_y_default_proportional(monkeypatch):
+    """La perilla existe para MEDIR shin vs proportional; el default no se toca
+    hasta que haya Δ E[premio] pareado (scripts/backtest_devig_1x2.py)."""
+    from src.clausura.picks import devig_1x2_metodo
+
+    monkeypatch.delenv("CLAUSURA_DEVIG_1X2", raising=False)
+    assert devig_1x2_metodo() == "proportional"
+    monkeypatch.setenv("CLAUSURA_DEVIG_1X2", " SHIN ")
+    assert devig_1x2_metodo() == "shin"
+
+
+def test_evaluador_con_grids_conserva_todo_menos_la_verdad():
+    """`con_grids` existe para comparar DECISIONES bajo una misma verdad. Si además
+    de las grillas cambiara el pool o los rivales, volvería a comparar mundos."""
+    import numpy as np
+
+    from src.clausura.economics import N_SCORES, SimConfig
+    from src.clausura.strategy import EvaluadorPortfolio
+
+    grids_a = [np.full((6, 6), 1 / 36) for _ in range(2)]
+    grids_b = [np.full((6, 6), 1 / 36) for _ in range(2)]
+    pool_qs = [np.full(N_SCORES, 1 / N_SCORES) for _ in range(2)]
+    cfg = SimConfig(n_sims=4, n_rivales=3)
+    ev = EvaluadorPortfolio(grids_a, [1, 1], [False, False], pool_qs,
+                            {"PENCA": 1000.0}, cfg)
+    gemelo = ev.con_grids(grids_b)
+
+    assert gemelo._args[0] is grids_b            # la verdad cambió…
+    assert gemelo._args[1:] == ev._args[1:]      # …y NADA más
+    assert gemelo._cfg is ev._cfg
+    assert gemelo._rivals is ev._rivals and gemelo._especiales is ev._especiales

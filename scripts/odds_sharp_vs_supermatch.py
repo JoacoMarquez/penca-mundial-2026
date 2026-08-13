@@ -331,19 +331,38 @@ def pinnacle_eventos() -> list[dict]:
             continue
         info[m["id"]] = {"home": home, "away": away, "start_utc": m["startTime"]}
 
-    out = []
     markets = _con_reintentos(lambda: get_sport_markets(SPORT_SOCCER),
                               "sport_markets")
+
+    # Se recogen 1X2 y el total de 2.5 por separado y recién después se arma el
+    # evento: el fit de λ de producción usa AMBOS (picks.market_lambdas), así que
+    # una grilla armada solo con el 1X2 quedaría con menos restricciones y el
+    # experimento castigaría a Pinnacle por eso y no por su precio.
+    x1x2: dict[int, dict[str, float]] = {}
+    totales: dict[int, dict[str, float]] = {}
     for mk in markets:
-        if mk.get("type") != "moneyline" or mk.get("period", 0) != 0:
+        mid = mk.get("matchupId")
+        if mid not in info or mk.get("period", 0) != 0:
             continue
-        ev = info.get(mk.get("matchupId"))
-        if ev is None:
-            continue
-        precios = {p["designation"]: american_to_decimal(p["price"])
-                   for p in mk.get("prices", []) if p.get("price") is not None}
-        if {"home", "draw", "away"} <= set(precios):
-            out.append({**ev, "x1x2": {k: precios[k] for k in ("home", "draw", "away")}})
+        tipo = mk.get("type")
+        if tipo == "moneyline":
+            precios = {p["designation"]: american_to_decimal(p["price"])
+                       for p in mk.get("prices", []) if p.get("price") is not None}
+            if {"home", "draw", "away"} <= set(precios):
+                x1x2[mid] = {k: precios[k] for k in ("home", "draw", "away")}
+        elif tipo == "total":
+            linea = {p["designation"]: american_to_decimal(p["price"])
+                     for p in mk.get("prices", [])
+                     if p.get("price") is not None and p.get("points") == 2.5}
+            if {"over", "under"} <= set(linea):
+                totales[mid] = linea
+
+    out = []
+    for mid, cuotas in x1x2.items():
+        ev = {**info[mid], "x1x2": cuotas}
+        if mid in totales:
+            ev["totals"] = {"2.5": totales[mid]}
+        out.append(ev)
     return out
 
 
