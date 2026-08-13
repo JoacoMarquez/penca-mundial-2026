@@ -81,6 +81,28 @@ def build_config() -> dict:
     }
 
 
+def preferenciales_cambiados(cfg: dict, previo: dict | None) -> list[str]:
+    """Eventos conocidos cuyo flag `preferencial` cambió entre configs.
+
+    El ×2 del partido estrella entra al optimizador vía el config: si el admin
+    recategoriza la estrella DESPUÉS de cargada la planilla, los picks de esa
+    fecha quedaron optimizados con el ×2 en el partido equivocado — y sin este
+    aviso, el pisado del YAML era silencioso.
+    """
+    if previo is None:
+        return []
+    prev_flags = {e["evento_id"]: (bool(e.get("preferencial")), e)
+                  for f in previo.get("fechas", {}).values() for e in f.get("eventos", [])}
+    cambios = []
+    for nombre, f in cfg.get("fechas", {}).items():
+        for e in f.get("eventos", []):
+            conocido = prev_flags.get(e["evento_id"])
+            if conocido and conocido[0] != bool(e.get("preferencial")):
+                estrella = "ahora ⭐x2" if e.get("preferencial") else "PERDIÓ la ⭐x2"
+                cambios.append(f"{nombre}: {e['local']} vs {e['visitante']} {estrella}")
+    return cambios
+
+
 def check_contra_anterior(cfg: dict, previo: dict | None) -> None:
     """Rechaza un config que PIERDE eventos ya conocidos, salvo casos legítimos.
 
@@ -128,8 +150,21 @@ def main() -> None:
         raise RuntimeError(
             f"config sospechoso del API ({len(cfg.get('fechas', {}))} fechas, "
             f"{n_eventos} eventos) — NO se pisa {CONFIG_PATH.name}")
-    if not args.force and CONFIG_PATH.exists():
-        check_contra_anterior(cfg, yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8")))
+    if CONFIG_PATH.exists():
+        previo = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
+        if not args.force:
+            check_contra_anterior(cfg, previo)
+        cambios = preferenciales_cambiados(cfg, previo)
+        if cambios:
+            msg = ("⭐ <b>Cambió el partido preferencial</b> — si la fecha ya está "
+                   "cargada, los picks se optimizaron con el ×2 en el partido "
+                   "equivocado:\n" + "\n".join(f"  · {c}" for c in cambios))
+            print(msg.replace("<b>", "").replace("</b>", ""), file=sys.stderr)
+            try:
+                from src.notifier.telegram import TelegramConfig, TelegramNotifier
+                TelegramNotifier(TelegramConfig.from_env()).send(msg)
+            except Exception:                                  # noqa: BLE001
+                pass    # sin Telegram (dev local): el stderr ya lo dice
 
     # Escritura atómica: gate_watch (10 min), carga_alert (horario) y el dashboard
     # leen este archivo concurrentemente; un write_text a medias les sirve YAML

@@ -45,7 +45,9 @@ maximizar E[premio], no puntaje esperado), otro torneo y otra plataforma.
 | `drift_audit.py` | Compara lo cargado en la web vs la planilla; adopta post-cierre lo que la web dice (la web es la verdad). |
 | `carga_alert.py` | Recordatorios de carga a 6h y 2h del cierre (recordatorio, NO verificación). |
 | `gate_watch.py` | Vigía del gate del API cada 10 min: captura snapshot si se abre una ventana. |
-| `postmortem.py` | Cierre de fecha: puntos reales vs esperados, exactos, distribución del pool. |
+| `postmortem.py` | Cierre de fecha: puntos reales vs esperados, exactos, distribución del pool, tripwire de puntos propios vs ranking y PIT del pool. |
+| `pool_pit.py` | ¿El modelo genera una cola tan gorda como la real? Simula rivales i.i.d. ∝ Q^γ contra los resultados REALES y ubica los cuantiles del pool observado. Cola corta ⇒ la vara para ganar es más alta que la que cree el optimizador y los rechazos de diferenciación hay que re-medirlos. |
+| `cold_check.py` | Control FRÍO semanal del warm start: corre el pipeline desde el ancla EV (sin heredar la planilla previa, sin versionar) y avisa si le gana a la cadena por >2·SE y >$2.000. Es el único observable del trinquete del warm start. |
 | `heartbeat.py` | Telegram diario que confirma que timers y servicios viven. |
 | `webapp.py` / `dashboard_loader.py` / `verificar_carga.py` | Dashboard local (FastAPI): planilla, modo carga, pool, verificación post-cierre. |
 | `backtest.py` | Validación sobre temporadas reales del penca-api. |
@@ -55,7 +57,7 @@ maximizar E[premio], no puntaje esperado), otro torneo y otra plataforma.
 **VPS:** DigitalOcean 159.203.66.24, 2 GB. Timers systemd (UTC):
 `picks` 11:00 diario · `rerun-cierre` 12..23:35 · `carga-alert` 11..23:10 ·
 `drift-audit` 13:20/18:20/23:50 · `postmortem` 03:20 · `heartbeat` 12:30 ·
-`gate-watch` cada 10 min.
+`gate-watch` cada 10 min · `cold-check` martes 04:30 (semanal).
 
 **Deploy:** `bash deploy/safe_pull.sh` en el VPS — NUNCA `git pull` a secas: los
 units de systemd son copias en `/etc` y el pull no las aplica ni avisa.

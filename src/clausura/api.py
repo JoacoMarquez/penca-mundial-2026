@@ -144,6 +144,29 @@ def parse_eventos(data: list[dict], fecha_id: int) -> list[Evento]:
     return sorted(out, key=lambda ev: ev.inicio_utc)
 
 
+def resultado_finalizado(e: dict) -> tuple[int, int] | None:
+    """Resultado de un evento crudo del API, SOLO si el partido terminó.
+
+    Hasta ahora todo el pipeline tomaba "goles no-null" como final. Si el API
+    alguna vez publica el marcador PARCIAL de un partido en juego o suspendido a
+    mitad (Art. 14: el suspendido se completa otro día), ese resultado falso
+    entraría a grillas, ratings, exact_rate y tabla del campeón — y el rerun
+    T-2h corre justo mientras hay partidos en cancha.
+
+    Si `estado` viene vacío (shape viejo o endpoint que no lo trae), se cae al
+    criterio de goles no-null: exigir FINALIZADO ahí apagaría TODOS los
+    resultados en silencio ante un cambio de shape, que es peor.
+    """
+    estado = e.get("estado")
+    if estado and estado != "FINALIZADO":
+        return None
+    res = e.get("resultado") or {}
+    gl, gv = res.get("golesEquipoLocal"), res.get("golesEquipoVisitante")
+    if gl is None or gv is None:
+        return None
+    return int(gl), int(gv)
+
+
 def parse_ranking_page(page: dict) -> tuple[list[RankingRow], int, int]:
     """Página Spring → (rows, total_elements, total_pages)."""
     rows = [

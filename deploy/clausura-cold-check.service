@@ -1,0 +1,26 @@
+[Unit]
+Description=Penca Clausura — control FRÍO del warm start (¿la cadena quedó en un óptimo local?)
+After=network-online.target
+Wants=network-online.target
+OnFailure=penca-failure-notify@%n.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/penca/env
+Environment="PYTHONPATH=/opt/penca"
+WorkingDirectory=/opt/penca
+# Corre el pipeline COMPLETO desde el ancla EV (sin heredar la planilla previa) y lo
+# compara contra la cadena vigente con sorteos comunes. NO versiona la planilla fría:
+# guardarla la volvería el warm start de la próxima corrida, justo lo que audita.
+#
+# Es la corrida más cara del sistema después del rerun (~30-40 min a 19.200), por eso
+# va una vez por semana y en el hueco de la madrugada del martes: no hay fútbol, el
+# timer de picks (11:00) todavía no corrió y el postmortem (03:20) ya terminó.
+#
+# TimeoutStartSec generoso: a 19.200 sorteos la optimización sola son ~11 min y el
+# evaluador de 5 semillas otros ~22 (cronometrado en el droplet el 12/8).
+TimeoutStartSec=5400
+ExecStart=/opt/penca/.venv/bin/python -m src.clausura.cold_check
+StandardOutput=append:/var/lib/penca/logs/clausura-cold-check.log
+StandardError=append:/var/lib/penca/logs/clausura-cold-check.err
+User=root

@@ -98,3 +98,19 @@ def test_fallas_consecutivas_escalan_una_vez(tmp_path, monkeypatch):
     assert gw._contar_falla() == 1          # y se vuelve a contar desde cero
     gw._reset_fallas()
     assert not (tmp_path / "fallas.json").exists()
+
+
+def test_alerta_avisa_retrasar_la_carga_propia():
+    """El único vector real de copia intra-fecha: con la ventana abierta, lo que
+    nosotros carguemos también es visible — la alerta cierra el lazo (13/8)."""
+    from src.clausura.gate_watch import formatear_alerta
+
+    eventos = [{"evento_id": 1, "local": "Peñarol", "visitante": "Nacional",
+                "cierre_pronostico_utc": "2026-08-15T18:45:00+00:00",
+                "inicio_utc": "2026-08-15T19:00:00+00:00"}]
+    cur = {"abiertos": [1], "especiales_pre_inicio": False}
+    txt = formatear_alerta(cur, eventos, resumen_snapshot="ok")
+    assert "RETRASÁ la carga" in txt
+    # sin marcadores abiertos (solo especiales) no aplica
+    cur2 = {"abiertos": [], "especiales_pre_inicio": True}
+    assert "RETRASÁ" not in formatear_alerta(cur2, eventos, resumen_snapshot="ok")

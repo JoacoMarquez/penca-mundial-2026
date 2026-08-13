@@ -37,7 +37,7 @@ log = logging.getLogger(__name__)
 # este módulo existe para cerrar (una sola ventana cazada financió la v13).
 TIMERS = ("clausura-picks", "clausura-rerun-cierre", "clausura-drift-audit",
           "clausura-carga-alert", "clausura-postmortem", "clausura-goleador-watch",
-          "clausura-gate-watch", "clausura-heartbeat")
+          "clausura-gate-watch", "clausura-heartbeat", "clausura-cold-check")
 
 # Servicios de larga vida (no-timer) que también tienen que estar corriendo: si
 # uvicorn muere con los Restart agotados, el modo carga desaparece justo el sábado.

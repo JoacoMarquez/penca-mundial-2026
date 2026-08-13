@@ -20,7 +20,7 @@ import logging
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from src.clausura.api import BASE, HEADERS, _parse_dt
+from src.clausura.api import BASE, HEADERS, _parse_dt, resultado_finalizado
 
 import httpx
 
@@ -67,10 +67,10 @@ def fetch_temporada(campeonato_id: int, nombre: str) -> list[PartidoHistorico]:
             r = c.get(f"/front/campeonatos/fechas/{f['id']}/eventos")
             r.raise_for_status()
             for e in r.json().get("data", []):
-                res = e.get("resultado") or {}
-                gl, gv = res.get("golesEquipoLocal"), res.get("golesEquipoVisitante")
-                if gl is None or gv is None:
-                    continue  # no jugado / sin cargar
+                real = resultado_finalizado(e)
+                if real is None:
+                    continue  # no jugado / sin cargar / en juego
+                gl, gv = real
                 out.append(PartidoHistorico(
                     campeonato_id=campeonato_id,
                     campeonato=nombre,

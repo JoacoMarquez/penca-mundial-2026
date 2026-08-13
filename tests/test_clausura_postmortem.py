@@ -189,3 +189,97 @@ def test_no_rehace_si_el_archivo_esta_al_dia(tmp_path, monkeypatch):
     (tmp_path / "fecha_01.json").write_text(
         json.dumps({"resultados": {str(i): [1, 0] for i in range(8)}}), encoding="utf-8")
     assert pm.fecha_a_analizar(cfg) is None
+
+
+# -------------------- auditoría 13/8: trofeo, correcciones, tripwire --------------------
+
+def test_trofeo_solo_con_fecha_liquidada():
+    """Con un suspendido pendiente el premio no está definido (Arts. 9 y 14).
+
+    La Fecha 1 tuvo exactamente este estado (Torque–Peñarol suspendido) y el
+    reporte cantaba "ganaste la fecha" igual.
+    """
+    st = _stats()
+    con_faltante = formatear_postmortem(st, premio_fecha=10000, faltan=1)
+    assert "ganó la fecha" not in con_faltante
+    assert "falta 1 partido" in con_faltante
+    liquidada = formatear_postmortem(st, premio_fecha=10000, faltan=0)
+    assert "ganó la fecha" in liquidada
+
+
+def test_rehace_si_un_resultado_fue_CORREGIDO(tmp_path, monkeypatch):
+    """Misma cantidad de resultados pero un marcador distinto → se rehace.
+
+    Comparar solo conteos dejaba pasar una corrección del proveedor: el
+    postmortem quedaba escrito con el resultado viejo para siempre.
+    """
+    from src.clausura import postmortem as pm
+
+    cfg = {"fechas": {"Fecha 1": {"fecha_id": 280}}}
+    monkeypatch.setattr(pm, "pm_path", lambda n: tmp_path / f"fecha_{n:02d}.json")
+    monkeypatch.setattr(pm, "resultados_de_fecha",
+                        lambda cfg, n, min_jugados: ({1: (1, 0), 2: (2, 2)}, 0))
+    (tmp_path / "fecha_01.json").write_text(
+        json.dumps({"resultados": {"1": [1, 0], "2": [2, 1]}}), encoding="utf-8")
+    assert pm.fecha_a_analizar(cfg) == 1
+
+
+def test_no_rehace_si_un_resultado_DESAPARECE(tmp_path, monkeypatch):
+    """Un glitch transitorio del API (resultado que se esfuma) no pisa un
+    postmortem bueno con uno más pobre."""
+    from src.clausura import postmortem as pm
+
+    cfg = {"fechas": {"Fecha 1": {"fecha_id": 280}}}
+    monkeypatch.setattr(pm, "pm_path", lambda n: tmp_path / f"fecha_{n:02d}.json")
+    monkeypatch.setattr(pm, "resultados_de_fecha",
+                        lambda cfg, n, min_jugados: ({1: (1, 0)}, 1))
+    (tmp_path / "fecha_01.json").write_text(
+        json.dumps({"resultados": {"1": [1, 0], "2": [2, 1]}}), encoding="utf-8")
+    assert pm.fecha_a_analizar(cfg) is None
+
+
+def test_resultados_de_fecha_descarta_marcador_parcial(monkeypatch):
+    """Un partido EN JUEGO con goles cargados cuenta como faltante, no como
+    resultado — la guardia de `estado` (resultado_finalizado)."""
+    import src.clausura.postmortem as pm
+
+    class _Api:
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def _get(self, _):
+            return [
+                {"id": 1, "estado": "FINALIZADO",
+                 "resultado": {"golesEquipoLocal": 1, "golesEquipoVisitante": 0}},
+                {"id": 2, "estado": "EN_JUEGO",
+                 "resultado": {"golesEquipoLocal": 2, "golesEquipoVisitante": 0}},
+            ]
+
+    monkeypatch.setattr(pm, "PencaApiClient", _Api)
+    cfg = {"fechas": {"Fecha 1": {"fecha_id": 280}}}
+    res, faltan = pm.resultados_de_fecha(cfg, 1, min_jugados=1)
+    assert res == {1: (1, 0)} and faltan == 1
+
+
+def test_tripwire_puntos_vs_web():
+    """Los rivales están anclados al ranking por el residuo; nuestros puntos
+    calculados nunca se contrastaban. Cualquier divergencia de liquidación
+    sesgaba solo nuestro lado del simulador, sin síntoma."""
+    from src.clausura.postmortem import comparar_puntos_publicados
+
+    difs = comparar_puntos_publicados(
+        {899258848: 24, 899258849: 9}, {899258848: 24, 899258849: 12})
+    assert len(difs) == 1 and "calculado 9 vs web 12" in difs[0]
+    # sin dato publicado no hay falsa alarma
+    assert comparar_puntos_publicados({899258848: 24}, {}) == []
+
+
+def test_totales_calculados_suman_postmortems_previos(tmp_path, monkeypatch):
+    from src.clausura import postmortem as pm
+
+    monkeypatch.setattr(pm, "pm_path", lambda n: tmp_path / f"fecha_{n:02d}.json")
+    (tmp_path / "fecha_01.json").write_text(
+        json.dumps({"puntos": {"899258848": 10, "899258849": 7}}), encoding="utf-8")
+    tot = pm._totales_calculados(2, {899258848: 5, 899258849: 3})
+    assert tot == {899258848: 15, 899258849: 10}
+    # sin el postmortem de una fecha previa, no se puede verificar → None
+    assert pm._totales_calculados(3, {899258848: 5}) is None
