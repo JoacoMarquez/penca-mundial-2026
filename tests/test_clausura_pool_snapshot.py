@@ -399,3 +399,35 @@ def test_exact_rate_sin_datos_devuelve_none():
     assert exact_rate_desde_snapshot(None, {1: (1, 0)}) is None
     assert exact_rate_desde_snapshot(_snap([]), {1: (1, 0)}) is None
     assert exact_rate_desde_snapshot(_snap([{"numero": 1, "picks": {}}]), {}) is None
+
+
+def test_fetch_snapshot_guarda_timestamps_de_carga(monkeypatch, tmp_path):
+    """`creationDate`/`lastModifiedDate` del API se guardan crudos en el snapshot.
+
+    Son la señal para detectar rivales sistemáticos (quién carga por script,
+    quién EDITA cerca del cierre) y se estaban descartando — auditoría 13/8.
+    """
+    import httpx
+    from src.clausura import pool_snapshot as ps
+    from src.clausura.pool_snapshot import fetch_snapshot, save_snapshot
+
+    def handler(request):
+        if "pronosticosEventos" in request.url.path:
+            return httpx.Response(200, json={"data": [
+                {"encuentroId": 2086, "golesEquipoLocal": 1, "golesEquipoVisitante": 0,
+                 "creationDate": "03-08-2026 07:08:50",
+                 "lastModifiedDate": "07-08-2026 18:01:02"},
+                {"encuentroId": 2087, "golesEquipoLocal": 0, "golesEquipoVisitante": 0},
+            ]})
+        return httpx.Response(200, json={"equipoCampeon": {}, "opcionGoleador": {}})
+
+    _mock_api(monkeypatch, handler, n_rivales=1)
+    out = fetch_snapshot(46, pause_s=0)
+    assert out[0].picks_ts == {2086: ("03-08-2026 07:08:50", "07-08-2026 18:01:02")}
+    assert 2087 not in out[0].picks_ts          # sin timestamps no se inventa nada
+
+    # y sobreviven el roundtrip a disco con claves str, como los picks
+    monkeypatch.setattr(ps, "SNAP_DIR", tmp_path)
+    snap = json.loads(save_snapshot(out, penca_id=46).read_text(encoding="utf-8"))
+    assert snap["participaciones"][0]["picks_ts"] == {
+        "2086": ["03-08-2026 07:08:50", "07-08-2026 18:01:02"]}

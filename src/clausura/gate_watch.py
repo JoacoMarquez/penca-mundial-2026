@@ -101,6 +101,11 @@ def formatear_alerta(cur: dict, eventos: list[dict], resumen_snapshot: str | Non
         extra = f"\n  … y {len(cur['abiertos']) - 10} más" if len(cur["abiertos"]) > 10 else ""
         partes.append("Se ven picks rivales de <b>partidos ABIERTOS</b>:\n"
                       + "\n".join(lineas) + extra)
+        # El único vector real de copia intra-fecha: con la ventana abierta, lo
+        # que NOSOTROS carguemos también es visible para cualquier rival atento.
+        partes.append("⚠️ Si te falta cargar picks de estos partidos, <b>RETRASÁ la "
+                      "carga</b> hasta que el gate cierre — lo cargado ahora es "
+                      "visible para los rivales.")
     if cur["especiales_pre_inicio"]:
         partes.append("Se ven <b>especiales</b> (campeón/goleador) antes del kickoff.")
     if resumen_snapshot:

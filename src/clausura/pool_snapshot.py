@@ -71,6 +71,11 @@ class RivalPicks:
     exactos: int
     # evento_id → (goles_local, goles_visitante)
     picks: dict[int, tuple[int, int]] = field(default_factory=dict)
+    # evento_id → (creationDate, lastModifiedDate) crudos del API ("dd-mm-aaaa HH:MM:SS").
+    # Señal para detectar rivales sistemáticos: quién carga por script (12 picks en
+    # una ventana de minutos) y quién EDITA cerca del cierre (reacciona a cuotas).
+    # Se guardan tal cual vienen — el parseo es problema del detector, no del escaneo.
+    picks_ts: dict[int, tuple[str | None, str | None]] = field(default_factory=dict)
     campeon: str | None = None
     campeon_id: int | None = None
     goleador: str | None = None
@@ -238,6 +243,9 @@ def fetch_snapshot(
                     eid = p.get("encuentroId")
                     if gl is not None and gv is not None and eid is not None:
                         rival.picks[int(eid)] = (int(gl), int(gv))
+                        cr, lm = p.get("creationDate"), p.get("lastModifiedDate")
+                        if cr or lm:
+                            rival.picks_ts[int(eid)] = (cr, lm)
             else:
                 log.warning("pronosticosEventos %d → %d", pid, r.status_code)
 
@@ -276,7 +284,9 @@ def save_snapshot(rivales: list[RivalPicks], penca_id: int) -> Path:
         "penca_id": penca_id,
         "n_participaciones": len(rivales),
         "participaciones": [
-            {**asdict(r), "picks": {str(k): list(v) for k, v in r.picks.items()}}
+            {**asdict(r),
+             "picks": {str(k): list(v) for k, v in r.picks.items()},
+             "picks_ts": {str(k): list(v) for k, v in r.picks_ts.items()}}
             for r in rivales
         ],
     }

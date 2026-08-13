@@ -119,3 +119,34 @@ def test_cliente_no_reintenta_para_siempre(monkeypatch):
         transport=httpx.MockTransport(lambda r: httpx.Response(429, text="no")))
     with _pytest.raises(httpx.HTTPStatusError):
         api.ranking(46)
+
+
+# -------------------- resultado_finalizado (auditoría 13/8) --------------------
+
+def test_resultado_finalizado_exige_estado_terminado():
+    """Un marcador PARCIAL (partido en juego o suspendido a mitad) no es resultado.
+
+    El rerun T-2h corre con partidos en cancha: si el API publicara goles
+    parciales, sin esta guardia entraban a grillas, ratings y campeón como si el
+    partido hubiera terminado.
+    """
+    from src.clausura.api import resultado_finalizado
+
+    res = {"golesEquipoLocal": 2, "golesEquipoVisitante": 1}
+    assert resultado_finalizado({"estado": "FINALIZADO", "resultado": res}) == (2, 1)
+    assert resultado_finalizado({"estado": "PENDIENTE", "resultado": res}) is None
+    assert resultado_finalizado({"estado": "EN_JUEGO", "resultado": res}) is None
+    assert resultado_finalizado({"estado": "SUSPENDIDO", "resultado": res}) is None
+
+
+def test_resultado_finalizado_sin_estado_cae_a_goles_no_null():
+    """Shape viejo sin `estado`: exigir FINALIZADO apagaría TODOS los resultados
+    en silencio ante un cambio de shape del API — peor que la falta de guardia."""
+    from src.clausura.api import resultado_finalizado
+
+    res = {"golesEquipoLocal": 0, "golesEquipoVisitante": 0}
+    assert resultado_finalizado({"resultado": res}) == (0, 0)
+    assert resultado_finalizado({"estado": "", "resultado": res}) == (0, 0)
+    assert resultado_finalizado({"estado": "FINALIZADO", "resultado": {}}) is None
+    assert resultado_finalizado({"estado": "FINALIZADO"}) is None
+    assert resultado_finalizado({}) is None

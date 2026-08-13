@@ -38,7 +38,7 @@ from pathlib import Path
 
 import numpy as np
 
-from src.clausura.api import PencaApiClient
+from src.clausura.api import PencaApiClient, resultado_finalizado
 from src.clausura.rivals import mis_numeros_env
 from src.clausura.scoring import supermatch_points
 
@@ -89,12 +89,11 @@ def resultados_de_fecha(
     with PencaApiClient() as api:
         data = api._get(f"/front/campeonatos/fechas/{f['fecha_id']}/eventos")
     for e in data:
-        res = e.get("resultado") or {}
-        gl, gv = res.get("golesEquipoLocal"), res.get("golesEquipoVisitante")
-        if gl is None or gv is None:
+        real = resultado_finalizado(e)
+        if real is None:
             faltan += 1
             continue
-        out[int(e["id"])] = (int(gl), int(gv))
+        out[int(e["id"])] = real
     if len(out) < min_jugados:
         return None
     return out, faltan
@@ -222,6 +221,42 @@ def compute_stats(
     return st
 
 
+def comparar_puntos_publicados(
+    calculados: dict[int, int], publicados: dict[int, int],
+) -> list[str]:
+    """Diferencias entre nuestros puntos calculados y los del ranking de la web.
+
+    Los RIVALES ya están anclados a la verdad (el residuo del RivalModel corrige
+    cada fila contra el ranking), pero nuestro lado del simulador sale del kernel
+    propio y nunca se contrastaba. Cualquier divergencia de liquidación —cambio de
+    reglas mid-torneo (el Mundial lo tuvo, con recálculo retroactivo), un
+    suspendido liquidado raro— sesgaba SOLO nuestra posición simulada, sin síntoma.
+    """
+    difs = []
+    for numero in sorted(calculados):
+        pub = publicados.get(numero)
+        if pub is not None and pub != calculados[numero]:
+            difs.append(f"  {numero % 1000:03d}: calculado {calculados[numero]} vs web {pub}")
+    return difs
+
+
+def _totales_calculados(fecha: int, puntos_fecha: dict[int, int]) -> dict[int, int] | None:
+    """Puntos de temporada por participación: postmortems previos + la fecha actual.
+
+    None si falta el postmortem de alguna fecha anterior — sin la serie completa
+    la comparación contra `puntos_totales` del ranking daría falsas alarmas.
+    """
+    totales = dict(puntos_fecha)
+    for n in range(1, fecha):
+        p = pm_path(n)
+        if not p.exists():
+            return None
+        prev = json.loads(p.read_text(encoding="utf-8")).get("puntos") or {}
+        for numero_str, pts in prev.items():
+            totales[int(numero_str)] = totales.get(int(numero_str), 0) + int(pts)
+    return totales
+
+
 def _percentil(valor: int, pool: list[int]) -> float:
     """Fracción del pool que quedó ESTRICTAMENTE por debajo."""
     if not pool:
@@ -231,7 +266,9 @@ def _percentil(valor: int, pool: list[int]) -> float:
 
 # -------------------- reporte --------------------
 
-def formatear_postmortem(st: FechaStats, premio_fecha: float | None = None) -> str:
+def formatear_postmortem(
+    st: FechaStats, premio_fecha: float | None = None, faltan: int = 0,
+) -> str:
     ev_by_id = {ev["evento_id"]: ev for ev in st.eventos}
     lines = [f"<b>📊 Postmortem — Fecha {st.fecha_n}</b>"]
 
@@ -272,8 +309,15 @@ def formatear_postmortem(st: FechaStats, premio_fecha: float | None = None) -> s
         lines.append(f"<b>Pool</b>: {len(arr)} rivales · mediana {int(np.median(arr))} · "
                      f"máx {int(arr.max())} · {nos_ganaron} arriba de nuestra mejor")
         if premio_fecha and nos_ganaron == 0 and mejor_nuestra >= int(arr.max()):
-            lines.append(f"🏆 Nuestra mejor participación empató o ganó la fecha "
-                         f"(premio ${premio_fecha:,.0f})")
+            # El 🏆 solo con la fecha LIQUIDADA: con un suspendido pendiente el
+            # premio no está definido (Arts. 9 y 14) — la Fecha 1 tuvo exactamente
+            # este estado (Torque–Peñarol suspendido) y el reporte cantaba victoria.
+            if faltan == 0:
+                lines.append(f"🏆 Nuestra mejor participación empató o ganó la fecha "
+                             f"(premio ${premio_fecha:,.0f})")
+            else:
+                lines.append(f"⏳ Vamos ganando la fecha, pero falta{'n' if faltan != 1 else ''} "
+                             f"{faltan} partido{'s' if faltan != 1 else ''} — nada liquidado todavía")
         pool_exact_rate = float(np.mean(list(st.pool_exactos_por_evento.values()))) \
             if st.pool_exactos_por_evento else None
         if pool_exact_rate is not None:
@@ -298,15 +342,21 @@ def pm_path(fecha_n: int) -> Path:
 MIN_JUGADOS = 6
 
 
-def _resultados_guardados(n: int) -> int:
-    """Cuántos resultados tiene el postmortem ya escrito de esa fecha. 0 si no hay."""
+def _resultados_guardados(n: int) -> dict[int, tuple[int, int]]:
+    """Resultados que tiene el postmortem ya escrito de esa fecha. Vacío si no hay.
+
+    Devuelve los VALORES y no la cantidad: comparar solo conteos dejaba pasar en
+    silencio una corrección del proveedor (mismo número de resultados, un marcador
+    distinto) — el postmortem quedaba escrito con el resultado viejo para siempre.
+    """
     p = pm_path(n)
     if not p.exists():
-        return 0
+        return {}
     try:
-        return len(json.loads(p.read_text(encoding="utf-8")).get("resultados") or {})
+        raw = json.loads(p.read_text(encoding="utf-8")).get("resultados") or {}
+        return {int(k): (int(v[0]), int(v[1])) for k, v in raw.items()}
     except Exception:                                          # noqa: BLE001
-        return 0
+        return {}
 
 
 def fecha_a_analizar(cfg: dict) -> int | None:
@@ -332,11 +382,14 @@ def fecha_a_analizar(cfg: dict) -> int | None:
             break   # las fechas van en orden: si esta no llegó, las siguientes tampoco
         disponibles, _ = res
         guardados = _resultados_guardados(n)
-        if guardados >= len(disponibles):
-            continue          # al día: o está completo, o no aparecieron resultados nuevos
+        # Regenerar solo ante resultados NUEVOS o CAMBIADOS. Un resultado que
+        # desaparece del API (glitch transitorio) no pisa un postmortem bueno.
+        if not any(guardados.get(eid) != real for eid, real in disponibles.items()):
+            continue          # al día: mismos resultados, mismos valores
         if guardados:
             log.info("rehaciendo el postmortem de la fecha %d: tenía %d resultados y "
-                     "ahora hay %d", n, guardados, len(disponibles))
+                     "ahora hay %d (o cambió algún marcador)",
+                     n, len(guardados), len(disponibles))
         return n    # una por corrida: la más vieja pendiente
     return None
 
@@ -386,7 +439,25 @@ def run(fecha: int | None = None, dry_run: bool = False) -> str | None:
     st = compute_stats(fecha, eventos_fecha, resultados, picks, e_pts,
                        pool, set(mis_numeros))
     premios = {p["tipo"]: p["monto"] for p in cfg.get("premios", [])}
-    reporte = formatear_postmortem(st, premio_fecha=premios.get("FECHA"))
+    reporte = formatear_postmortem(st, premio_fecha=premios.get("FECHA"), faltan=faltan)
+
+    # Tripwire de liquidación: nuestros puntos calculados vs los que la web publica.
+    try:
+        with PencaApiClient() as api:
+            ranking = api.ranking(cfg["pencas"]["paga"]["id"])
+        publicados = {r.numero_participacion: r.puntos_totales
+                      for r in ranking if r.numero_participacion in set(mis_numeros)}
+        totales = _totales_calculados(fecha, st.puntos)
+        if totales is None:
+            log.info("tripwire de puntos omitido: falta el postmortem de una fecha previa")
+        else:
+            difs = comparar_puntos_publicados(totales, publicados)
+            if difs:
+                reporte += ("\n\n⚠️ <b>Nuestros puntos calculados ≠ ranking de la web</b>"
+                            " — ¿liquidación distinta al kernel, o especiales liquidados?\n"
+                            + "\n".join(difs))
+    except Exception as e:                                     # noqa: BLE001
+        log.warning("tripwire de puntos vs ranking falló (%s)", e)
 
     print(reporte.replace("<b>", "").replace("</b>", "").replace("<i>", "").replace("</i>", ""))
     if not dry_run:

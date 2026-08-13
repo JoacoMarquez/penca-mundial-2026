@@ -35,7 +35,7 @@ from pathlib import Path
 import numpy as np
 import yaml
 
-from src.clausura.api import TZ_UY, PencaApiClient
+from src.clausura.api import TZ_UY, PencaApiClient, resultado_finalizado
 from src.clausura.economics import MAX_GOALS, SimConfig, index_score, score_index
 from src.clausura.historical import DATA_DIR, load_dataset
 from src.clausura.market_grid import refine_grid
@@ -783,10 +783,9 @@ def run(
                 for nombre, f in cfg["fechas"].items():
                     data = api._get(f"/front/campeonatos/fechas/{f['fecha_id']}/eventos")
                     for e in data:
-                        res = e.get("resultado") or {}
-                        gl, gv = res.get("golesEquipoLocal"), res.get("golesEquipoVisitante")
-                        if gl is not None and gv is not None:
-                            resultados[e["id"]] = (int(gl), int(gv))
+                        real = resultado_finalizado(e)
+                        if real is not None:
+                            resultados[e["id"]] = real
                 ranking = api.ranking(penca_id)
                 propias = sum(r.numero_participacion in mis_numeros for r in ranking)
                 n_rivales = max(len(ranking) - propias, 1)
