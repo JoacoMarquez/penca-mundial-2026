@@ -292,3 +292,48 @@ def test_result_reporta_costo_por_participacion(sim_multi):
     assert r.costo == 5 * 400.0
     assert 0.0 <= r.p_gana_penca <= 1.0
     assert r.e_premio_total == pytest.approx(r.e_premio_penca + r.e_premio_fechas)
+
+
+# -------------------- handicap propio (experimento de déficit, 13/8) --------------------
+
+def test_handicap_propio_resta_solo_el_total_de_temporada():
+    """El déficit modela puntos ya perdidos en fechas liquidadas: baja mine_total
+    (premio grande) pero NO mine_fecha (los premios por fecha no cambian)."""
+    g = score_grid(1.3, 1.1, 0.0, max_goals=MAX_GOALS)
+    q = pool_distribution(g, PoolConfig())
+
+    def _sim(handicap):
+        s = SeasonSimulator(
+            grids=[g, g], fecha_de_partido=[1, 2], preferencial=[False, False],
+            pool_q=[q, q], prize=PrizeConfig(),
+            sim=SimConfig(n_sims=4, n_rivales=3, seed=9, handicap_propio=handicap))
+        s.load_picks(np.zeros((2, 2), dtype=np.int64))
+        return s
+
+    base, con = _sim(0), _sim(25)
+    assert np.array_equal(con.mine_total, base.mine_total - 25)
+    assert np.array_equal(con.mine_fecha, base.mine_fecha)
+
+
+def test_handicap_sobrevive_a_set_pick():
+    """set_pick aplica deltas incrementales sobre mine_total: el handicap (constante)
+    tiene que persistir durante todo el ascenso por coordenadas."""
+    g = score_grid(1.3, 1.1, 0.0, max_goals=MAX_GOALS)
+    q = pool_distribution(g, PoolConfig())
+
+    def _tras_ascenso(handicap):
+        s = SeasonSimulator(
+            grids=[g], fecha_de_partido=[1], preferencial=[False], pool_q=[q],
+            prize=PrizeConfig(),
+            sim=SimConfig(n_sims=8, n_rivales=3, seed=9, handicap_propio=handicap))
+        s.load_picks(np.zeros((1, 1), dtype=np.int64))
+        s.set_pick(0, 0, score_index(2, 1))     # simula un paso del ascenso
+        s.set_pick(0, 0, score_index(1, 0))
+        return s.mine_total
+
+    assert np.array_equal(_tras_ascenso(40), _tras_ascenso(0) - 40)
+
+
+def test_handicap_default_cero_no_cambia_nada():
+    """Producción no pasa el parámetro: bit a bit idéntico a antes de la perilla."""
+    assert SimConfig().handicap_propio == 0

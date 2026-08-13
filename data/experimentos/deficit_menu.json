@@ -1,0 +1,117 @@
+{
+ "medido_utc": "2026-08-13T21:19:48.627889+00:00",
+ "sims": 19200,
+ "reps": 2,
+ "eval_seeds": 6,
+ "participaciones": 12,
+ "por_deficit": {
+  "0": {
+   "delta_cobertura": {
+    "control": {
+     "media": 103.55578919055307,
+     "se": 658.58032050414,
+     "reps": [
+      762.136109694693,
+      -555.0245313135869
+     ]
+    },
+    "calibrada": {
+     "media": 62.1208457341272,
+     "se": 264.8692060736405,
+     "reps": [
+      326.99005180776777,
+      -202.74836033951337
+     ]
+    }
+   },
+   "perfil_base": [
+    {
+     "picks_visitante": 317,
+     "picks_empate": 340,
+     "celdas": 1356,
+     "partidos_sin_visitante": 41,
+     "partidos_abiertos": 113
+    },
+    {
+     "picks_visitante": 313,
+     "picks_empate": 338,
+     "celdas": 1356,
+     "partidos_sin_visitante": 41,
+     "partidos_abiertos": 113
+    }
+   ]
+  },
+  "25": {
+   "delta_cobertura": {
+    "control": {
+     "media": -2814.781491415624,
+     "se": 1683.0669417388176,
+     "reps": [
+      -4497.848433154441,
+      -1131.7145496768062
+     ]
+    },
+    "calibrada": {
+     "media": -2114.888959661097,
+     "se": 695.5550231982488,
+     "reps": [
+      -2810.443982859346,
+      -1419.3339364628482
+     ]
+    }
+   },
+   "perfil_base": [
+    {
+     "picks_visitante": 306,
+     "picks_empate": 292,
+     "celdas": 1356,
+     "partidos_sin_visitante": 44,
+     "partidos_abiertos": 113
+    },
+    {
+     "picks_visitante": 305,
+     "picks_empate": 299,
+     "celdas": 1356,
+     "partidos_sin_visitante": 45,
+     "partidos_abiertos": 113
+    }
+   ]
+  },
+  "40": {
+   "delta_cobertura": {
+    "control": {
+     "media": -183.03535789536545,
+     "se": 188.4882915839941,
+     "reps": [
+      5.452933688628643,
+      -371.52364947935956
+     ]
+    },
+    "calibrada": {
+     "media": 150.00229070215818,
+     "se": 440.5721071704126,
+     "reps": [
+      590.5743978725708,
+      -290.56981646825443
+     ]
+    }
+   },
+   "perfil_base": [
+    {
+     "picks_visitante": 311,
+     "picks_empate": 227,
+     "celdas": 1356,
+     "partidos_sin_visitante": 46,
+     "partidos_abiertos": 113
+    },
+    {
+     "picks_visitante": 313,
+     "picks_empate": 242,
+     "celdas": 1356,
+     "partidos_sin_visitante": 49,
+     "partidos_abiertos": 113
+    }
+   ]
+  }
+ }
+}
