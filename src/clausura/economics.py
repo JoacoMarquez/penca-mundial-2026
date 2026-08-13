@@ -96,6 +96,13 @@ class SimConfig:
     # show de cada rival UNA vez por fecha y lo comparte entre sus 8 partidos.
     # Solo aplica con RivalModel. Ver la medición en config/decisiones.yaml.
     show_por_fecha: bool = False
+    # Puntos que se le RESTAN al total de temporada de todas nuestras
+    # participaciones. Es la perilla del experimento sintético de déficit
+    # (auditoría 13/8): "¿qué elige el optimizador si vamos −25 en la tabla?".
+    # Solo toca el premio grande (mine_total), no los premios por fecha — el
+    # déficit modela puntos ya perdidos en fechas liquidadas. Default 0 =
+    # producción intacta.
+    handicap_propio: int = 0
 
 
 @dataclass
@@ -460,6 +467,9 @@ class SeasonSimulator:
             pts = self.pm[m][picks[:, m][:, None], self.actual[m][None, :]]
             self.mine_total += pts
             self.mine_fecha[self.match_fecha[m]] += pts
+        # Déficit sintético: constante, así que sobrevive a los deltas
+        # incrementales de set_pick durante todo el ascenso.
+        self.mine_total -= self.cfg.handicap_propio
         self.campeon_picks = None
         self.goleador_picks = None
         self._premio_fecha = [None] * self.n_fechas

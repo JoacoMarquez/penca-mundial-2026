@@ -381,6 +381,48 @@ decisiones:
       Monte Carlo. Si se re-mide, más reps antes que más sorteos.
       Reproducir: scripts/backtest_cobertura.py --etapa 1|2|3.
 
+  - nombre: menú condicional al déficit en la tabla
+    donde: (nada — se midió y no se cambió)
+    valor: null
+    medida_con: {sims: 19200, participaciones: 12}
+    resultado: >-
+      prender cobertura con déficit −25 mide −$2.115 ± 696 (calibrada) / −$2.815 ±
+      1.683 (control), negativo en 4/4 mediciones; con −40 vuelve a neutro (+150 ±
+      441 / −183 ± 188); con −0 replica el neutro conocido (+62 ± 265)
+    delta: -2115
+    se: 696
+    unidad: pesos
+    fecha: 2026-08-13
+    inerte: >-
+      No se cambió nada: la entrada documenta un rechazo PRE-REGISTRADO — la regla
+      se decidió hoy con la cabeza fría para no improvisarla en la fecha 10 mirando
+      la tabla desde abajo.
+    nota: >-
+      LA PREGUNTA (auditoría 13/8): las decisiones de menú se midieron todas con
+      standing neutro y sin registrar el standing como supuesto. Si a −25 conviene
+      cobertura, el optimizador no tenía con qué expresarlo y ninguna alarma
+      sonaría. Se midió con SimConfig.handicap_propio (resta Δ al total de
+      temporada de las 12; los premios por fecha no se tocan), optimizando Y
+      evaluando ambos brazos BAJO el mismo déficit, Δ ∈ {0, 25, 40} × 2 reps ×
+      2 verdades, sorteos comunes.
+      RESULTADO: la hipótesis se REFUTA e incluso se invierte — a −25 la cobertura
+      es activamente dañina (rechazo decisivo, no ciego: |Δ| > 2·SE), y a −40
+      vuelve a neutro con buena potencia (MDE ~$530-1.250, debajo del piso).
+      Mecanismo plausible: a −25 la brecha todavía se cierra con E[pts], y gastar
+      picks en cobertura regala exactamente eso; a −40 ya nada importa mucho.
+      EL HALLAZGO SECUNDARIO ES EL QUE TRANQUILIZA: el optimizador SÍ responde al
+      déficit dentro del menú (5,0) — suelta picks de EMPATE a medida que va
+      perdiendo (339 → 295 → 234 sobre 1.356 celdas), que es la respuesta de
+      varianza correcta (el empate es el desenlace de medio puntaje: sirve para
+      sostener, no para remontar). El menú no lo tiene maniatado; la válvula que
+      la auditoría pedía ya existe y la usa.
+      REGLA PRE-REGISTRADA: K_COBERTURA queda False a CUALQUIER déficit. No hay
+      regla condicional al standing que activar en el resto de la temporada.
+      El punto Δ=0 replica la medición original de cobertura (+153/+450 neutro),
+      que valida el harness. Ancla al standing real de la F1; si el juego cambia
+      estructuralmente (p.ej. definición mano a mano en la F14-15), re-mirar.
+      Reproducir con scripts/backtest_deficit.py.
+
   - nombre: dependencia entre goles en las grillas de ratings (λ12 / Dixon-Coles)
     donde: (nada — se midió y no se cambió)
     valor: null
