@@ -150,3 +150,64 @@ def test_elige_el_correcto_entre_cerro_y_cerro_largo():
     pin = [_ev("Cerro", "Albion"), _ev("Cerro Largo", "Albion")]
     pares = emparejar(sm, pin)
     assert len(pares) == 1 and pares[0][1]["home"] == "Cerro Largo"
+
+
+# -------------------- nombres REALES de los dos books (VPS, 13/8) --------------------
+
+# Izquierda como los escribe Supermatch, derecha como los escribe Pinnacle.
+# Capturados en vivo el 13/8 para la Fecha 2. Son la regresión de la lista de ruido:
+# si alguien la toca y rompe un par, esto se pone rojo en vez de bajar en silencio
+# la cantidad de partidos comparados.
+PARES_REALES = [
+    ("Boston River", "Boston River"),
+    ("Danubio", "Danubio"),
+    ("Cerro", "Cerro"),
+    ("Albion", "Albion"),
+    ("Juventud de Las Piedras", "Juventud"),
+    ("M.C. Torque", "Montevideo City Torque"),
+    ("Racing", "Racing Club de Montevideo"),
+    ("Nacional", "Nacional de Football"),
+    ("Wanderers", "Montevideo Wanderers"),
+    ("Cerro Largo", "Cerro Largo"),
+    ("Progreso", "CA Progreso"),
+    ("Deportivo Maldonado", "Deportivo Maldonado"),
+    ("Defensor Sporting", "Defensor Sporting"),
+    ("Liverpool (URU)", "Liverpool Montevideo"),
+    ("Peñarol", "Penarol"),
+    ("Central Español", "Central Espanol"),
+]
+
+
+def test_los_16_equipos_reales_matchean():
+    from scripts.odds_sharp_vs_supermatch import _similar
+
+    fallan = [(sm, pin) for sm, pin in PARES_REALES if _similar(sm, pin) < 1.0]
+    assert not fallan, f"pares que dejaron de matchear: {fallan}"
+
+
+def test_ningun_equipo_matchea_con_OTRO_equipo():
+    """El complemento del test de arriba, y el que de verdad protege: que la lista
+    de ruido no se haya vuelto tan permisiva que dos clubes distintos se confundan.
+    """
+    from scripts.odds_sharp_vs_supermatch import _similar
+
+    cruces = [(a[0], b[1]) for i, a in enumerate(PARES_REALES)
+              for j, b in enumerate(PARES_REALES)
+              if i != j and _similar(a[0], b[1]) >= 1.0]
+    assert not cruces, f"equipos distintos que matchean entre sí: {cruces}"
+
+
+def test_historial_separa_los_metodos(tmp_path, monkeypatch):
+    """El mismo partido medido con proportional y con shin da resultados DISTINTOS
+    —esa es la conclusión de la primera corrida—, así que no pueden pisarse."""
+    import json
+
+    from scripts import odds_sharp_vs_supermatch as m
+
+    monkeypatch.setattr(m, "OUT_DIR", tmp_path)
+    m.acumular([_par(0.015)], metodo="proportional")
+    m.acumular([_par(0.004)], metodo="shin")
+
+    guardado = json.loads((tmp_path / "sharp_vs_supermatch.json").read_text(encoding="utf-8"))
+    assert len(guardado["pares"]) == 2
+    assert {p["metodo"] for p in guardado["pares"]} == {"proportional", "shin"}

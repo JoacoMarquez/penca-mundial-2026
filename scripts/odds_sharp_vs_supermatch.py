@@ -7,9 +7,9 @@ esas líneas se desvían del precio justo: `src/valuebet/` existía para captura
 CONTRA Supermatch usando Pinnacle como referencia sharp. O sea: le estamos creyendo
 al 70% a un termómetro que ya demostramos que marca mal.
 
-Medido en vivo el 13/8 desde el pipeline de producción, sobre los 8 partidos de la
-Fecha 2: el **overround del 1X2 de Supermatch va de 10,7% a 15,8%**. Pinnacle corre
-~2-3% en fútbol. Con ese vig, dos cosas dejan de ser detalle:
+Medido en vivo el 13/8 sobre los 8 partidos de la Fecha 2: el **overround del 1X2
+de Supermatch va de 10,7% a 15,8% (medio 14,7%); el de Pinnacle, 6,3%**. O sea 2,3x
+de vig. Con esa diferencia, dos cosas dejan de ser detalle:
 
   1. **Qué método de de-vig** se usa. Producción usa `proportional` en el 1X2
      (`picks.market_lambdas`). Contra Shin, la diferencia en el favorito va de
@@ -50,11 +50,36 @@ droplet de NYC:
 La parte de Supermatch sí anda desde cualquier lado (`--solo-supermatch` reporta el
 vig y el contraste proportional/Shin sin tocar Pinnacle).
 
+## RESULTADO de la primera corrida (Fecha 2, 8 partidos, VPS 13/8)
+
+Con el de-vig de producción (`proportional`), Supermatch **subvalúa al favorito**:
+
+    favorito     -0.0149 ± 0.0042  (t=-3.53, 1/8 positivos)
+    empate       +0.0053 ± 0.0023  (t=+2.28, 6/8)
+    no-favorito  +0.0096 ± 0.0033  (t=+2.88, 7/8)
+
+que es el sesgo favorito-longshot de manual. Pero con `--metodo shin` el mismo
+contraste contra el mismo sharp casi desaparece:
+
+    favorito     -0.0042 ± 0.0037  (t=-1.15, 3/8)
+    empate       +0.0007 ± 0.0027  (t=+0.25, 4/8)
+    no-favorito  +0.0035 ± 0.0028  (t=+1.26, 5/8)
+
+**El "sesgo de Supermatch" era, en su mayor parte, artefacto de NUESTRO de-vig.**
+Con 14,7% de overround, el de-vig proporcional reparte el margen a prorrata y le
+saca sistemáticamente al favorito; Shin —pensado justo para mercados con vig alto—
+recupera casi exactamente las probabilidades del sharp. Nota: `odds.py` YA usa Shin
+para el marcador exacto ("favoritos fuertes, mercado de colas") y dejó el 1X2 en
+proporcional por considerarlo "mercado balanceado" — con 14,7% de vig no lo es.
+
 ## Qué NO hace
 
-No cambia nada de producción. Es medición: si aparece un sesgo estable, recién ahí
-se decide entre anclar λ a Pinnacle, meterlo como tercer componente del blend, o
-solo corregir el de-vig — y esa decisión se mide con Δ E[premio] pareado, como todas.
+No cambia nada de producción. Es medición, y una fecha no alcanza: la conclusión de
+arriba hay que confirmarla con 2-3 fechas más (el reporte se niega a concluir con
+menos). El cambio candidato —1X2 de proportional a Shin en `picks.market_lambdas`—
+se decide con Δ E[premio] pareado, como todo en este proyecto: acá se midió que el
+INSUMO mejora, no que la DECISIÓN mejore. Un contraste previo mostró que el método
+mueve el marcador modal en 1 de 8 partidos, así que el efecto en plata puede ser chico.
 """
 
 from __future__ import annotations
@@ -75,10 +100,14 @@ log = logging.getLogger(__name__)
 ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = ROOT / "data" / "odds_compare"
 
-# Nombre de la liga uruguaya en Pinnacle. Se matchea por substring en minúsculas
-# contra el listado de ligas de fútbol, porque el id cambia entre temporadas y
-# descubrirlo por nombre es más robusto que hardcodearlo.
-LIGA_UY_HINTS = ("uruguay",)
+# Liga uruguaya en Pinnacle. Se descubre por nombre (el id cambia entre temporadas)
+# pero exigiendo AMBOS tokens: Pinnacle también publica "Uruguay - Segunda Division"
+# y "Uruguay - Reserve League", y las fixtures de reserva ESPEJAN a las de primera
+# —mismos nombres de equipo, mismo día, distinta hora— así que un filtro por
+# "uruguay" a secas mete partidos de reserva en la comparación y termina midiendo
+# cuotas de otro partido. Verificado en el VPS el 13/8: ids 5593 (Primera), 205369
+# (Segunda), 214839 (Reserve).
+LIGA_UY_TOKENS = ("uruguay", "primera")
 SPORT_SOCCER = 29                      # config/valuebet.yaml → sport_ids.soccer
 
 # Distancia máxima entre los kickoffs de los dos books para aceptar un match.
@@ -117,19 +146,34 @@ class ParMatcheado:
 
 # Tokens que NO distinguen equipos: sufijos de club, ciudad y localizadores que un
 # book pone y el otro no. Todo token fuera de esta lista SÍ distingue — ver `_similar`.
-_RUIDO = {"fc", "cf", "ac", "sc", "cd", "club", "atletico", "atlético", "uru",
-          "uruguay", "montevideo", "sporting", "de", "las", "piedras", "(uru)"}
+#
+# Calibrado contra los nombres REALES de los dos books (VPS, 13/8). Los tres pares
+# que obligaron a ampliarla: "M.C. Torque"↔"Montevideo City Torque" (mc, city),
+# "Nacional"↔"Nacional de Football" (football), "Progreso"↔"CA Progreso" (ca).
+_RUIDO = {"fc", "cf", "ac", "sc", "cd", "ca", "mc", "club", "atletico", "uru",
+          "uruguay", "montevideo", "city", "sporting", "football", "futbol",
+          "de", "del", "las", "los", "piedras"}
 
 
 def _norm(s: str) -> str:
     import unicodedata
     s = unicodedata.normalize("NFKD", s or "")
     s = "".join(c for c in s if not unicodedata.combining(c)).lower()
-    return " ".join(c for c in s.replace("(", " ").replace(")", " ").split())
+    # los puntos de las abreviaturas ("M.C. Torque") tienen que caer ANTES de
+    # tokenizar, si no "m.c." queda como token propio y no matchea con nada
+    for ch in "().-":
+        s = s.replace(ch, " ")
+    return " ".join(s.split())
 
 
 def _tokens(s: str) -> set[str]:
-    return {t for t in _norm(s).split() if t not in _RUIDO}
+    """Tokens que DISCRIMINAN un club: sin ruido y sin iniciales sueltas.
+
+    Las de una letra salen porque "M.C. Torque" se normaliza a "m c torque" y ni
+    "m" ni "c" identifican nada — dejarlas los volvía huérfanos y tiraba abajo el
+    match con "Montevideo City Torque".
+    """
+    return {t for t in _norm(s).split() if len(t) > 1 and t not in _RUIDO}
 
 
 def _similar(a: str, b: str) -> float:
@@ -226,46 +270,80 @@ def supermatch_eventos() -> list[dict]:
     return out
 
 
+def _con_reintentos(fn, que: str, intentos: int = 6, espera_s: float = 8.0):
+    """Llama a Pinnacle tolerando el 403 BAD_LOCATION, que es INTERMITENTE.
+
+    Medido en el VPS de NYC el 13/8: una tanda de llamadas falló con 403
+    BAD_LOCATION y, sin cambiar nada, 6/6 seguidas devolvieron 200 un minuto
+    después. O sea que el geo-bloqueo lo aplican algunos nodos del balanceador y no
+    otros — los 3 reintentos de tenacity que trae `pinnacle_vb` se agotan en una
+    mala racha y tiran el script entero. Acá se reintenta más y más espaciado,
+    porque esto corre una vez por fecha y no hay ningún apuro.
+    """
+    import time
+
+    ultimo = None
+    for i in range(intentos):
+        try:
+            return fn()
+        except Exception as e:                                 # noqa: BLE001
+            ultimo = e
+            log.warning("Pinnacle: %s falló (intento %d/%d) — %s",
+                        que, i + 1, intentos, type(e).__name__)
+            if i < intentos - 1:
+                time.sleep(espera_s)
+    raise RuntimeError(f"Pinnacle no respondió a {que} tras {intentos} intentos") from ultimo
+
+
 def pinnacle_eventos() -> list[dict]:
     """1X2 de la liga uruguaya en Pinnacle. Requiere red NO uruguaya."""
     from src.valuebet.books.pinnacle_vb import (
-        american_to_decimal, get_markets, get_matchups, list_leagues,
+        american_to_decimal, get_sport_markets, get_sport_matchups, list_leagues,
     )
 
-    ligas = [lg for lg in list_leagues(SPORT_SOCCER)
-             if any(h in (lg.get("name", "") or "").lower() for h in LIGA_UY_HINTS)]
+    todas = _con_reintentos(lambda: list_leagues(SPORT_SOCCER), "list_leagues")
+    ligas = {lg["id"]: lg["name"] for lg in todas
+             if all(t in (lg.get("name", "") or "").lower() for t in LIGA_UY_TOKENS)}
     if not ligas:
-        log.error("Pinnacle no lista ninguna liga uruguaya de fútbol")
+        log.error("Pinnacle no lista la Primera uruguaya entre sus ligas de fútbol")
         return []
-    log.info("ligas uruguayas en Pinnacle: %s",
-             ", ".join(f'{lg["name"]} (id {lg["id"]})' for lg in ligas))
+    log.info("liga(s) objetivo en Pinnacle: %s",
+             ", ".join(f"{n} (id {i})" for i, n in ligas.items()))
 
+    # Endpoints por DEPORTE, no por liga: /leagues/{id}/markets/straight devuelve 403
+    # (verificado en el VPS el 13/8 con la Segunda uruguaya). El scan de valuebet ya
+    # usaba esta ruta — "2 llamadas por deporte" dice config/valuebet.yaml — y trae
+    # todo el fútbol de una, que después se filtra por liga.
     info: dict[int, dict] = {}
-    for lg in ligas:
-        for m in get_matchups(lg["id"]):
-            if m.get("type") != "matchup" or not m.get("startTime"):
-                continue
-            parts = m.get("participants", [])
-            home = next((p["name"] for p in parts if p.get("alignment") == "home"), None)
-            away = next((p["name"] for p in parts if p.get("alignment") == "away"), None)
-            # sub-mercados con calificador entre paréntesis (corners, tarjetas) NO
-            # son el resultado del partido
-            if not (home and away) or "(" in home or "(" in away:
-                continue
-            info[m["id"]] = {"home": home, "away": away, "start_utc": m["startTime"]}
+    matchups = _con_reintentos(lambda: get_sport_matchups(SPORT_SOCCER),
+                               "sport_matchups")
+    for m in matchups:
+        if m.get("type") != "matchup" or not m.get("startTime"):
+            continue
+        if (m.get("league") or {}).get("id") not in ligas:
+            continue
+        parts = m.get("participants", [])
+        home = next((p["name"] for p in parts if p.get("alignment") == "home"), None)
+        away = next((p["name"] for p in parts if p.get("alignment") == "away"), None)
+        # sub-mercados con calificador entre paréntesis (corners, tarjetas) NO son
+        # el resultado del partido
+        if not (home and away) or "(" in home or "(" in away:
+            continue
+        info[m["id"]] = {"home": home, "away": away, "start_utc": m["startTime"]}
 
     out = []
-    for lg in ligas:
-        for mk in get_markets(lg["id"]):
-            if mk.get("type") != "moneyline" or mk.get("period", 0) != 0:
-                continue
-            ev = info.get(mk.get("matchupId"))
-            if ev is None:
-                continue
-            precios = {p["designation"]: american_to_decimal(p["price"])
-                       for p in mk.get("prices", []) if p.get("price") is not None}
-            if {"home", "draw", "away"} <= set(precios):
-                out.append({**ev, "x1x2": {k: precios[k] for k in ("home", "draw", "away")}})
+    markets = _con_reintentos(lambda: get_sport_markets(SPORT_SOCCER),
+                              "sport_markets")
+    for mk in markets:
+        if mk.get("type") != "moneyline" or mk.get("period", 0) != 0:
+            continue
+        ev = info.get(mk.get("matchupId"))
+        if ev is None:
+            continue
+        precios = {p["designation"]: american_to_decimal(p["price"])
+                   for p in mk.get("prices", []) if p.get("price") is not None}
+        if {"home", "draw", "away"} <= set(precios):
+            out.append({**ev, "x1x2": {k: precios[k] for k in ("home", "draw", "away")}})
     return out
 
 
@@ -307,20 +385,28 @@ def resumir(pares: list[ParMatcheado]) -> str:
     return "\n".join(lines)
 
 
-def acumular(pares: list[ParMatcheado], persistir: bool = True) -> list[dict]:
-    """Suma esta corrida al historial, deduplicando por (partido, start_utc)."""
+def acumular(pares: list[ParMatcheado], metodo: str = "proportional",
+             persistir: bool = True) -> list[dict]:
+    """Suma esta corrida al historial, deduplicando por (partido, start_utc, método).
+
+    El método va en la clave porque el mismo partido medido con proportional y con
+    shin da resultados DISTINTOS (esa es justamente la conclusión de la primera
+    corrida): sin él, una pasada con --metodo shin pisaba la de producción y el
+    historial mezclaba dos mediciones incomparables.
+    """
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     path = OUT_DIR / "sharp_vs_supermatch.json"
     hist: dict[tuple[str, str], dict] = {}
     if path.exists():
         try:
             for d in json.loads(path.read_text(encoding="utf-8")).get("pares", []):
-                hist[(d["partido"], d["start_utc"])] = d
+                hist[(d["partido"], d["start_utc"], d.get("metodo", "proportional"))] = d
         except Exception:                                      # noqa: BLE001
             hist = {}
     for p in pares:
-        hist[(p.partido, p.start_utc)] = {**asdict(p), "medido_utc":
-                                          datetime.now(timezone.utc).isoformat()}
+        hist[(p.partido, p.start_utc, metodo)] = {
+            **asdict(p), "metodo": metodo,
+            "medido_utc": datetime.now(timezone.utc).isoformat()}
     out = [hist[k] for k in sorted(hist)]
     if persistir:
         path.write_text(json.dumps({"pares": out}, ensure_ascii=False, indent=1),
@@ -395,7 +481,7 @@ def main() -> None:
 
     pares = [comparar_par(a, b, args.metodo) for a, b in emparejar(sm, pin)]
     print(resumir(pares))
-    todos = acumular(pares, persistir=not args.dry_run)
+    todos = acumular(pares, metodo=args.metodo, persistir=not args.dry_run)
     if not args.dry_run:
         print(f"\nhistorial acumulado: {len(todos)} partidos en "
               f"{OUT_DIR / 'sharp_vs_supermatch.json'}")
