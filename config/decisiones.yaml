@@ -22,6 +22,28 @@
 # RECHAZOS: un experimento que se midió y NO cambió nada también va acá — es la forma
 # de que no se vuelva a intentar por intuición. Se marca con `donde: (nada — ...)`, que
 # saltea la verificación contra el código porque no hay valor que verificar.
+#
+# POTENCIA (`delta` / `se` / `unidad`). Un rechazo puede significar dos cosas muy
+# distintas: "medí y no hay efecto" o "medí y no pude ver nada". La auditoría del 13/8
+# encontró que el registro las escribía igual, y que varias de nuestras mediciones
+# tenían el error tan grande que un efecto del tamaño que nos importa habría pasado
+# desapercibido la mayoría de las veces.
+#
+# Por eso toda entrada cuyo `resultado` diga "± algo" declara el número en estructura.
+# El test calcula el efecto mínimo detectable al 80% de potencia:
+#
+#     mde_80 = 2,84 · se
+#
+# El 2,84 sale de NUESTRA propia regla, no de un manual: si adoptamos cuando
+# delta > 2·SE, entonces para que un efecto real μ supere esa vara el 80% de las veces
+# hace falta μ = 2·SE + 0,84·SE. Y la vara de "cuánto es mucho" también es nuestra: el
+# piso de $2.000 del gate del rerun (rerun_cierre.UMBRAL_ABS), o sea la plata que ya
+# decidimos que justifica actuar.
+#
+# Un rechazo con resultado NULO (|delta| < 2·se) y mde_80 > $2.000 queda marcado como
+# SUBPOTENCIADO: no prueba que no haya efecto, prueba que no lo habríamos visto. Eso no
+# rompe la suite —es un hecho histórico, no un bug— pero se lista en cada corrida para
+# que se sepa qué conviene re-medir cuando haya más fechas.
 
 decisiones:
   - nombre: tamaño del menú de candidatos
@@ -29,6 +51,9 @@ decisiones:
     valor: 5
     medida_con: {sims: 19200, participaciones: 12}
     resultado: "+$8.531 ± 10 (control) · +$9.481 ± 106 (Q calibrada), 3 reps pareadas"
+    delta: 8531
+    se: 10
+    unidad: pesos
     fecha: 2026-08-11
     nota: >-
       Meseta de 5 a 8 (indistinguibles); 10 mide −$1.532 ± 428 en el control. Todo el
@@ -50,6 +75,9 @@ decisiones:
     valor: legacy_hueco
     medida_con: {sims: 2400, participaciones: 12}
     resultado: "mispricing mide −$9.486 ± 2.154 (12 reps, negativo en 10/12)"
+    delta: -9486
+    se: 2154
+    unidad: pesos
     fecha: 2026-08-08
     inerte: >-
       K_HUECO=0 desde el 8/8: la rama no se ejecuta. Medida en el régimen viejo, pero
@@ -60,6 +88,9 @@ decisiones:
     valor: 2.2
     medida_con: {sims: 19200, participaciones: 12}
     resultado: "+$1.185 ± 140 (control) por sí sola; +$8.531 junto con el menú"
+    delta: 1185
+    se: 140
+    unidad: pesos
     fecha: 2026-08-11
     nota: >-
       Calibrada contra 4.791 picks reales (log-loss LOMO 2,2712 → 2,1666) pero funciona
@@ -72,6 +103,10 @@ decisiones:
     valor: 19200
     medida_con: {sims: 19200, participaciones: 12}
     resultado: "2.400 → 9.600 +$21.060 ± 936 · 9.600 → 19.200 +$1.452 ± 401"
+    # el escalón vigente (9.600 → 19.200), que es el que sostiene el valor actual
+    delta: 1452
+    se: 401
+    unidad: pesos
     fecha: 2026-08-10
     nota: >-
       La curva satura (21k → 1,4k por duplicación). El techo era la MEMORIA del droplet,
@@ -99,6 +134,11 @@ decisiones:
     valor: false
     medida_con: {sims: 9600, participaciones: 12}
     resultado: "prenderlo mide −$609 ± 308 / −$716 ± 324 / −$199 ± 442 según el prior"
+    # el prior MENOS desfavorable de los tres: es el caso que más cerca estuvo de
+    # dar vuelta el rechazo, así que es contra el que hay que juzgar la potencia
+    delta: -199
+    se: 442
+    unidad: pesos
     fecha: 2026-08-10
     vencida: >-
       Medida a 9.600 y producción corre 19.200. El NÚMERO probablemente aguanta (los 12
@@ -138,6 +178,9 @@ decisiones:
     valor: null
     medida_con: {sims: 19200, participaciones: 12}
     resultado: "+0.0073 ± 0.0041 nats/partido (391 predicciones pareadas, walk-forward)"
+    delta: 0.0073
+    se: 0.0041
+    unidad: nats
     fecha: 2026-08-12
     nota: >-
       El default del parámetro es None; producción pasa partidos_clausura(cfg,
@@ -156,6 +199,9 @@ decisiones:
     valor: false
     medida_con: {sims: 19200, participaciones: 12}
     resultado: "Δ E[premio] −626 ± 1.359 (12 reps pareadas, 7/12 a favor) — NEUTRO"
+    delta: -626
+    se: 1359
+    unidad: pesos
     fecha: 2026-08-12
     nota: >-
       El HECHO es real y está medido en el snapshot de la F1 (727 filas): 630
@@ -170,6 +216,10 @@ decisiones:
       mismo. La perilla queda implementada y APAGADA. OJO: el harness corre a
       800 sims de optimización y 151 rivales (recuperación de modelo, no
       producción); si alguna vez se reconsidera, medir a escala de producción.
+      SUBPOTENCIADO (13/8): con ese SE la medición era ciega a efectos bastante
+      arriba del piso accionable de $2.000 — "neutro" acá significa "no lo habría
+      visto", no "no existe". El harness a escala de producción arreglaría las dos
+      cosas de una.
       Reproducir con scripts/backtest_show_fecha.py --reps 3.
 
   - nombre: premio grupo amigo fuera del objetivo
@@ -198,6 +248,9 @@ decisiones:
     valor: null
     medida_con: {sims: 19200, participaciones: 12}
     resultado: "debutantes walk-forward: +0.089 ± 0.091 goles a favor, −0.082 ± 0.094 en contra vs lo predicho"
+    delta: 0.089
+    se: 0.091
+    unidad: goles
     fecha: 2026-08-12
     inerte: >-
       No se cambió nada: la entrada documenta un rechazo. La premisa de la
@@ -217,6 +270,9 @@ decisiones:
     valor: null
     medida_con: {sims: 19200, participaciones: 12}
     resultado: "365d mide +0.0021 ± 0.0026 nats/partido (t=0.81); 270d t=0.59; 120d negativo"
+    delta: 0.0021
+    se: 0.0026
+    unidad: nats
     fecha: 2026-08-12
     nota: >-
       Medido walk-forward sobre 528 predicciones, refitteando antes de cada fecha como
@@ -252,6 +308,11 @@ decisiones:
     valor: 30000
     medida_con: {sims: 19200, participaciones: 12}
     resultado: "3.000 → ±0,85 pp entre semillas en el líder (0,04 s) · 30.000 → ±0,24 pp (0,36 s)"
+    error_no_es_efecto: >-
+      El ± de acá es la DISPERSIÓN de P(campeón) entre semillas —el error de Monte
+      Carlo del propio estimador— y no un efecto medido con su error estándar. No
+      hay potencia que calcular porque no hay hipótesis que testear: se está
+      comprando precisión, no decidiendo si algo funciona.
     fecha: 2026-08-12
     nota: >-
       No es una decisión de estrategia: es error de Monte Carlo comprado a precio de
@@ -296,6 +357,11 @@ decisiones:
     resultado: >-
       E[premio] +153 ± 499 / +450 ± 732 (neutro en las dos verdades); contra las 4
       temporadas REALES caza 4/37 batacazos y cuesta 6 pts de mejor planilla
+    # la verdad con MÁS incertidumbre de las dos: es la que fija cuánto se podría
+    # haber pasado por alto
+    delta: 450
+    se: 732
+    unidad: pesos
     fecha: 2026-08-12
     nota: >-
       El hallazgo estructural es REAL: en partidos desparejos el mejor marcador de
@@ -307,14 +373,22 @@ decisiones:
       — en la realidad cazó 4/37 y costó puntos y premio. Para cazarlos de verdad
       habría que asegurar la mayoría de los partidos, y esos boletos salen carísimos.
       La Fecha 1 fue frecuencia normal (~10 batacazos/temporada), no modelo roto.
-      K_COBERTURA queda implementado y APAGADO. Reproducir:
-      scripts/backtest_cobertura.py --etapa 1|2|3.
+      K_COBERTURA queda implementado y APAGADO.
+      SUBPOTENCIADO al límite (13/8): bajo la verdad de mayor varianza el MDE queda
+      apenas arriba del piso de $2.000, así que el brazo E[premio] no descarta un
+      efecto accionable. Lo que SÍ es evidencia dura es el contraste contra las 4
+      temporadas reales (4/37 batacazos cazados), que no depende de la potencia del
+      Monte Carlo. Si se re-mide, más reps antes que más sorteos.
+      Reproducir: scripts/backtest_cobertura.py --etapa 1|2|3.
 
   - nombre: warm start desde la planilla previa
     donde: src.clausura.picks.run(usar_warm_start=)
     valor: true
     medida_con: {sims: 2400, participaciones: 12, max_passes: 3}
     resultado: "+$3.622 ± 699 de E[premio] y churn de picks 49% → 22%"
+    delta: 3622
+    se: 699
+    unidad: pesos
     fecha: 2026-08-08
     vencida: >-
       Medida a 2.400 sorteos y max_passes=3; producción corre 19.200 y 6 pasadas. Se
