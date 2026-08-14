@@ -60,7 +60,23 @@ def _timers_estado() -> tuple[list[str], list[str]]:
         if linea is None:
             mal.append(f"{t}: NO LISTADO (¿deshabilitado?)")
         elif linea.strip().startswith("-"):
-            mal.append(f"{t}: sin próxima ejecución")
+            # Un timer cuyo SERVICIO está corriendo en este instante muestra "-"
+            # como próxima ejecución: systemd la recalcula recién al terminar. El
+            # heartbeat corre a las 12:30:15 y SIEMPRE pisa el tick de las 12:30:00
+            # del gate-watch (y se ve a sí mismo), así que sin este chequeo la
+            # falsa alarma salía TODOS los días — fatiga sobre el único canal,
+            # que es exactamente lo que este módulo existe para evitar (pasó el
+            # 14/8, primer día con los 9 timers). Servicio activo = timer vivo.
+            try:
+                activo = subprocess.run(
+                    ["systemctl", "is-active", "--quiet", f"{t}.service"],
+                    timeout=15).returncode == 0
+            except Exception:                                  # noqa: BLE001
+                activo = False
+            if activo:
+                ok.append(t)
+            else:
+                mal.append(f"{t}: sin próxima ejecución")
         else:
             ok.append(t)
     return ok, mal
