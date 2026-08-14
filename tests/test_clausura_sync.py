@@ -68,3 +68,50 @@ def test_preferenciales_sin_cambios_ni_previo_callan():
     nuevo["fechas"]["Fecha 1"]["eventos"].append(
         {"evento_id": 999, "local": "X", "visitante": "Y", "preferencial": False})
     assert preferenciales_cambiados(nuevo, _cfg_pref(1)) == []
+
+
+# -------------------- aviso de cierres movidos en masa (14/8) --------------------
+
+def _cfg_cierres(horas: dict[int, str]) -> dict:
+    return {"fechas": {"Fecha 2": {"fecha_id": 281, "eventos": [
+        {"evento_id": eid, "local": f"L{eid}", "visitante": f"V{eid}",
+         "preferencial": False, "cierre_pronostico_utc": ts}
+        for eid, ts in horas.items()]}}}
+
+
+def test_cierres_movidos_detecta_el_glitch_del_14_8():
+    """5 partidos apilados a la misma hora del domingo: el flip-flop real."""
+    from src.clausura.sync import cierres_movidos
+
+    previo = _cfg_cierres({1: "2026-08-14T21:45:00+00:00",
+                           2: "2026-08-15T12:45:00+00:00",
+                           3: "2026-08-15T15:45:00+00:00",
+                           4: "2026-08-16T13:45:00+00:00",
+                           5: "2026-08-16T21:15:00+00:00"})
+    glitch = _cfg_cierres({i: "2026-08-16T20:45:00+00:00" for i in range(1, 6)})
+    avisos = cierres_movidos(glitch, previo)
+    assert len(avisos) >= 4
+    # y el flip de VUELTA (config envenenado → bueno) también avisa: es simétrico
+    assert len(cierres_movidos(previo, glitch)) >= 4
+
+
+def test_un_solo_reprogramado_no_hace_ruido():
+    """Un makeup que se mueve (Art. 14) es legítimo y frecuente: silencio."""
+    from src.clausura.sync import cierres_movidos
+
+    previo = _cfg_cierres({1: "2026-08-14T21:45:00+00:00",
+                           2: "2026-08-15T12:45:00+00:00",
+                           3: "2026-08-15T15:45:00+00:00"})
+    uno = _cfg_cierres({1: "2026-09-02T22:00:00+00:00",       # re-datado a semanas
+                        2: "2026-08-15T12:45:00+00:00",
+                        3: "2026-08-15T15:45:00+00:00"})
+    assert cierres_movidos(uno, previo) == []
+
+
+def test_corrimientos_chicos_no_cuentan():
+    """±1h de ajuste fino de horario no es un glitch."""
+    from src.clausura.sync import cierres_movidos
+
+    previo = _cfg_cierres({i: "2026-08-15T12:45:00+00:00" for i in range(1, 5)})
+    fino = _cfg_cierres({i: "2026-08-15T13:30:00+00:00" for i in range(1, 5)})
+    assert cierres_movidos(fino, previo) == []

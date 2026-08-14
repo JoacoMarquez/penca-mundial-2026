@@ -103,6 +103,41 @@ def preferenciales_cambiados(cfg: dict, previo: dict | None) -> list[str]:
     return cambios
 
 
+def cierres_movidos(cfg: dict, previo: dict | None, umbral_h: float = 2.0,
+                    minimo: int = 3) -> list[str]:
+    """Aviso cuando MUCHOS cierres conocidos se mueven en una sola pasada.
+
+    El 14/8 el API sirvió durante un rato una versión placeholder del fixture de
+    la F2 (5 partidos apilados el domingo a la misma hora, Boston River–Danubio
+    corrido de viernes a domingo) y un sync la escribió sin que nada sonara: el
+    rerun y carga_alert quedaron agendando contra cierres falsos el día de
+    partido. Se detectó de casualidad comparando heartbeats.
+
+    Un partido reprogramado de verdad existe (Art. 14) y se mueve solo; que se
+    muevan ≥`minimo` a la vez huele a glitch. Se AVISA en vez de rechazar a
+    propósito: el flip-flop es simétrico, y un rechazo habría bloqueado también
+    la pasada que CORRIGIÓ el config (el previo era el envenenado). El humano
+    con el Telegram en la mano distingue lluvia de glitch; el sync no puede.
+    """
+    if previo is None:
+        return []
+    prev = {e["evento_id"]: e for f in previo.get("fechas", {}).values()
+            for e in f.get("eventos", [])}
+    movidos = []
+    for nombre, f in cfg.get("fechas", {}).items():
+        for e in f.get("eventos", []):
+            p = prev.get(e["evento_id"])
+            if p is None:
+                continue
+            d1 = datetime.fromisoformat(e["cierre_pronostico_utc"])
+            d0 = datetime.fromisoformat(p["cierre_pronostico_utc"])
+            horas = abs((d1 - d0).total_seconds()) / 3600
+            if horas > umbral_h:
+                movidos.append(f"{nombre}: {e['local']} vs {e['visitante']} "
+                               f"({d0:%a %H:%M} → {d1:%a %H:%M} UTC)")
+    return movidos if len(movidos) >= minimo else []
+
+
 def check_contra_anterior(cfg: dict, previo: dict | None) -> None:
     """Rechaza un config que PIERDE eventos ya conocidos, salvo casos legítimos.
 
@@ -154,11 +189,23 @@ def main() -> None:
         previo = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
         if not args.force:
             check_contra_anterior(cfg, previo)
+        avisos = []
         cambios = preferenciales_cambiados(cfg, previo)
         if cambios:
-            msg = ("⭐ <b>Cambió el partido preferencial</b> — si la fecha ya está "
-                   "cargada, los picks se optimizaron con el ×2 en el partido "
-                   "equivocado:\n" + "\n".join(f"  · {c}" for c in cambios))
+            avisos.append("⭐ <b>Cambió el partido preferencial</b> — si la fecha ya "
+                          "está cargada, los picks se optimizaron con el ×2 en el "
+                          "partido equivocado:\n"
+                          + "\n".join(f"  · {c}" for c in cambios))
+        movidos = cierres_movidos(cfg, previo)
+        if movidos:
+            avisos.append("🕐 <b>Se movieron MUCHOS cierres en una sola pasada</b> — "
+                          "puede ser una reprogramación real (lluvia) o un GLITCH "
+                          "del API sirviendo placeholders (pasó el 14/8). Los "
+                          "timers agendan contra estos horarios: verificá contra "
+                          "la web/prensa.\n"
+                          + "\n".join(f"  · {m}" for m in movidos[:8])
+                          + (f"\n  … y {len(movidos) - 8} más" if len(movidos) > 8 else ""))
+        for msg in avisos:
             print(msg.replace("<b>", "").replace("</b>", ""), file=sys.stderr)
             try:
                 from src.notifier.telegram import TelegramConfig, TelegramNotifier
