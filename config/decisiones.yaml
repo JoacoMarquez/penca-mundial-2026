@@ -128,6 +128,10 @@ decisiones:
       que el experimento del umbral lo confirmó por otro camino: el rerun encontraba
       ~$1.000/día porque warm start + 3 pasadas ≡ 6 pasadas en frío. Subirlo captura
       eso en la corrida de la mañana, sin recargas manuales. Costo: ~7 min más de CPU.
+      6 NO ES EL TECHO (2026-08-15): con max_passes=6 en producción, el mismo
+      experimento del umbral mide que el rerun todavía encuentra +$715 de media (8/8
+      positivos). El mecanismo no se agotó, solo se achicó — falta barrer 6→9→12 y
+      elegir dónde deja de pagar el CPU. Ver la nota de 'umbral del aviso por valor'.
 
   - nombre: goleador dentro del Monte Carlo
     donde: src.clausura.picks.GOLEADOR_EN_MC
@@ -161,6 +165,15 @@ decisiones:
       El piso QUEDA en $2.000 para que el aviso vuelva a significar "pasó algo real".
       RE-CORRER el experimento tras unas fechas: si el rerun sigue encontrando ~$1.000,
       el pulido no se agota en 6 pasadas.
+      ---
+      RE-CORRIDO el 2026-08-15 (8 pares, 19.200, ya con max_passes=6): el rerun
+      SIGUE encontrando plata — +$715 de media, 8/8 positivos, máx +$974 (verdad a 20
+      semillas). Bajó desde los +$1.071 de max_passes=3 pero NO se agotó: la pregunta
+      que este experimento dejó abierta quedó contestada y la respuesta es que 6 no es
+      el techo. El piso de $2.000 suprime los 8 avisos, o sea que hoy el gate deja
+      ~$715/día de pulido sobre la mesa. La salida NO es bajar el piso (eso pide
+      recargas manuales de $700, que no pagan el riesgo de tipeo) sino repetir la
+      jugada del 11/8: barrer max_passes y subirlo. PENDIENTE ese barrido.
 
   - nombre: fallback de sorteos del rerun
     donde: src.clausura.rerun_cierre.DEFAULT_SIMS
@@ -501,3 +514,41 @@ decisiones:
       corre el pipeline en frío una vez por semana y avisa si le gana a la cadena por
       >2·SE y >$2.000 (mismo doble umbral del gate). Reproducir a mano:
       python -m src.clausura.cold_check --dry-run
+
+  - nombre: recargar los picks de cada día con la corrida de ESE día
+    donde: (nada — rechazo, la rutina de carga queda libre)
+    valor: "cargar todo junto está bien"
+    medida_con: {sims: 19200, participaciones: 12, escenarios: 10, seeds_eval: 8}
+    resultado: "+$139 ± 50 de E[premio] (8/10 escenarios positivos)"
+    delta: 139
+    se: 50
+    unidad: pesos
+    fecha: 2026-08-15
+    nota: >-
+      LA PREGUNTA (del usuario, 15/8): una fecha se juega viernes-domingo. ¿Conviene
+      cargar los partidos del domingo con la planilla del domingo a la mañana —que ya
+      sabe los resultados del sábado— en vez de cargar todo el viernes?
+      HIPÓTESIS, que resultó FALSA en magnitud: como el objetivo es E[premio] y no
+      puntos, depende de dónde estamos parados; después del sábado cambia la distancia
+      al líder y con ella cuánto conviene diferenciarse el domingo. Se esperaba que
+      fuera el canal grande.
+      MEDICIÓN (scripts/backtest_recarga_diaria.py, F2 real: día 1 = los 4 del sábado
+      sorteados, día 2 = los 3 del domingo). Tres brazos bajo la MISMA verdad
+      condicionada y sorteos comunes: A = planilla del viernes; B0 = re-optimiza el
+      domingo con warm start pero SIN saber el sábado (control de pulido); Bs = lo
+      mismo pero con el sábado ya resuelto. El control B0 es lo que hace interpretable
+      el número: sin él, el pulido de las pasadas extra se le atribuiría a la
+      información. Δ información = Bs−B0.
+      RESULTADO: +$139 ± 50, 8/10 positivos. Estadísticamente distinto de cero
+      (2,8·SE) pero DESPRECIABLE: mde_80 = $143, muy por debajo del piso de acción de
+      $2.000, o sea que la medición estaba bien potenciada y el efecto es chico de
+      verdad — no es un "no pude ver nada". El pulido salió +$21 ± 45 (nulo), coherente
+      con que acá solo se re-optimizan 3 partidos.
+      CONSECUENCIA OPERATIVA: la rutina de carga es libre. Cargar todo el viernes de
+      una es correcto; no hay que levantarse temprano cada día. Y para comparar: el
+      MISMO día se midió que el pulido del rerun vale +$715 (ver 'umbral del aviso por
+      valor'), o sea 5× más que la información de un día entero de resultados. La plata
+      del sistema está en optimizar mejor, no en cargar más tarde.
+      RE-MEDIR si cambia el tamaño del pool o si el campeonato entra en una fase donde
+      la tabla esté apretada arriba (medido con nosotros en el puesto 58 de 747 y a 17
+      puntos del líder; el canal debería crecer si estuviéramos peleando el tope).

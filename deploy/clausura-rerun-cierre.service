@@ -6,6 +6,14 @@ OnFailure=penca-failure-notify@%n.service
 
 [Service]
 Type=oneshot
+# El tick de las 11:35 sale 12 min después de que suele terminar la corrida diaria
+# (11:00 + ~20 min), y no hay exclusión mutua entre las dos: si un día la diaria se
+# demora, arrancarían dos pipelines de 19.200 sorteos a la vez en un droplet de 2 GB
+# —compitiendo por CPU— y encima este rerun diffearía contra la planilla de AYER.
+# ExecCondition saltea el tick LIMPIAMENTE (no cuenta como falla, no dispara el
+# OnFailure a Telegram); el cierre queda sin cubrir en el estado, así que el tick
+# siguiente lo reintenta solo.
+ExecCondition=/bin/sh -c '! systemctl is-active --quiet clausura-picks.service'
 EnvironmentFile=/etc/penca/env
 Environment="PYTHONPATH=/opt/penca"
 WorkingDirectory=/opt/penca

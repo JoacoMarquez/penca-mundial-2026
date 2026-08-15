@@ -4,11 +4,29 @@ Description=Timer de la corrida T-2h del Clausura — horario en la ventana prev
 # El script solo dispara si hay algún cierre a ≤2.5h que su tanda aún no cubrió
 # — el resto de las pasadas salen en silencio.
 #
-# Ventana desde las 12:35: el fixture reprogramado del 5/8 trae cierres a las
-# 13:45 UTC (sáb y dom). Con la ventana vieja (13:35) la primera oportunidad
-# caía 10 min antes del cierre y la corrida terminaba DESPUÉS — inútil justo
-# en los partidos más ajustados. Desde 12:35 dispara 1h10 antes y deja margen
-# para corregir. (ej.: cierre 13:45 → dispara 12:35; cierre 21:45 → 19:35)
+# Ventana desde las 11:35. Este arranque ya se movió dos veces persiguiendo al
+# fixture (13:35 → 12:35 el 5/8 → 11:35 el 15/8), así que conviene fijar el
+# CRITERIO en vez del horario:
+#
+#   La corrida tarda hasta ~34 min a 19.200 sorteos (incluida la evaluación del
+#   gate) y recargar 12 planillas a mano son ~10 min más. Para que un aviso sirva,
+#   el tick tiene que salir al menos ~45 min antes del cierre.
+#
+#   Y no puede adelantarse más allá de la corrida DIARIA (11:00 UTC, ~20 min):
+#   antes de que exista la planilla de la mañana el rerun no tiene contra qué
+#   diffear. 11:35 es, literalmente, el primer horario útil del día.
+#
+# Qué lo motivó (2026-08-15): el fixture volvió a correrse temprano y el sábado
+# quedó con un cierre 12:45 UTC (Cerro-Albion, el PREFERENCIAL, vale doble). Con
+# la ventana de 12:35 el rerun arrancó 10 min antes y terminó 09:44:13 UY contra
+# un cierre 09:45:00 — 47 segundos. Aunque hubiera encontrado plata, no había
+# forma de actuar. Con 11:35 ese mismo cierre queda con ~36 min de margen, que es
+# el número de diseño que documenta el .service.
+#
+# Si el fixture trae algún día un cierre ANTES de las ~12:20 UTC, este timer ya no
+# alcanza y el arreglo NO es adelantarlo otra vez: hay que adelantar la corrida
+# diaria, porque el cuello es ella. En ese caso la planilla de la mañana pasa a ser
+# de hecho la corrida pre-cierre, y el rerun no agrega nada.
 #
 # Hasta 23:35: la F2 ya trae un cierre a las 23:45 UTC (partido 21:00 UY), y un
 # partido 22:00 UY cierra 00:45 UTC del día SIGUIENTE — con el tope viejo de
@@ -18,11 +36,11 @@ Description=Timer de la corrida T-2h del Clausura — horario en la ventana prev
 # la ventana, systemd dispara el tick perdido al arrancar en vez de esperar
 # al siguiente. El script decide igual si corresponde correr (ventana +
 # estado en disco), así que un disparo de más es un no-op silencioso — y un
-# tick perdido acá sí cuesta: el del sábado 12:35 es la ÚNICA oportunidad
+# tick perdido acá sí cuesta: el del sábado 11:35 es la ÚNICA oportunidad
 # antes del cierre más temprano.
 
 [Timer]
-OnCalendar=*-*-* 12..23:35:00 UTC
+OnCalendar=*-*-* 11..23:35:00 UTC
 Persistent=true
 
 [Install]
