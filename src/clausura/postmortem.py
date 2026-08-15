@@ -13,6 +13,10 @@ un análisis de qué pasó, y persiste el detalle en JSON:
     ganó el premio por fecha.
   - Qué pegó y qué no: exactos nuestros vs exactos del pool por partido, y el
     rendimiento en el partido estrella (x2).
+  - Chequeo de ASIGNACIÓN (el objetivo real: que UNA fila se despegue, no acertar
+    en promedio): P(N rivales al azar tengan un máximo ≥ el nuestro), filas en el
+    top 10% del pool, nivel (promedio vs pool) y concentración (corr/picks iguales
+    entre filas). Por fecha y acumulado de temporada (ranking de la web).
   - Insumos de recalibración: tasa de exactos del pool observada en la fecha
     (la calibración en sí ya es online: el pipeline de picks la lee del ranking, y
     la Q empírica del pool sale del snapshot — acá se REPORTA, no se duplica).
@@ -219,6 +223,158 @@ def compute_stats(
     if n_con_picks:
         st.pool_exactos_por_evento = {eid: h / n_con_picks for eid, h in exact_hits.items()}
     return st
+
+
+# -------------------- chequeo de asignación (portfolio, no acierto) --------------------
+#
+# El objetivo del sistema no es acertar en promedio sino ASIGNAR resultados a las
+# participaciones para que UNA se despegue. El postmortem clásico (puntos por fila,
+# percentil) no lo mide: doce filas en el percentil 78 son un desastre para el
+# objetivo aunque cada una "esté bien". Detectado el 2026-08-15 con 11 partidos:
+# la diversificación mecánica era correcta (corr 0.08 entre filas) pero 13 tickets
+# del pool elegidos AL AZAR le ganaban a nuestro máximo el 97% de las veces — el
+# portfolio pagaba el costo de diferenciarse sin cobrar la prima.
+#
+# La vara es esa: si N rivales cualesquiera producen un máximo mejor que el nuestro
+# casi siempre, la asignación no está funcionando, sea por nivel (filas todas bajo la
+# mediana) o por concentración (filas que se pisan). Se reportan las dos causas.
+
+def _log_comb(n: int, k: int) -> float:
+    from math import lgamma
+    if k < 0 or k > n:
+        return float("-inf")
+    return lgamma(n + 1) - lgamma(k + 1) - lgamma(n - k + 1)
+
+
+def prob_azar_gana(pool: list[int], nuestro_max: int, n_tickets: int) -> float | None:
+    """P(el máximo de `n_tickets` rivales tomados al azar SIN reposición ≥ nuestro máx).
+
+    Exacta (hipergeométrica), sin sorteos: P(todos < m) = C(k, N)/C(M, N) con k el
+    número de rivales estrictamente por debajo de m. None si el pool no alcanza.
+    """
+    m = len(pool)
+    if n_tickets <= 0 or m < n_tickets:
+        return None
+    k = sum(1 for p in pool if p < nuestro_max)
+    if k < n_tickets:
+        return 1.0
+    p_todos_abajo = np.exp(_log_comb(k, n_tickets) - _log_comb(m, n_tickets))
+    return float(1.0 - p_todos_abajo)
+
+
+def chequeo_asignacion(st: FechaStats) -> dict | None:
+    """Métricas de portfolio de la fecha. None sin pool o sin filas nuestras.
+
+    - `p_azar_gana`: la vara — P(máx de N tickets al azar del pool ≥ nuestro máx).
+    - `filas_top10`: cuántas nuestras entran en el decil superior del pool.
+    - `promedio_nuestro` vs `promedio_pool`: causa "nivel".
+    - `corr_filas`: correlación media de puntos partido a partido entre nuestras
+      filas (0 ≈ independientes); `coincidencia_pares` es la fracción de picks
+      iguales entre pares de filas nuestras: causa "concentración".
+    """
+    if not st.pool_puntos or not st.puntos:
+        return None
+    pool = np.array(st.pool_puntos)
+    nuestros = np.array(list(st.puntos.values()))
+    n = len(nuestros)
+    nuestro_max = int(nuestros.max())
+    p90 = float(np.percentile(pool, 90))
+    out = {
+        "n_filas": n,
+        "nuestro_max": nuestro_max,
+        "p_azar_gana": prob_azar_gana(st.pool_puntos, nuestro_max, n),
+        "filas_top10": int((nuestros >= p90).sum()),
+        "p90_pool": round(p90, 1),
+        "promedio_nuestro": round(float(nuestros.mean()), 2),
+        "promedio_pool": round(float(pool.mean()), 2),
+        "mediana_pool": float(np.median(pool)),
+        "filas_bajo_mediana": int((nuestros < np.median(pool)).sum()),
+    }
+    # concentración: matriz filas × partidos de puntos y de picks
+    numeros = list(st.puntos)
+    eids = [eid for eid in st.resultados if eid in st.detalle]
+    if n >= 2 and len(eids) >= 2:
+        M = np.array([[st.detalle[eid].get(num, {}).get("pts", 0) for eid in eids]
+                      for num in numeros], dtype=float)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            C = np.corrcoef(M)
+        C = np.nan_to_num(C, nan=0.0)          # fila constante ⇒ corr indefinida ⇒ 0
+        out["corr_filas"] = round(float((C.sum() - n) / (n * n - n)), 3)
+        iguales = total = 0
+        for i in range(n):
+            for j in range(i + 1, n):
+                for eid in eids:
+                    a = st.detalle[eid].get(numeros[i], {}).get("pick")
+                    b = st.detalle[eid].get(numeros[j], {}).get("pick")
+                    if a is None or b is None:
+                        continue
+                    total += 1
+                    iguales += a == b
+        out["coincidencia_pares"] = round(iguales / total, 3) if total else None
+    return out
+
+
+def chequeo_asignacion_temporada(
+    ranking_puntos: dict[int, int], mis_numeros: set[int],
+) -> dict | None:
+    """Mismo chequeo sobre los puntos ACUMULADOS del ranking de la web.
+
+    Es el que importa: el premio grande es al final. Usa `puntos_totales` del
+    ranking (la web es la verdad; incluye lo que la web ya liquidó y nada más), así
+    no depende de tener la serie de postmortems previos completa.
+    """
+    nuestros = [p for num, p in ranking_puntos.items() if num in mis_numeros]
+    pool = [p for num, p in ranking_puntos.items() if num not in mis_numeros]
+    if not nuestros or not pool:
+        return None
+    arr = np.array(pool)
+    nuestro_max = max(nuestros)
+    p90 = float(np.percentile(arr, 90))
+    return {
+        "n_filas": len(nuestros),
+        "nuestro_max": nuestro_max,
+        "puesto_max": int((arr > nuestro_max).sum()) + 1,
+        "p_azar_gana": prob_azar_gana(pool, nuestro_max, len(nuestros)),
+        "filas_top10": int(sum(1 for p in nuestros if p >= p90)),
+        "p90_pool": round(p90, 1),
+        "promedio_nuestro": round(float(np.mean(nuestros)), 2),
+        "promedio_pool": round(float(arr.mean()), 2),
+        "mediana_pool": float(np.median(arr)),
+        "filas_bajo_mediana": int(sum(1 for p in nuestros if p < np.median(arr))),
+        "max_pool": int(arr.max()),
+    }
+
+
+def formatear_asignacion(fecha: dict | None, temporada: dict | None) -> str:
+    """Sección del reporte. Vacía si no hay nada que decir."""
+    if not fecha and not temporada:
+        return ""
+    lines = ["<b>🎯 Asignación</b> (¿alguna fila se despega?)"]
+
+    def bloque(nombre: str, d: dict) -> None:
+        p = d.get("p_azar_gana")
+        p_txt = f"{p:.0%}" if p is not None else "n/d"
+        alerta = " ⚠️" if p is not None and p >= 0.8 else ""
+        puesto = f" (#{d['puesto_max']})" if "puesto_max" in d else ""
+        lines.append(
+            f"  {nombre}: máx nuestro <b>{d['nuestro_max']}</b>{puesto} · "
+            f"{d['n_filas']} rivales al azar nos ganan el <b>{p_txt}</b>{alerta} · "
+            f"{d['filas_top10']}/{d['n_filas']} en top 10% (≥{d['p90_pool']:.0f})")
+        causa = (f"    nivel: promedio {d['promedio_nuestro']:.1f} vs pool "
+                 f"{d['promedio_pool']:.1f}, {d['filas_bajo_mediana']}/{d['n_filas']} "
+                 f"bajo la mediana ({d['mediana_pool']:.0f})")
+        if d.get("corr_filas") is not None:
+            causa += (f" · concentración: corr {d['corr_filas']:.2f}, "
+                      f"picks iguales entre filas {d['coincidencia_pares']:.0%}")
+        lines.append(causa)
+
+    if fecha:
+        bloque("Fecha", fecha)
+    if temporada:
+        bloque("Temporada", temporada)
+    lines.append("  <i>Vara: si N rivales al azar le ganan a nuestro máx casi siempre, "
+                 "el portfolio paga la diferenciación sin cobrarla — mirar el PIT.</i>")
+    return "\n".join(lines)
 
 
 def comparar_puntos_publicados(
@@ -441,12 +597,26 @@ def run(fecha: int | None = None, dry_run: bool = False) -> str | None:
     premios = {p["tipo"]: p["monto"] for p in cfg.get("premios", [])}
     reporte = formatear_postmortem(st, premio_fecha=premios.get("FECHA"), faltan=faltan)
 
-    # Tripwire de liquidación: nuestros puntos calculados vs los que la web publica.
+    # Chequeo de asignación: fecha (desde el snapshot) + temporada (desde el ranking).
+    asig_fecha = chequeo_asignacion(st)
+    asig_temp = None
+    ranking_pts: dict[int, int] = {}
     try:
         with PencaApiClient() as api:
             ranking = api.ranking(cfg["pencas"]["paga"]["id"])
-        publicados = {r.numero_participacion: r.puntos_totales
-                      for r in ranking if r.numero_participacion in set(mis_numeros)}
+        ranking_pts = {r.numero_participacion: r.puntos_totales for r in ranking}
+        asig_temp = chequeo_asignacion_temporada(ranking_pts, set(mis_numeros))
+    except Exception as e:                                     # noqa: BLE001
+        log.warning("ranking no disponible (%s) — sin asignación de temporada ni tripwire", e)
+    seccion = formatear_asignacion(asig_fecha, asig_temp)
+    if seccion:
+        reporte += "\n\n" + seccion
+
+    # Tripwire de liquidación: nuestros puntos calculados vs los que la web publica.
+    try:
+        if not ranking_pts:
+            raise RuntimeError("sin ranking")
+        publicados = {n: p for n, p in ranking_pts.items() if n in set(mis_numeros)}
         totales = _totales_calculados(fecha, st.puntos)
         if totales is None:
             log.info("tripwire de puntos omitido: falta el postmortem de una fecha previa")
@@ -491,6 +661,7 @@ def run(fecha: int | None = None, dry_run: bool = False) -> str | None:
             "esperados": st.esperados,
             "pool_puntos": st.pool_puntos,
             "pool_exactos_por_evento": {str(k): v for k, v in st.pool_exactos_por_evento.items()},
+            "asignacion": {"fecha": asig_fecha, "temporada": asig_temp},
         }, ensure_ascii=False, indent=1), encoding="utf-8")
         from src.notifier.telegram import TelegramConfig, TelegramNotifier
         TelegramNotifier(TelegramConfig.from_env()).send(reporte)

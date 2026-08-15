@@ -283,3 +283,56 @@ def test_totales_calculados_suman_postmortems_previos(tmp_path, monkeypatch):
     assert tot == {899258848: 15, 899258849: 10}
     # sin el postmortem de una fecha previa, no se puede verificar → None
     assert pm._totales_calculados(3, {899258848: 5}) is None
+
+
+# -------------------- chequeo de asignación --------------------
+
+from src.clausura.postmortem import (  # noqa: E402
+    chequeo_asignacion, chequeo_asignacion_temporada, formatear_asignacion,
+    prob_azar_gana,
+)
+
+
+def test_prob_azar_gana_es_hipergeometrica_exacta():
+    # pool de 5: {1,2,3,4,5}; nuestro máx 4 → k=3 abajo. N=2: P(ambos<4)=C(3,2)/C(5,2)=3/10
+    assert abs(prob_azar_gana([1, 2, 3, 4, 5], 4, 2) - 0.7) < 1e-9
+    assert prob_azar_gana([1, 2, 3], 10, 3) == 0.0            # nadie nos alcanza
+    assert prob_azar_gana([9, 9, 9], 5, 1) == 1.0             # todos arriba
+    assert prob_azar_gana([1, 2], 5, 3) is None               # pool más chico que N
+
+
+def test_chequeo_asignacion_reporta_vara_nivel_y_concentracion():
+    st = _stats()                     # nuestras 24/9/2; pool 10/16
+    d = chequeo_asignacion(st)
+    assert d["n_filas"] == 3 and d["nuestro_max"] == 24
+    assert d["p_azar_gana"] is None   # pool de 2 < 3 filas: no hay vara
+    assert d["promedio_pool"] == 13.0 and d["filas_bajo_mediana"] == 2
+    assert d["filas_top10"] == 1      # solo la de 24 supera el p90 del pool
+    assert 0 <= d["coincidencia_pares"] <= 1 and "corr_filas" in d
+
+
+def test_chequeo_asignacion_sin_pool_devuelve_none():
+    st = compute_stats(1, _eventos(), RESULTADOS, _picks(), {}, [], set(NUMS))
+    assert chequeo_asignacion(st) is None
+
+
+def test_chequeo_temporada_desde_ranking():
+    ranking = {NUMS[0]: 28, NUMS[1]: 15, NUMS[2]: 9}
+    ranking.update({1000 + i: p for i, p in enumerate([58, 40, 30, 28, 21, 21, 20, 10, 5, 3])})
+    d = chequeo_asignacion_temporada(ranking, set(NUMS))
+    assert d["nuestro_max"] == 28 and d["puesto_max"] == 4 and d["max_pool"] == 58
+    assert d["n_filas"] == 3 and 0 < d["p_azar_gana"] < 1
+    assert d["promedio_pool"] == 23.6
+    assert chequeo_asignacion_temporada({1: 5}, set(NUMS)) is None
+
+
+def test_formatear_asignacion_alerta_cuando_el_azar_gana():
+    d = {"n_filas": 12, "nuestro_max": 28, "puesto_max": 160, "p_azar_gana": 0.97,
+         "filas_top10": 0, "p90_pool": 34.0, "promedio_nuestro": 17.2,
+         "promedio_pool": 21.2, "mediana_pool": 21.0, "filas_bajo_mediana": 10}
+    txt = formatear_asignacion(None, d)
+    assert "97%" in txt and "⚠️" in txt and "#160" in txt and "0/12 en top 10%" in txt
+    assert formatear_asignacion(None, None) == ""
+    d2 = dict(d, p_azar_gana=0.3, corr_filas=0.08, coincidencia_pares=0.26)
+    txt2 = formatear_asignacion(d2, None)
+    assert "⚠️" not in txt2 and "corr 0.08" in txt2 and "26%" in txt2
