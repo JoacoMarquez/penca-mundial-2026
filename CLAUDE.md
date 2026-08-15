@@ -55,7 +55,7 @@ maximizar E[premio], no puntaje esperado), otro torneo y otra plataforma.
 ## Operación
 
 **VPS:** DigitalOcean 159.203.66.24, 2 GB. Timers systemd (UTC):
-`picks` 11:00 diario · `rerun-cierre` 12..23:35 · `carga-alert` 11..23:10 ·
+`picks` 11:00 diario · `rerun-cierre` 11..23:35 · `carga-alert` 11..23:10 ·
 `drift-audit` 13:20/18:20/23:50 · `postmortem` 03:20 · `heartbeat` 12:30 ·
 `gate-watch` cada 10 min · `cold-check` martes 04:30 (semanal).
 
