@@ -187,6 +187,62 @@
     const clave = el => el.classList.contains('esp-card')
       ? kEsp(el.dataset.part) : kRow(el.dataset.part, el.dataset.ev);
     const guardado = el => localStorage.getItem(clave(el));
+
+    // ------------------------------------------------------------------
+    // Sincronización entre dispositivos (servidor: src/clausura/carga_state.py).
+    //
+    // localStorage es por navegador Y por dispositivo: cargar 6 participaciones en
+    // la PC y seguir en el celular mostraba la lista entera pendiente otra vez. Y
+    // como el gate del penca-api no deja verificar lo cargado hasta que el partido
+    // cierra, esta marca es la única memoria de por dónde vas mientras cargás.
+    //
+    // localStorage sigue siendo la fuente de la PANTALLA (responde al toque sin
+    // esperar la red, y si el celular se queda sin señal seguís cargando). El
+    // servidor es la fuente de la VERDAD compartida y se refresca al abrir, al
+    // volver a la pestaña y cada 15s.
+    //
+    // El patrón de clave tiene que coincidir con CLAVE_RE del servidor: sincroniza
+    // marcas, NO preferencias de pantalla (el filtro y la marca de migración se
+    // quedan locales — esconder lo cargado en el celu no debe esconderlo en la PC).
+    // ------------------------------------------------------------------
+    const API_MARCAS = {{ ('/dash/' + token + '/api/carga-marcas') | tojson }};
+    const RE_MARCA = /^carga:v2:(esp:)?[0-9]{1,12}(:[0-9]{1,12}){0,2}$/;
+    const clavesLocales = () => {
+      const out = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (RE_MARCA.test(k)) out[k] = localStorage.getItem(k);
+      }
+      return out;
+    };
+
+    // Best-effort: si falla la red la marca ya quedó local y el próximo sync la sube.
+    const empujar = (k, v) => fetch(API_MARCAS, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({clave: k, valor: v}),
+    }).catch(() => {});
+
+    const setMarca = (k, v) => { localStorage.setItem(k, v); empujar(k, v); };
+    const delMarca = k => { localStorage.removeItem(k); empujar(k, null); };
+
+    async function sincronizar(subirLocales) {
+      try {
+        const r = subirLocales
+          ? await fetch(API_MARCAS, {
+              method: 'POST', headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({fusionar: clavesLocales()})})
+          : await fetch(API_MARCAS);
+        if (!r.ok) return;
+        const {marcas} = await r.json();
+        // El servidor manda: lo que no está arriba se desmarcó desde el otro
+        // dispositivo. Sin este borrado, desmarcar no se propagaría nunca.
+        Object.keys(clavesLocales()).forEach(k => {
+          if (!(k in marcas)) localStorage.removeItem(k);
+        });
+        Object.entries(marcas).forEach(([k, v]) => localStorage.setItem(k, v));
+        refrescar();
+      } catch (e) { /* sin red: se sigue con lo local */ }
+    }
     const estado = el => {
       const rec = guardado(el);
       if (rec === null) return 'pendiente';
@@ -367,8 +423,8 @@
     // Tocar confirma el valor de ahora; volver a tocar algo ya confirmado lo desmarca.
     // Sobre una fila en estado "cambio", tocar significa "ya lo corregí en la web".
     const alternar = el => {
-      if (estado(el) === 'cargada') localStorage.removeItem(clave(el));
-      else localStorage.setItem(clave(el), el.dataset.val);
+      if (estado(el) === 'cargada') delMarca(clave(el));
+      else setMarca(clave(el), el.dataset.val);
       refrescar();
     };
     const btnFiltro = document.getElementById('btn-filtro');
@@ -395,13 +451,23 @@
         filas.filter(tr => tr.dataset.part === card.dataset.part
                            && tr.dataset.cerrado !== '1')
              .forEach(tr => ev.target.checked
-               ? localStorage.setItem(clave(tr), tr.dataset.val)
-               : localStorage.removeItem(clave(tr)));
+               ? setMarca(clave(tr), tr.dataset.val)
+               : delMarca(clave(tr)));
         refrescar();
       });
     });
 
     refrescar();
+
+    // Primer sync: sube lo que este navegador ya tenía (nadie pierde el progreso
+    // hecho antes de que existiera el servidor) y adopta el estado compartido.
+    sincronizar(true);
+    // El otro dispositivo puede estar cargando ahora mismo. Al volver a la pestaña
+    // se refresca de una — es el caso real: dejás el celular, seguís en la PC.
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) sincronizar(false);
+    });
+    setInterval(() => { if (!document.hidden) sincronizar(false); }, 15000);
 
     // ------------------------------------------------------------------
     // Verificación contra la web: la única fuente que no depende de tu memoria.
@@ -471,16 +537,16 @@
         if (!tr) return;
         if (f.estado === 'ok') {
           pintarVerif(tr, '✓ igual en la web', 'emerald-400');
-          localStorage.setItem(clave(tr), f.planilla);
+          setMarca(clave(tr), f.planilla);
         } else if (f.estado === 'distinto') {
           pintarVerif(tr, `🔴 en la web dice ${f.web}`, 'rose-300');
-          localStorage.setItem(clave(tr), f.web);      // la web manda sobre tu marca
+          setMarca(clave(tr), f.web);      // la web manda sobre tu marca
           problemas.push({el: tr, texto: `N°${f.numero} · ${f.partido}: web ${f.web} ` +
                                          `≠ planilla ${f.planilla}`});
         } else if (f.estado === 'falta') {
           // Solo llega acá un partido YA CERRADO: ahí sí la ausencia es real.
           pintarVerif(tr, '⬜ no quedó cargado (ya cerrado)', 'rose-300');
-          localStorage.removeItem(clave(tr));
+          delMarca(clave(tr));
           problemas.push({el: tr,
             texto: `N°${f.numero} · ${f.partido}: no quedó cargado (${f.planilla})`});
         } else if (f.estado === 'no_visible') {
@@ -502,14 +568,14 @@
         const malos = campos.filter(c => c.estado !== 'ok');
         if (!malos.length) {
           pintarVerif(card, '✓ igual en la web', 'emerald-400');
-          localStorage.setItem(clave(card), card.dataset.val);
+          setMarca(clave(card), card.dataset.val);
         } else {
           const rot = c => c.campo === 'campeon' ? 'campeón' : c.campo;
           const txt = malos.map(c => c.estado === 'falta'
             ? `${rot(c)} sin cargar` : `${rot(c)}: web ${c.web || '—'}`).join(' · ');
           pintarVerif(card, `🔴 ${txt}`, 'rose-300');
           // la marca local decía "cargado" y la web dice otra cosa: se cae la marca
-          localStorage.removeItem(clave(card));
+          delMarca(clave(card));
           malos.forEach(c => problemas.push({el: card,
             texto: `N°${c.numero} · ${rot(c)}: web ${c.web || '—'} ≠ planilla ${c.planilla}`}));
         }
