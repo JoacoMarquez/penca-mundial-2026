@@ -32,7 +32,7 @@ import argparse
 import json
 import logging
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import httpx
@@ -125,19 +125,21 @@ def load_state() -> dict:
     return {}
 
 
-def save_state(cur: dict, now: datetime) -> None:
+def save_state(cur: dict, now: datetime, extra: dict | None = None) -> None:
     STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
     STATE_PATH.write_text(json.dumps({
         "abiertos": bool(cur["abiertos"]),
         "especiales": cur["especiales_pre_inicio"],
         "ts": now.isoformat(),
+        **(extra or {}),
     }), encoding="utf-8")
 
 
 # -------------------- sondeo --------------------
 
-def sondear(penca_id: int, mis_numeros: set[int]) -> tuple[set[int], bool]:
-    """(evento_ids con picks visibles en la muestra, especiales visibles).
+def sondear(penca_id: int, mis_numeros: set[int]) -> tuple[set[int], bool, list]:
+    """(evento_ids con picks visibles en la muestra, especiales visibles, página 1
+    del ranking — se devuelve para que la foto del pool no repita el request).
 
     Barato a propósito: 1 página de ranking + PROBE_N pronosticosEventos +
     1 pronosticoCampeonGoleador.
@@ -165,7 +167,52 @@ def sondear(penca_id: int, mis_numeros: set[int]) -> tuple[set[int], bool]:
                 d = resp.json()
                 especiales = bool((d.get("equipoCampeon") or {}).get("nombre")
                                   or (d.get("opcionGoleador") or {}).get("goleador"))
-    return visibles, especiales
+    return visibles, especiales, rows
+
+
+# -------------------- foto del pool (movimiento por partido) --------------------
+
+# Sin cambio en la tabla, una foto cada tantas horas igual mantiene vivo el
+# histórico (y acota cuánto se demora en ver una liquidación que la firma barata
+# no captó por algún motivo).
+FOTO_MAX_GAP_H = 6.0
+
+
+def firma_ranking(rows) -> str:
+    """Firma barata de la página 1: si algún puntaje del tope cambió, cambió.
+
+    Una liquidación suma puntos a ~todo el pool (media >1 por partido), así que
+    es prácticamente imposible que el top-20 quede idéntico. `total` no entra:
+    altas de participaciones sin liquidación no ameritan foto.
+    """
+    return ",".join(f"{r.numero_participacion}:{r.puntos_totales}" for r in rows)
+
+
+def foto_pool(penca_id: int, mis_numeros: set[int], eventos: list[dict],
+              now: datetime) -> None:
+    """Foto del ranking completo → histórico del pool (data/pool_history).
+
+    Es lo que alimenta "cuánto subió/bajó cada penca tras cada partido" en el
+    dashboard: el diff entre fotos consecutivas se atribuye a los eventos recién
+    liquidables (pool_view.movimientos_por_partido). Nunca propaga errores — es
+    un extra del tick, no puede tumbar al vigía.
+    """
+    from src.clausura.pool_view import liquidables_en, registrar_historia, resumen_pool
+
+    rows = []
+    with httpx.Client(base_url=BASE, timeout=25.0, headers=HEADERS) as c:
+        page_n = 1
+        while True:
+            r = c.get(f"/front/pencas/{penca_id}/ranking",
+                      params={"page": page_n, "size": 1000})
+            r.raise_for_status()
+            page_rows, _total, total_pages = parse_ranking_page(r.json())
+            rows.extend(page_rows)
+            page_n += 1
+            if page_n > total_pages or not page_rows:
+                break
+    resumen = resumen_pool(rows, mis_numeros)
+    registrar_historia(resumen, liquidables=liquidables_en(eventos, now))
 
 
 # -------------------- main --------------------
@@ -179,11 +226,27 @@ def run(dry_run: bool = False, now: datetime | None = None) -> str | None:
     penca_id = cfg["pencas"]["paga"]["id"]
     mis_numeros = mis_numeros_env()
 
-    visibles, especiales = sondear(penca_id, mis_numeros)
+    visibles, especiales, pagina1 = sondear(penca_id, mis_numeros)
     cur = clasificar(visibles, especiales, eventos, now)
     prev = load_state()
     log.info("gate: %d eventos abiertos visibles · especiales_pre_inicio=%s",
              len(cur["abiertos"]), cur["especiales_pre_inicio"])
+
+    # Foto del pool si el tope se movió (liquidación) o hace mucho que no hay una.
+    firma = firma_ranking(pagina1)
+    foto_vieja = True
+    try:
+        ultima = datetime.fromisoformat(prev.get("foto_ts", ""))
+        foto_vieja = (now - ultima) >= timedelta(hours=FOTO_MAX_GAP_H)
+    except ValueError:
+        pass
+    foto_ts = prev.get("foto_ts")
+    if not dry_run and (firma != prev.get("rk_firma") or foto_vieja):
+        try:
+            foto_pool(penca_id, mis_numeros, eventos, now)
+            foto_ts = now.isoformat()
+        except Exception as e:                  # noqa: BLE001 — extra, no crítico
+            log.warning("no pude sacar la foto del pool: %s", e)
 
     msg = None
     if necesita_alerta(prev, cur):
@@ -204,7 +267,7 @@ def run(dry_run: bool = False, now: datetime | None = None) -> str | None:
         print(msg.replace("<b>", "").replace("</b>", "").replace("<code>", "")
                  .replace("</code>", ""))
     if not dry_run:
-        save_state(cur, now)
+        save_state(cur, now, extra={"rk_firma": firma, "foto_ts": foto_ts})
     return msg
 
 

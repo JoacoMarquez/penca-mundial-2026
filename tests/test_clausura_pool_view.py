@@ -218,3 +218,101 @@ def test_parse_ranking_page_sigue_intacto():
     })
     assert total == 692 and paginas == 1
     assert rows[0].numero_participacion == 899258497
+
+
+# -------------------- movimiento por partido --------------------
+
+from src.clausura.pool_view import liquidables_en, movimientos_por_partido  # noqa: E402
+
+EVENTOS_MOV = [
+    {"evento_id": 1, "local": "Cerro", "visitante": "Albion",
+     "inicio_utc": "2026-08-15T13:00:00+00:00",
+     "cierre_pronostico_utc": "2026-08-15T12:45:00+00:00"},
+    {"evento_id": 2, "local": "Juventud", "visitante": "Torque",
+     "inicio_utc": "2026-08-15T16:00:00+00:00",
+     "cierre_pronostico_utc": "2026-08-15T15:45:00+00:00"},
+]
+
+
+def _ts(h, m=0):
+    return datetime(2026, 8, 15, h, m, tzinfo=timezone.utc)
+
+
+def test_liquidables_exige_cierre_y_105_min_de_juego():
+    # 15:00: Cerro cerró y arrancó hace 2h → liquidable. Juventud ni cerró.
+    assert liquidables_en(EVENTOS_MOV, _ts(15)) == [1]
+    # 16:00: Juventud cerró pero ARRANCA recién ahora — no pudo liquidar.
+    # Sin el filtro de 105', el sábado en cascada se atribuiría doble.
+    assert liquidables_en(EVENTOS_MOV, _ts(16)) == [1]
+    assert liquidables_en(EVENTOS_MOV, _ts(18)) == [1, 2]
+
+
+def _foto(ts, mias, liq):
+    return {"ts": ts.isoformat(), "mias": mias, "liq": liq}
+
+
+def test_movimientos_atribuye_al_partido_nuevo():
+    historia = [
+        _foto(_ts(12), [{"n": 100, "p": 20, "pu": 50}, {"n": 101, "p": 18, "pu": 80}], []),
+        _foto(_ts(15), [{"n": 100, "p": 28, "pu": 30}, {"n": 101, "p": 19, "pu": 95}], [1]),
+    ]
+    movs = movimientos_por_partido(historia, EVENTOS_MOV)
+    assert len(movs) == 1
+    assert movs[0]["etiqueta"] == "Cerro vs Albion"
+    assert movs[0]["subieron"] == 1 and movs[0]["bajaron"] == 1
+    m100 = next(m for m in movs[0]["movimientos"] if m["numero"] == 100)
+    assert (m100["puesto_antes"], m100["puesto_despues"]) == (50, 30)
+    assert m100["delta_puesto"] == 20 and m100["puntos_ganados"] == 8
+    m101 = next(m for m in movs[0]["movimientos"] if m["numero"] == 101)
+    assert m101["delta_puesto"] == -15
+
+
+def test_movimientos_reacomodo_sin_puntos_nuestros():
+    """Puestos que se mueven sin puntos nuestros = puntos ajenos, no un partido."""
+    historia = [
+        _foto(_ts(12), [{"n": 100, "p": 20, "pu": 50}], [1]),
+        _foto(_ts(15), [{"n": 100, "p": 20, "pu": 55}], [1]),
+    ]
+    movs = movimientos_por_partido(historia, EVENTOS_MOV)
+    assert len(movs) == 1
+    assert movs[0]["partidos"] == [] and "reacomodo" in movs[0]["etiqueta"]
+
+
+def test_movimientos_dos_partidos_en_la_misma_ventana_salen_juntos():
+    historia = [
+        _foto(_ts(12), [{"n": 100, "p": 20, "pu": 50}], []),
+        _foto(_ts(18), [{"n": 100, "p": 25, "pu": 40}], [1, 2]),
+    ]
+    movs = movimientos_por_partido(historia, EVENTOS_MOV)
+    assert movs[0]["etiqueta"] == "Cerro vs Albion + Juventud vs Torque"
+
+
+def test_movimientos_ignora_fotos_viejas_sin_mias():
+    historia = [
+        {"ts": _ts(10).isoformat(), "lider": 20},            # línea vieja, pre-feature
+        _foto(_ts(12), [{"n": 100, "p": 20, "pu": 50}], []),
+        _foto(_ts(15), [{"n": 100, "p": 28, "pu": 30}], [1]),
+    ]
+    assert len(movimientos_por_partido(historia, EVENTOS_MOV)) == 1
+
+
+def test_foto_guarda_mias_y_liq_y_dispara_por_movimiento_del_medio(tmp_path):
+    p = tmp_path / "ranking.jsonl"
+    r = resumen_pool(ROWS, MIOS)
+    assert registrar_historia(r, path=p, liquidables=[2, 1]) is True
+    linea = leer_historia(p)[-1]
+    assert linea["liq"] == [1, 2]
+    assert {m["n"] for m in linea["mias"]} == set(MIOS)
+
+    # Se mueve solo una nuestra del MEDIO de la tabla (ni líder ni la mejor):
+    # sin el chequeo de `mias` esta liquidación no dejaría foto.
+    rows2 = [ROWS[0], ROWS[1], ROWS[2], row(101, 16), ROWS[4], ROWS[5], ROWS[6]]
+    r2 = resumen_pool(rows2, MIOS)
+    assert registrar_historia(r2, path=p, liquidables=[1, 2]) is True
+
+
+def test_firma_ranking_cambia_si_el_tope_se_mueve():
+    from src.clausura.gate_watch import firma_ranking
+    a = firma_ranking(ROWS)
+    assert a == firma_ranking(list(ROWS))
+    assert a != firma_ranking([row(1, 25)] + ROWS[1:])

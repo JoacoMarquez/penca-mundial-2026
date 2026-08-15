@@ -198,8 +198,18 @@ def resumen_pool(
 
 # -------------------- histórico (trayectoria sin API extra) --------------------
 
-def entrada_historica(resumen: dict, ts: datetime | None = None) -> dict:
-    """La línea que se guarda: lo mínimo para dibujar la trayectoria."""
+def entrada_historica(
+    resumen: dict,
+    ts: datetime | None = None,
+    liquidables: list[int] | None = None,
+) -> dict:
+    """La línea que se guarda: lo mínimo para dibujar la trayectoria.
+
+    `mias` (numero/puntos/puesto de cada participación nuestra, claves cortas) y
+    `liq` (evento_ids liquidables al momento de la foto, ver liquidables_en) son
+    los dos campos que permiten reconstruir cuánto subió o bajó cada penca tras
+    cada partido — el diff lo hace movimientos_por_partido, acá solo se fotografía.
+    """
     mejor = resumen.get("mejor") or {}
     return {
         "ts": (ts or datetime.now(timezone.utc)).isoformat(timespec="seconds"),
@@ -213,6 +223,9 @@ def entrada_historica(resumen: dict, ts: datetime | None = None) -> dict:
         "mias_en_tope": resumen["lider"]["mias_en_tope"],
         "cobro_hoy": round(resumen["lider"]["cobro_hoy"]),
         "exactos_max": resumen["exactos"]["pool_max"],
+        "mias": [{"n": m["numero"], "p": m["puntos"], "pu": m["puesto"]}
+                 for m in resumen.get("mias", [])],
+        "liq": sorted(liquidables or []),
     }
 
 
@@ -226,6 +239,11 @@ def _vale_la_pena(nueva: dict, ultima: dict | None, min_gap_h: float) -> bool:
     for k in ("lider", "mejor_puntos", "mejor_puesto", "total"):
         if nueva.get(k) != ultima.get(k):
             return True
+    # Cualquier movimiento de puesto/puntos de las nuestras también amerita foto:
+    # sin esto, una liquidación que solo mueve participaciones del medio de la
+    # tabla no quedaría registrada y el diff por partido saldría agujereado.
+    if nueva.get("mias") and ultima.get("mias") and nueva["mias"] != ultima["mias"]:
+        return True
     try:
         prev = datetime.fromisoformat(ultima["ts"])
     except Exception:
@@ -288,10 +306,89 @@ def historia_por_fecha(pm_dir: Path | None = None) -> list[dict]:
     return out
 
 
+# Un partido no puede estar liquidado antes de terminar: inicio + 105' (90' +
+# descuentos + entretiempo) es la cota inferior. Filtra el caso sábado en cascada:
+# a la hora en que liquida el partido de la mañana, el del mediodía ya CERRÓ pero
+# no pudo haber terminado — sin este filtro el diff se lo atribuiría a los dos.
+LIQUIDABLE_TRAS_MIN = 105
+
+
+def liquidables_en(eventos: list[dict], ts: datetime) -> list[int]:
+    """Evento_ids cuyo puntaje YA PUDO estar liquidado en el ranking a las `ts`.
+
+    Criterio sin API extra (el estado FINALIZADO vivo no está en el config):
+    cierre pasado Y arrancó hace ≥105 min. Es una cota superior deliberada —
+    la liquidación real puede demorar más; el diff entre fotos consecutivas
+    atribuye el movimiento a los eventos NUEVOS de este conjunto.
+    """
+    out = []
+    for ev in eventos:
+        try:
+            inicio = datetime.fromisoformat(ev["inicio_utc"])
+            cierre = datetime.fromisoformat(ev["cierre_pronostico_utc"])
+        except (KeyError, ValueError):
+            continue
+        if cierre <= ts and (ts - inicio).total_seconds() >= LIQUIDABLE_TRAS_MIN * 60:
+            out.append(ev["evento_id"])
+    return sorted(out)
+
+
+def movimientos_por_partido(
+    historia: list[dict],
+    eventos: list[dict],
+    limite: int = 10,
+) -> list[dict]:
+    """Cuánto subió o bajó cada participación nuestra tras cada partido liquidado.
+
+    Diff entre fotos consecutivas del histórico que traen `mias`: si los puntos de
+    alguna nuestra cambiaron, el movimiento se atribuye a los eventos que entraron
+    a `liq` entre una foto y la otra (normalmente UNO; si dos liquidan en la misma
+    ventana salen juntos, y honesto es mostrarlos juntos). Los cambios de puesto
+    SIN puntos nuevos nuestros salen como fila propia etiquetada "reacomodo" —
+    el puesto es relativo y lo mueven también los puntos ajenos.
+    """
+    nombre = {ev["evento_id"]: f"{ev.get('local', '?')} vs {ev.get('visitante', '?')}"
+              for ev in eventos}
+    fotos = [h for h in historia if h.get("mias")]
+    out: list[dict] = []
+    for antes, ahora in zip(fotos, fotos[1:]):
+        prev = {m["n"]: m for m in antes["mias"]}
+        movs = []
+        hubo_puntos = False
+        for m in ahora["mias"]:
+            p = prev.get(m["n"])
+            if p is None:
+                continue
+            if m["pu"] != p["pu"] or m["p"] != p["p"]:
+                movs.append({
+                    "numero": m["n"],
+                    "puesto_antes": p["pu"],
+                    "puesto_despues": m["pu"],
+                    "delta_puesto": p["pu"] - m["pu"],     # >0 = subió
+                    "puntos_ganados": m["p"] - p["p"],
+                })
+                hubo_puntos = hubo_puntos or m["p"] != p["p"]
+        if not movs:
+            continue
+        nuevos = sorted(set(ahora.get("liq") or []) - set(antes.get("liq") or []))
+        partidos = [nombre.get(eid, f"evento {eid}") for eid in nuevos]
+        out.append({
+            "ts": ahora["ts"],
+            "partidos": partidos if (partidos and hubo_puntos) else [],
+            "etiqueta": (" + ".join(partidos) if (partidos and hubo_puntos)
+                         else "reacomodo del pool (sin puntos nuevos nuestros)"),
+            "movimientos": sorted(movs, key=lambda x: -x["delta_puesto"]),
+            "subieron": sum(1 for x in movs if x["delta_puesto"] > 0),
+            "bajaron": sum(1 for x in movs if x["delta_puesto"] < 0),
+        })
+    return out[-limite:][::-1]
+
+
 def registrar_historia(
     resumen: dict,
     path: Path | None = None,
     min_gap_h: float = HIST_MIN_GAP_H,
+    liquidables: list[int] | None = None,
 ) -> bool:
     """Apendea la foto del pool si corresponde. Devuelve True si escribió.
 
@@ -303,7 +400,7 @@ def registrar_historia(
     p = path or HIST_PATH
     try:
         historia = leer_historia(p, limite=1)
-        nueva = entrada_historica(resumen)
+        nueva = entrada_historica(resumen, liquidables=liquidables)
         if not _vale_la_pena(nueva, historia[-1] if historia else None, min_gap_h):
             return False
         p.parent.mkdir(parents=True, exist_ok=True)

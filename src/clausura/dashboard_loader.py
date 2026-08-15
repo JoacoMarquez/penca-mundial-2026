@@ -331,8 +331,10 @@ def load_pool_page() -> dict:
     Costo en API: la MISMA request cacheada que usa el home (ranking completo en una
     sola llamada). La trayectoria y el fecha-a-fecha salen de disco.
     """
+    from src.clausura.picks import flat_eventos
     from src.clausura.pool_view import (
-        historia_por_fecha, leer_historia, registrar_historia, resumen_pool,
+        historia_por_fecha, leer_historia, liquidables_en, movimientos_por_partido,
+        registrar_historia, resumen_pool,
     )
 
     cfg = load_clausura_config()
@@ -353,12 +355,18 @@ def load_pool_page() -> dict:
         premio_penca=premios.get("PENCA", 350_000.0),
         premio_fecha=premios.get("FECHA", 10_000.0),
     )
-    registrar_historia(resumen)
+    eventos = flat_eventos(cfg)
+    registrar_historia(
+        resumen,
+        liquidables=liquidables_en(eventos, datetime.now(timezone.utc)),
+    )
 
     resumen["fecha_actual"] = fecha_actual(cfg)
     resumen["penca_id"] = penca_id
     resumen["sin_env"] = not mios
-    resumen["trayectoria"] = leer_historia()[-20:]
+    historia = leer_historia()
+    resumen["trayectoria"] = historia[-20:]
+    resumen["movimientos"] = movimientos_por_partido(historia, eventos)
     resumen["por_fecha"] = historia_por_fecha()
     resumen["supermatch_url"] = f"https://www.supermatch.com.uy/pencas/1/{penca_id}/penca"
     return resumen
