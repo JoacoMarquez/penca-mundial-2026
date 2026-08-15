@@ -454,6 +454,7 @@ def payload_con_picks_reales(
     cargados: list[Cargado],
     mis_numeros: list[int],
     ev_cerrados: set[int],
+    origen: str | None = None,
 ) -> tuple[dict, list[tuple[int, int, tuple[int, int], tuple[int, int]]]] | None:
     """(payload nuevo, [(evento_id, numero, planilla, web)]) reescribiendo los picks
     de partidos CERRADOS con lo que quedó cargado en la web. None si coinciden.
@@ -489,6 +490,17 @@ def payload_con_picks_reales(
     if not cambios:
         return None
     payload["picks_adoptados_utc"] = datetime.now(timezone.utc).isoformat()
+    # El veredicto del gate mide UNA comparación concreta (esta planilla vs la
+    # anterior, sobre sorteos comunes). Esta versión no es esa comparación: es la
+    # misma planilla con los partidos CERRADOS reescritos a lo que dice la web.
+    # Copiarlo tal cual dejaba un veredicto con `medido: true` firmando un caso que
+    # nadie midió. Se degrada a `veredicto_heredado`: sirve para saber si los picks
+    # ABIERTOS que arrastra venían aprobados o descartados (son idénticos a los de
+    # la fuente — la adopción solo toca partidos cerrados), pero ya no se puede
+    # confundir con una medición de esta versión.
+    gate = payload.pop("veredicto_cambio", None)
+    if gate is not None:
+        payload["veredicto_heredado"] = {**gate, "de": origen}
     return payload, cambios
 
 
@@ -516,11 +528,11 @@ def adoptar_picks_cerrados(
             continue
         payload = json.loads(latest.read_text(encoding="utf-8"))
         resultado = payload_con_picks_reales(payload, cargados, mis_numeros,
-                                             por_fecha[f])
+                                             por_fecha[f], origen=latest.name)
         if resultado is None:
             continue
         payload, cambios = resultado
-        gate = (payload.get("veredicto_cambio") or {})
+        gate = (payload.get("veredicto_heredado") or {})
         path = picks.save_version(f, payload)
         log.info("picks reales adoptados en fecha %d → %s (%d picks)",
                  f, path.name, len(cambios))
