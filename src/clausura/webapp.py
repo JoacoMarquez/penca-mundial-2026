@@ -14,6 +14,7 @@ Reusa el mismo DASHBOARD_TOKEN del .env que el dashboard viejo.
 
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 from typing import Optional
@@ -23,6 +24,8 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
 from src.clausura.dashboard_loader import load_clausura_page, load_pool_page
+
+log = logging.getLogger(__name__)
 
 HERE = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(HERE / "templates"))
@@ -53,7 +56,10 @@ def page_clausura(request: Request, token: str, fecha: Optional[int] = None):
 @app.get("/dash/{token}/carga/", response_class=HTMLResponse)
 def page_carga(request: Request, token: str, fecha: Optional[int] = None):
     """Modo carga: una tarjeta por participación en el orden de la web, con
-    checkbox de progreso persistido en el teléfono (localStorage)."""
+    checkbox de progreso COMPARTIDO entre dispositivos (ver carga_state): la marca
+    vive en localStorage para que la pantalla responda sin red, y se sincroniza
+    contra el servidor para que cargar mitad en la PC y mitad en el celular sea una
+    sola lista de trabajo."""
     _check_token(token)
     data = load_clausura_page(fecha_q=fecha)
     return templates.TemplateResponse(request, "carga.html", {"data": data, "token": token})
@@ -92,3 +98,38 @@ def api_verificar(token: str, fecha: Optional[int] = None):
     from src.clausura.verificar_carga import VERIF_TTL, verificar
 
     return JSONResponse(_cached(f"verif:{fecha}", VERIF_TTL, lambda: verificar(fecha)))
+
+
+@app.get("/dash/{token}/api/carga-marcas")
+def api_carga_marcas(token: str):
+    """Marcas del modo carga, compartidas entre dispositivos (ver carga_state)."""
+    _check_token(token)
+    from src.clausura.carga_state import leer
+
+    return JSONResponse({"marcas": leer()})
+
+
+@app.post("/dash/{token}/api/carga-marcas")
+async def api_carga_marcas_set(token: str, request: Request):
+    """Marca/desmarca una participación, o sube las marcas locales la primera vez.
+
+    Dos formas de cuerpo:
+      {"clave": "carga:v2:2:899258848:2094", "valor": "1-0"}   marca
+      {"clave": "...", "valor": null}                          desmarca
+      {"fusionar": {clave: valor, ...}}                        subida inicial
+    """
+    _check_token(token)
+    from src.clausura.carga_state import aplicar, fusionar
+
+    body = await request.json()
+    try:
+        if "fusionar" in body:
+            marcas = fusionar(body.get("fusionar") or {})
+        else:
+            marcas = aplicar(body.get("clave", ""), body.get("valor"))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except OSError as e:                       # disco lleno / FS de solo lectura
+        log.warning("no pude guardar las marcas de carga: %s", e)
+        raise HTTPException(503, "no pude guardar")
+    return JSONResponse({"marcas": marcas})
