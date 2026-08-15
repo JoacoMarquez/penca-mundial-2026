@@ -461,3 +461,79 @@ def test_el_panel_de_cambios_es_plegable_y_acotado():
     # y los cambios se separan por accionabilidad: lo cerrado no se puede corregir
     assert 'id="drift-list-cerrados"' in s
     assert "cerrado: tr.dataset.cerrado === '1'" in s
+
+
+def test_adopcion_sobre_descartada_no_la_resucita(tmp_path, monkeypatch):
+    """La adopción hereda el estado de aprobación de su fuente.
+
+    Solo reescribe partidos CERRADOS: los picks abiertos que arrastra son los de
+    la fuente. Si esa fuente estaba descartada por el gate, servir la adopción
+    mostraría en el modo carga justo los picks que el gate resolvió no tocar.
+    """
+    import src.clausura.dashboard_loader as dl
+    import src.clausura.picks as picks_mod
+    from src.clausura.dashboard_loader import load_planilla
+    monkeypatch.setattr(dl, "PRED_DIR", tmp_path)
+    monkeypatch.setattr(picks_mod, "PRED_DIR", tmp_path)
+
+    d = tmp_path / "fecha_04"
+    d.mkdir(parents=True)
+
+    def _v(n, scores, **extra):
+        payload = {
+            "generado_utc": f"2026-08-14T1{n}:00:00+00:00",
+            "picks": [{"evento_id": 1, "partido": "A vs B", "preferencial": False,
+                       "cierre_pronostico_utc": "2099-01-01T00:00:00+00:00",
+                       "scores": scores}],
+            **extra,
+        }
+        (d / f"v{n}_20260814T1{n}0000Z.json").write_text(
+            json.dumps(payload), encoding="utf-8")
+
+    _v(6, [[1, 0]])                                                    # diaria: aprobada
+    _v(7, [[2, 2]], veredicto_cambio={"avisar": False, "medido": True})  # rerun descartado
+    _v(8, [[2, 2]],                                                    # adopción sobre la 7
+       picks_adoptados_utc="2026-08-14T23:50:00+00:00",
+       veredicto_heredado={"avisar": False, "medido": True, "de": "v7_20260814T170000Z.json"})
+
+    p = load_planilla(4)
+    assert p["version_file"].startswith("v6_")
+    assert p["picks"][0]["scores_fmt"] == ["1-0"]
+    assert p["descartadas_despues"] == 2
+
+    # Una adopción sobre una versión APROBADA sí se sirve (no hereda nada que la frene).
+    _v(9, [[1, 0]], picks_adoptados_utc="2026-08-15T00:10:00+00:00")
+    assert load_planilla(4)["version_file"].startswith("v9_")
+
+
+def test_panel_marca_la_adopcion_como_registro(tmp_path, monkeypatch):
+    """El diff de una adopción no es accionable: son partidos ya cerrados."""
+    import src.clausura.dashboard_loader as dl
+    import src.clausura.picks as picks_mod
+    from src.clausura.dashboard_loader import diff_versiones
+    monkeypatch.setattr(dl, "PRED_DIR", tmp_path)
+    monkeypatch.setattr(picks_mod, "PRED_DIR", tmp_path)
+
+    d = tmp_path / "fecha_05"
+    d.mkdir(parents=True)
+    base = {"evento_id": 1, "partido": "A vs B", "preferencial": False,
+            "cierre_pronostico_utc": "2026-08-14T21:45:00+00:00"}
+    (d / "v7_20260814T194503Z.json").write_text(json.dumps({
+        "generado_utc": "2026-08-14T19:45:03+00:00",
+        "picks": [{**base, "scores": [[2, 1]]}],
+        "veredicto_cambio": {"avisar": False, "medido": True, "delta": 157.7, "se": 254.1},
+    }), encoding="utf-8")
+    (d / "v8_20260814T235019Z.json").write_text(json.dumps({
+        "generado_utc": "2026-08-14T19:45:03+00:00",
+        "picks": [{**base, "scores": [[1, 1]]}],
+        "picks_adoptados_utc": "2026-08-14T23:50:19+00:00",
+        "veredicto_heredado": {"avisar": False, "medido": True,
+                               "de": "v7_20260814T194503Z.json"},
+    }), encoding="utf-8")
+
+    out = diff_versiones(5, [899258848])
+    assert out["adopcion"] is not None
+    assert out["adopcion"]["de"] == "v7_20260814T194503Z.json"
+    # el veredicto medido NO se le atribuye a la adopción
+    assert out["veredicto"] is None
+    assert out["cambios"] and out["cambios"][0]["cerrado"] is True

@@ -107,7 +107,13 @@ def load_planilla(fecha_n: int) -> dict | None:
     elegida, data, descartadas = None, None, 0
     for path in reversed(versiones):
         candidata = json.loads(path.read_text(encoding="utf-8"))
-        veredicto = candidata.get("veredicto_cambio")
+        # `veredicto_heredado` lo deja la adopción del drift-audit: esa versión no
+        # se midió, pero arrastra intactos los picks ABIERTOS de su fuente (solo
+        # reescribe partidos cerrados), así que hereda su estado de aprobación.
+        # Sin esto, una adopción sobre una versión descartada la resucitaría y el
+        # modo carga volvería a mostrar justo los picks que el gate resolvió no tocar.
+        veredicto = (candidata.get("veredicto_cambio")
+                     or candidata.get("veredicto_heredado"))
         if veredicto and not veredicto.get("avisar", True):
             descartadas += 1
             continue
@@ -221,7 +227,8 @@ def diff_versiones(fecha_n: int, mis_numeros: list[int]) -> dict:
     d = fecha_dir(fecha_n)
     versiones = sorted(d.glob("v*_*.json")) if d.exists() else []
     out = {"n_versiones": len(versiones), "cambios": [], "fuentes": [],
-           "especiales": [], "prev": None, "cur": None, "veredicto": None}
+           "especiales": [], "prev": None, "cur": None, "veredicto": None,
+           "adopcion": None}
     if len(versiones) < 2:
         return out
 
@@ -235,6 +242,14 @@ def diff_versiones(fecha_n: int, mis_numeros: list[int]) -> dict:
     # tiene que mostrarlos apagados en vez de en amarillo. Las corridas del timer de
     # picks no pasan por el gate y no lo traen — ahí queda None y se muestra como antes.
     out["veredicto"] = cur.get("veredicto_cambio")
+    # Una adopción del drift-audit no propone nada: reescribe partidos ya CERRADOS
+    # con lo que dice la web. Sin esta bandera el panel la pintaba de amarillo
+    # ("conviene corregir") sobre picks que ya no se pueden tocar.
+    if cur.get("picks_adoptados_utc"):
+        out["adopcion"] = {
+            "cuando_uy": _to_uy(cur["picks_adoptados_utc"]),
+            "de": (cur.get("veredicto_heredado") or {}).get("de"),
+        }
 
     prev_by_ev = {r["evento_id"]: r for r in prev.get("picks", [])}
     now = datetime.now(timezone.utc)

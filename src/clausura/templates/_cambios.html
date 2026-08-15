@@ -6,7 +6,8 @@
 #}
 {% if data.cambios and data.cambios.n_versiones >= 2 %}
 {% set ver = data.cambios.veredicto %}
-{% set descartado = ver and not ver.avisar %}
+{% set adop = data.cambios.adopcion %}
+{% set descartado = (ver and not ver.avisar) or adop %}
 <div class="bg-slate-800 rounded-xl p-4 {% if (data.cambios.cambios or data.cambios.especiales) and not descartado %}border border-amber-600/60{% endif %}">
   <div class="flex items-center justify-between mb-1">
     <h2 class="font-bold">🔁 Cambios de la última corrida</h2>
@@ -15,7 +16,15 @@
   {% if not data.cambios.cambios and not data.cambios.especiales and not data.cambios.fuentes %}
     <div class="text-sm text-emerald-300">Sin cambios — lo cargado sigue vigente. ✓</div>
   {% else %}
-    {% if descartado %}
+    {% if adop %}
+    <div class="text-sm text-emerald-300 mb-1">✓ No toques nada — esto es un registro, no una propuesta.</div>
+    <div class="text-xs text-slate-400 mb-2">
+      El drift-audit realineó {{ adop.cuando_uy }} la planilla con lo que quedó cargado en la web
+      en partidos <b>ya cerrados</b>: post-cierre la web es la verdad y esos picks no se pueden tocar.
+      Se versiona para que el freeze del optimizador y el postmortem usen lo realmente jugado.
+      {% if adop.de %}<span class="text-slate-500">(sobre {{ adop.de }})</span>{% endif %}
+    </div>
+    {% elif descartado %}
     <div class="text-sm text-emerald-300 mb-1">✓ No toques nada — lo cargado sigue vigente.</div>
     <div class="text-xs text-slate-400 mb-2">
       El motor midió estos {{ ver.n_picks }} cambios contra los MISMOS sorteos y

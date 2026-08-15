@@ -327,3 +327,39 @@ def test_estado_en_formato_viejo_lista_se_lee_igual(tmp_path, monkeypatch):
     da.save_state({"vieja:1", "vieja:2"}, now=NOW)    # se migra a dict con fecha
     assert json.loads((tmp_path / "drift.json").read_text()) == {
         "vieja:1": NOW.isoformat(), "vieja:2": NOW.isoformat()}
+
+
+def test_adopcion_no_hereda_el_veredicto_como_propio(tmp_path, monkeypatch):
+    """El veredicto mide UNA comparación; la adopción no es esa comparación.
+
+    Antes se copiaba tal cual y quedaba un `medido: true` firmando un caso que
+    nadie midió (v8 de la F2, 14/8: delta/se idénticos a los de la v7).
+    """
+    import src.clausura.picks as picks_mod
+    from src.clausura.drift_audit import adoptar_picks_cerrados
+    monkeypatch.setattr(picks_mod, "PRED_DIR", tmp_path)
+
+    d = tmp_path / "fecha_01"
+    d.mkdir(parents=True)
+    (d / "v7_20260814T194503Z.json").write_text(json.dumps({
+        "generado_utc": "2026-08-14T19:45:03+00:00",
+        "picks": [{"evento_id": 1, "scores": [[9, 9], [2, 1], [0, 0]],
+                   "cierre_pronostico_utc": (NOW - timedelta(hours=2)).isoformat()}],
+        "veredicto_cambio": {"avisar": False, "medido": True, "delta": 157.7,
+                             "se": 254.1, "n_picks": 41},
+    }), encoding="utf-8")
+
+    eventos = [_ev(1, NOW - timedelta(hours=2))]
+    cargados = [Cargado(NUMS[0], {1: (1, 0)}),
+                Cargado(NUMS[1], {1: (2, 1)}),
+                Cargado(NUMS[2], {1: (0, 0)})]
+    aviso = adoptar_picks_cerrados(cargados, NUMS, eventos, NOW)
+    assert aviso is not None and "gate del rerun descartó" in aviso
+
+    from src.utils.versions import latest_version
+    nuevo = json.loads(latest_version(d.glob("v*_*.json")).read_text(encoding="utf-8"))
+    assert "veredicto_cambio" not in nuevo          # ya no finge estar medido
+    heredado = nuevo["veredicto_heredado"]
+    assert heredado["avisar"] is False              # el estado sí se conserva
+    assert heredado["de"] == "v7_20260814T194503Z.json"
+    assert nuevo["picks"][0]["scores"][0] == [1, 0]
