@@ -189,6 +189,32 @@
       </div>
     </div>
 
+    {# ---------- MOVIMIENTO POR PARTIDO ---------- #}
+    {% if data.movimientos %}
+    <div class="bg-slate-800 rounded-xl p-4 min-w-0">
+      <h2 class="font-bold mb-1">🎢 Movimiento por partido</h2>
+      <p class="text-xs text-slate-500 mb-3">Cuánto subió o bajó cada participación cuando liquidó cada partido (▲ = subió de puesto). Se alimenta de las fotos del ranking del vigía cada 10 min.</p>
+      {% for mv in data.movimientos %}
+      <div class="mb-3 pb-3 {% if not loop.last %}border-b border-slate-700/40{% endif %}">
+        <div class="flex items-baseline justify-between gap-2 flex-wrap">
+          <span class="text-sm font-semibold">{{ mv.etiqueta }}</span>
+          <span class="text-xs text-slate-500">{{ mv.ts[5:16].replace('T', ' ') }}Z · ▲{{ mv.subieron }} ▼{{ mv.bajaron }}</span>
+        </div>
+        <div class="flex flex-wrap gap-1.5 mt-1.5">
+          {% for m in mv.movimientos %}
+          <span class="text-xs font-mono rounded px-1.5 py-0.5 bg-slate-900/60
+            {% if m.delta_puesto > 0 %}text-emerald-300{% elif m.delta_puesto < 0 %}text-rose-300{% else %}text-slate-400{% endif %}">
+            …{{ m.numero % 100 }}: {{ m.puesto_antes }}→{{ m.puesto_despues }}
+            {% if m.delta_puesto > 0 %}▲{{ m.delta_puesto }}{% elif m.delta_puesto < 0 %}▼{{ -m.delta_puesto }}{% else %}={% endif %}
+            {%- if m.puntos_ganados %} (+{{ m.puntos_ganados }}pt){% endif %}
+          </span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
     {# ---------- TRAYECTORIA ---------- #}
     <div class="bg-slate-800 rounded-xl p-4 min-w-0">
       <h2 class="font-bold mb-1">📈 Trayectoria</h2>
