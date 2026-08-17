@@ -552,3 +552,44 @@ decisiones:
       RE-MEDIR si cambia el tamaño del pool o si el campeonato entra en una fase donde
       la tabla esté apretada arriba (medido con nosotros en el puesto 58 de 747 y a 17
       puntos del líder; el canal debería crecer si estuviéramos peleando el tope).
+
+  - nombre: marcadores populares del pool en el menú
+    donde: src.clausura.strategy.K_POPULAR
+    valor: 0
+    medida_con: {sims: 19200, participaciones: 12}
+    resultado: >-
+      K=3 mide +$306 ± 42 (verdad) / +$109 ± 30 (control) — real pero 0,15% del
+      E[premio]; contra 3 temporadas REALES no mejora la vara del chequeo de
+      asignación (azar nos gana 20% vs 17% de producción) y es inconsistente por
+      temporada (+24, −10, 0 pts). K=2 es neutro (+$68 ± 54 / +$64 ± 79).
+    delta: 306
+    se: 42
+    unidad: pesos
+    fecha: 2026-08-17
+    nota: >-
+      HIPÓTESIS, nacida del chequeo de asignación del cierre de la Fecha 2 (tres días
+      seguidos "12 rivales al azar nos ganan el 96%"): el top-K_EV por E[pts] del
+      kernel aditivo se queda en goles bajos (1-0/1-1/0-1/0-0) mientras el pool cubre
+      el marcador popular de la visita (0-2/1-2) y la goleada del favorito — Peñarol
+      2-1 CE tuvo al 68% del pool en 2-0/3-0/3-1 y a nosotros 12/12 en 1-0/2-0. La
+      idea era ofrecerle al optimizador lo que el pool JUEGA (top por pool_q), distinto
+      de K_COBERTURA (mejor por E[pts] de cada desenlace, neutra el 12/8) y de la rama
+      de hueco (rareza, rechazada el 8/8).
+      ETAPA 1: el optimizador SÍ los toma — 810/1440 picks cambian con K=2 y 885/1440
+      con K=3. O sea el modo de falla existía y la perilla lo mueve; no es un no-op
+      como fue (5,3) ≡ (5,0).
+      ETAPA 2 (A/B pareado, 3 reps, dos verdades): K=3 positivo 3/3 en ambas verdades
+      pero de tamaño trivial; K=2 indistinguible de cero.
+      ETAPA 3 (walk-forward contra resultados REALES, scripts/backtest_menu_popular.py
+      --etapa 3): es la que decide, porque el argumento a favor era que el MODELO
+      subestima la cola. K=3 gana grande en Apertura 2025 (+24 pts, premio $228.707)
+      y pierde en Clausura 2025 (−10 pts, azar 6% → 19%): un solo sorteo domina el
+      promedio de premio, que es todo-o-nada con n=3.
+      CONSECUENCIA: NO se cambia producción. El síntoma (subcobertura de la V y de la
+      goleada) es real y está medido, pero ofrecer los populares no lo convierte en
+      plata; queda descartada esta vía, no el síntoma.
+      OJO al reproducir: la corrida del 17/8 se hizo en un worktree SIN
+      data/processed/intermedio_2026.json (es un artefacto generado, no versionado), y
+      eso agrega una 4ª "temporada" degenerada de ~0 partidos (mejor planilla 3 pts,
+      idéntica en los 3 brazos) que contamina el promedio del RESUMEN. Los números de
+      acá excluyen esa temporada. Correr `python -m src.clausura.intermedio` primero.
