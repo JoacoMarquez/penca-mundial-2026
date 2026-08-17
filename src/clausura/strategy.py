@@ -89,6 +89,19 @@ K_HUECO = 0
 # Apagado hasta que el A/B lo respalde (regla de trabajo #1).
 K_COBERTURA = False
 
+# Marcadores POPULARES del pool en el menú: los top-K_POPULAR por pool_q, además del
+# top-K_EV. Nace del cierre de la Fecha 2 (2026-08-16): el chequeo de asignación dio
+# "12 rivales al azar nos ganan el 96%" tres días seguidos, y el patrón concreto era
+# que el top por E[pts] del kernel aditivo se queda en goles bajos (1-0/1-1/0-1/0-0)
+# mientras el pool cubre el marcador popular de la visita (0-2/1-2, no el 0-1 raro)
+# y la goleada del favorito (Peñarol 2-1 CE: 68% del pool en 2-0/3-0/3-1, 0% nuestro
+# con 12/12 en 1-0/2-0). Distinto de K_COBERTURA (mejor por E[pts] de cada desenlace,
+# medida neutra el 12/8) y de la rama de hueco (rareza, rechazada): esto ofrece lo
+# que el pool JUEGA. Ofrecer no obliga a usar — la etapa 1 del backtest mide si el
+# optimizador los toma. Apagado hasta que el A/B lo respalde (regla de trabajo #1).
+# Reproducir: scripts/backtest_menu_popular.py --etapa 1|2|3.
+K_POPULAR = 0
+
 
 @dataclass(frozen=True)
 class Candidato:
@@ -142,6 +155,7 @@ def build_candidates(
     min_prob: float = 0.005,
     metrica: str | None = None,
     cobertura: bool | None = None,
+    k_popular: int | None = None,
 ) -> list[Candidato]:
     """Menú de marcadores jugables: top por E[pts] ∪ top por hueco de pool.
 
@@ -162,6 +176,7 @@ def build_candidates(
     k_ev = K_EV if k_ev is None else k_ev
     k_hueco = K_HUECO if k_hueco is None else k_hueco
     cobertura = K_COBERTURA if cobertura is None else cobertura
+    k_popular = K_POPULAR if k_popular is None else k_popular
     metrica = metrica or HUECO_METRIC
     p = flatten_grid(grid)
     cands = [
@@ -207,8 +222,12 @@ def build_candidates(
             if del_lado:
                 by_cob.append(max(del_lado, key=lambda c: c.e_points))
 
+    # Populares del pool: lo que el pool juega, tenga o no buen E[pts]. Se eligen
+    # entre los plausibles (min_prob) para no ofrecer sesgos del pool sin sustento.
+    by_pop = sorted(cands, key=lambda c: -c.pool_q)[:k_popular] if k_popular > 0 else []
+
     out, seen = [], set()
-    for c in by_ev + by_hueco + by_cob:
+    for c in by_ev + by_hueco + by_cob + by_pop:
         if c.pick not in seen:
             seen.add(c.pick)
             out.append(c)
