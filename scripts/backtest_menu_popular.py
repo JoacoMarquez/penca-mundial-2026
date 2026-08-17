@@ -47,6 +47,9 @@ from src.clausura.strategy import EvaluadorPortfolio, build_portfolio  # noqa: E
 # reuso del harness de cobertura (mismo entorno, mismas métricas)
 from backtest_cobertura import cargar_entorno, cobertura_por_evento, lado_de, q_verdad  # noqa: E402
 
+# Piso de partidos para que una temporada cuente en la etapa 3 (ver el guard abajo).
+MIN_PARTIDOS_TEMPORADA = 60
+
 
 def planilla_con(k_popular, **kw):
     prev = strategy.K_POPULAR
@@ -183,6 +186,16 @@ def etapa3_historica(a, ks):
         if len(previas) < 120:
             continue
         ps = temporadas[cid]
+        # Una temporada con casi ningún partido (típico: falta el dataset generado,
+        # p.ej. data/processed/intermedio_2026.json, que NO está versionado) entra al
+        # promedio como una fila de 3 puntos idéntica en los tres brazos y arrastra el
+        # RESUMEN. Pasó en la corrida del 2026-08-17: 4 temporadas reportadas, 3
+        # utilizables. Mejor saltarla y decirlo que promediar ruido en silencio.
+        if len(ps) < MIN_PARTIDOS_TEMPORADA:
+            print(f"  ⏭️  {ps[0].campeonato[:34]}: {len(ps)} partidos — temporada "
+                  f"degenerada, se saltea (¿falta correr src.clausura.intermedio?)",
+                  flush=True)
+            continue
         ratings = fit_ratings(previas)
         grids = build_grids(ps, ratings)
         fechas = [q.fecha_id for q in ps]
