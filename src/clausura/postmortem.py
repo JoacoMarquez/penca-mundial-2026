@@ -17,6 +17,9 @@ un análisis de qué pasó, y persiste el detalle en JSON:
     en promedio): P(N rivales al azar tengan un máximo ≥ el nuestro), filas en el
     top 10% del pool, nivel (promedio vs pool) y concentración (corr/picks iguales
     entre filas). Por fecha y acumulado de temporada (ranking de la web).
+  - RIVALES DIRECTOS: cuántos están arriba de nuestra mejor fila y contra cuántos
+    corremos de verdad (los que no cargaron especiales arrastran −25/−50 latentes),
+    campeón de los de adelante, espejos del líder y exposiciones longshot.
   - Insumos de recalibración: tasa de exactos del pool observada en la fecha
     (la calibración en sí ya es online: el pipeline de picks la lee del ranking, y
     la Q empírica del pool sale del snapshot — acá se REPORTA, no se duplica).
@@ -377,6 +380,125 @@ def formatear_asignacion(fecha: dict | None, temporada: dict | None) -> str:
     return "\n".join(lines)
 
 
+# -------------------- rivales directos --------------------
+#
+# El ranking de la web muestra puntos, pero la carrera real se corre también en los
+# especiales (campeón + goleador, 25 pts c/u al final): un rival "adelante" que no
+# los cargó arrastra −25/−50 latentes, y uno con un campeón que casi nadie tiene es
+# una exposición asimétrica (si pega, queda inalcanzable). Nada de esto se ve en la
+# tabla. Detectado el 2026-08-25 mirando a mano la F3: 13 de los 46 de adelante no
+# tenían especiales — la pregunta correcta era "¿contra cuántos corremos de verdad?".
+#
+# Solo REPORTA. No toca picks: marcar rivales explícitamente ya se midió en el
+# Mundial (bloqueo de cercanos) y fue no-op — el RivalModel del simulador ya corre
+# contra estos mismos rivales con sus especiales reales.
+
+# Un campeón lo consideramos "longshot" si lo tiene menos de este share del pool
+# (entre los que cargaron especiales). Con 766 participaciones, 5% ≈ 25 tickets.
+UMBRAL_LONGSHOT = 0.05
+
+
+def rivales_directos(
+    pool_participaciones: list[dict],
+    ranking_puntos: dict[int, int],
+    mis_numeros: set[int],
+) -> dict | None:
+    """Radiografía de los rivales arriba de nuestra mejor fila. None sin datos.
+
+    Puntos del RANKING (la web es la verdad); especiales del SNAPSHOT (públicos
+    post-lock). Un rival del ranking que no está en el snapshot cuenta como
+    `sin_datos`, no como "sin especiales" — no son lo mismo.
+    """
+    nuestros = {n: p for n, p in ranking_puntos.items() if n in mis_numeros}
+    if not nuestros or not pool_participaciones:
+        return None
+    especiales = {int(p["numero"]): (p.get("campeon"), p.get("goleador"))
+                  for p in pool_participaciones}
+
+    mejor_numero = max(nuestros, key=nuestros.get)
+    nuestro_max = nuestros[mejor_numero]
+    adelante = sorted(((n, p) for n, p in ranking_puntos.items()
+                       if p > nuestro_max and n not in mis_numeros),
+                      key=lambda np_: -np_[1])
+
+    sin_datos = sum(1 for n, _ in adelante if n not in especiales)
+    sin_especiales = sum(1 for n, _ in adelante
+                         if n in especiales and especiales[n][0] is None)
+    campeones = {}
+    for n, _ in adelante:
+        c = especiales.get(n, (None, None))[0]
+        if c is not None:
+            campeones[c] = campeones.get(c, 0) + 1
+
+    # share de cada campeón en el pool ENTERO (denominador: los que cargaron), para
+    # marcar exposiciones longshot entre los de adelante
+    pool_camp: dict[str, int] = {}
+    for c, _g in especiales.values():
+        if c is not None:
+            pool_camp[c] = pool_camp.get(c, 0) + 1
+    total_con_camp = sum(pool_camp.values())
+    longshots = []
+    if total_con_camp:
+        for n, pts in adelante:
+            c = especiales.get(n, (None, None))[0]
+            if c is not None and pool_camp[c] / total_con_camp < UMBRAL_LONGSHOT:
+                longshots.append({"numero": n, "puntos": pts, "campeon": c,
+                                  "share_pool": round(pool_camp[c] / total_con_camp, 4)})
+
+    lider_numero = max(ranking_puntos, key=ranking_puntos.get)
+    lider_camp, lider_gol = especiales.get(lider_numero, (None, None))
+    espejos = [n for n in nuestros
+               if especiales.get(n, (None, None)) == (lider_camp, lider_gol)
+               and lider_camp is not None]
+
+    return {
+        "mejor_numero": mejor_numero,
+        "nuestro_max": nuestro_max,
+        "n_adelante": len(adelante),
+        "sin_especiales": sin_especiales,
+        "sin_datos": sin_datos,
+        "carrera_real": len(adelante) - sin_especiales - sin_datos,
+        "campeon_adelante": dict(sorted(campeones.items(), key=lambda kv: -kv[1])),
+        "exposiciones_longshot": longshots,
+        "lider": {"numero": lider_numero, "puntos": ranking_puntos[lider_numero],
+                  "es_nuestra": lider_numero in mis_numeros,
+                  "campeon": lider_camp, "goleador": lider_gol},
+        "espejos_del_lider": sorted(espejos),
+    }
+
+
+def formatear_rivales(d: dict | None) -> str:
+    """Sección del reporte. Vacía si no hay datos."""
+    if not d:
+        return ""
+    lines = ["<b>🔭 Rivales directos</b> (arriba de nuestra mejor fila)"]
+    resumen = (f"  {d['n_adelante']} adelante de la {d['mejor_numero'] % 1000:03d} "
+               f"({d['nuestro_max']}) · {d['sin_especiales']} sin especiales "
+               f"(−25/−50 latentes) → carrera real: <b>{d['carrera_real']}</b>")
+    if d["sin_datos"]:
+        resumen += f" · {d['sin_datos']} sin datos"
+    lines.append(resumen)
+    if d["campeon_adelante"]:
+        lines.append("  Campeón de los de adelante: "
+                     + " · ".join(f"{c} {k}" for c, k in d["campeon_adelante"].items()))
+    li = d["lider"]
+    if li["es_nuestra"]:
+        lines.append(f"  🥇 El líder ({li['puntos']}) es NUESTRO: {li['numero'] % 1000:03d}")
+    else:
+        esp = (f"{li['campeon']}/{li['goleador']}" if li["campeon"] else "sin especiales")
+        txt = f"  Líder {li['numero'] % 1000:03d}: {li['puntos']} pts · {esp}"
+        if d["espejos_del_lider"]:
+            txt += (" — espejado por nuestra(s) "
+                    + ", ".join(f"{n % 1000:03d}" for n in d["espejos_del_lider"])
+                    + " (carrera de picks puros)")
+        lines.append(txt)
+    for e in d["exposiciones_longshot"]:
+        lines.append(f"  ⚠️ {e['numero'] % 1000:03d} ({e['puntos']}) tiene campeón "
+                     f"{e['campeon']} ({e['share_pool']:.0%} del pool) — si pega, "
+                     f"queda casi inalcanzable")
+    return "\n".join(lines)
+
+
 def comparar_puntos_publicados(
     calculados: dict[int, int], publicados: dict[int, int],
 ) -> list[str]:
@@ -612,6 +734,12 @@ def run(fecha: int | None = None, dry_run: bool = False) -> str | None:
     if seccion:
         reporte += "\n\n" + seccion
 
+    # Rivales directos: contra quién corremos DE VERDAD (especiales incluidos).
+    rivales = rivales_directos(pool, ranking_pts, set(mis_numeros))
+    seccion_riv = formatear_rivales(rivales)
+    if seccion_riv:
+        reporte += "\n\n" + seccion_riv
+
     # Tripwire de liquidación: nuestros puntos calculados vs los que la web publica.
     try:
         if not ranking_pts:
@@ -662,6 +790,7 @@ def run(fecha: int | None = None, dry_run: bool = False) -> str | None:
             "pool_puntos": st.pool_puntos,
             "pool_exactos_por_evento": {str(k): v for k, v in st.pool_exactos_por_evento.items()},
             "asignacion": {"fecha": asig_fecha, "temporada": asig_temp},
+            "rivales_directos": rivales,
         }, ensure_ascii=False, indent=1), encoding="utf-8")
         from src.notifier.telegram import TelegramConfig, TelegramNotifier
         TelegramNotifier(TelegramConfig.from_env()).send(reporte)
