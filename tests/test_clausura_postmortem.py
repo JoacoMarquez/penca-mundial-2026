@@ -336,3 +336,76 @@ def test_formatear_asignacion_alerta_cuando_el_azar_gana():
     d2 = dict(d, p_azar_gana=0.3, corr_filas=0.08, coincidencia_pares=0.26)
     txt2 = formatear_asignacion(d2, None)
     assert "⚠️" not in txt2 and "corr 0.08" in txt2 and "26%" in txt2
+
+
+# -------------------- rivales directos --------------------
+
+from src.clausura.postmortem import formatear_rivales, rivales_directos  # noqa: E402
+
+
+def _snapshot_rivales():
+    # nuestras dos filas + cinco rivales: el líder (Peñarol/Arezo, espejado por la
+    # nuestra), uno sin especiales, uno con campeón longshot, uno mayoritario y uno
+    # que está atrás (no debe contar). El pool de campeones queda: Peñarol 3,
+    # Nacional 1, Albion 1 → Albion 20% NO es longshot con umbral 5%; para que lo
+    # sea el pool necesita más masa — se agregan rellenos atrás con Peñarol.
+    base = [
+        {"numero": NUMS[0], "campeon": "Peñarol", "goleador": "Arezo"},
+        {"numero": NUMS[1], "campeon": "Nacional", "goleador": "Gómez"},
+        {"numero": 1001, "campeon": "Peñarol", "goleador": "Arezo"},    # líder
+        {"numero": 1002, "campeon": None, "goleador": None},            # sin especiales
+        {"numero": 1003, "campeon": "Albion", "goleador": "López"},     # longshot
+        {"numero": 1004, "campeon": "Peñarol", "goleador": "Gómez"},
+        {"numero": 1005, "campeon": "Nacional", "goleador": "Gómez"},   # atrás
+    ]
+    base += [{"numero": 2000 + i, "campeon": "Peñarol", "goleador": "Arezo"}
+             for i in range(16)]                                        # rellenos atrás
+    return base
+
+
+def _ranking_rivales():
+    r = {NUMS[0]: 50, NUMS[1]: 40,
+         1001: 70, 1002: 65, 1003: 60, 1004: 55, 1005: 30,
+         9999: 52}                                        # adelante pero SIN snapshot
+    r.update({2000 + i: 10 for i in range(16)})
+    return r
+
+
+def test_rivales_directos_cuenta_la_carrera_real():
+    d = rivales_directos(_snapshot_rivales(), _ranking_rivales(), {NUMS[0], NUMS[1]})
+    assert d["mejor_numero"] == NUMS[0] and d["nuestro_max"] == 50
+    # adelante: 1001, 1002, 1003, 1004 y 9999 (sin datos). 1005 y rellenos, no.
+    assert d["n_adelante"] == 5
+    assert d["sin_especiales"] == 1 and d["sin_datos"] == 1
+    assert d["carrera_real"] == 3
+    assert d["campeon_adelante"] == {"Peñarol": 2, "Albion": 1}
+    # Albion: 1 de 21 con campeón (~4.8%) < 5% → longshot; Peñarol no
+    assert [e["numero"] for e in d["exposiciones_longshot"]] == [1003]
+    # líder 1001 Peñarol/Arezo → espejado por nuestra NUMS[0]
+    assert d["lider"]["numero"] == 1001 and not d["lider"]["es_nuestra"]
+    assert d["espejos_del_lider"] == [NUMS[0]]
+
+
+def test_rivales_directos_sin_datos_devuelve_none():
+    assert rivales_directos([], {NUMS[0]: 10, 1: 20}, {NUMS[0]}) is None
+    assert rivales_directos(_snapshot_rivales(), {1: 20}, {NUMS[0]}) is None
+
+
+def test_rivales_directos_lider_nuestro():
+    snap = _snapshot_rivales()
+    ranking = _ranking_rivales()
+    ranking[NUMS[0]] = 99
+    d = rivales_directos(snap, ranking, {NUMS[0], NUMS[1]})
+    assert d["lider"]["es_nuestra"] and d["n_adelante"] == 0
+    assert "NUESTRO" in formatear_rivales(d)
+
+
+def test_formatear_rivales():
+    d = rivales_directos(_snapshot_rivales(), _ranking_rivales(), {NUMS[0], NUMS[1]})
+    txt = formatear_rivales(d)
+    assert "5 adelante" in txt and "carrera real: <b>3</b>" in txt
+    assert "1 sin datos" in txt
+    assert "Peñarol 2" in txt and "Albion 1" in txt
+    assert "espejado por nuestra(s) 848" in txt
+    assert "⚠️ 003 (60)" in txt and "Albion" in txt
+    assert formatear_rivales(None) == ""
