@@ -122,7 +122,9 @@ def main() -> None:
     from src.clausura.strategy import EVAL_SEED_OFFSET
 
     fecha = args.fecha if args.fecha is not None else resolve_fecha("auto")
-    numeros = mis_numeros_env()
+    # mis_numeros_env() devuelve un SET: ordenado para poder indexar por fila (el
+    # orden ascendente es el mismo con el que picks.py rotula las columnas).
+    numeros = sorted(mis_numeros_env())
     n_part = args.participaciones or len(numeros) or 12
     n_sims = args.sims or DEFAULT_SIMS
     marcadores = [parse_marcador(m) for m in (args.marcador or ["0-1"])]
