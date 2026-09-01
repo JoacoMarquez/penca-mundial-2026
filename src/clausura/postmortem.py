@@ -173,6 +173,49 @@ def latest_snapshot_participaciones() -> list[dict]:
 
 # -------------------- cómputo (puro, testeable) --------------------
 
+def resultados_con_cobertura(
+    resultados: dict[int, tuple[int, int]],
+    pool_participaciones: list[dict],
+    mis_numeros: set[int],
+) -> tuple[dict[int, tuple[int, int]], list[int]]:
+    """(resultados que el snapshot cubre, evento_ids excluidos por falta de cobertura).
+
+    El gate del penca-api abre los picks de cada partido recién a SU cierre: un
+    snapshot escaneado antes del cierre del último partido no trae ese evento para
+    NADIE. Como compute_stats puntúa a cada rival solo sobre los eventos que tiene,
+    el pool cobraba 0 en ese partido mientras nuestras filas (que salen de la
+    planilla) cobraban todo — la F4 se leyó "18.4 vs 12.7" cuando lo real era
+    18.4 vs 16.3, inflando p_azar_gana, filas_top10 y los rivales de adelante.
+
+    La cobertura de un evento abierto es ~0 o ~90% (o el gate abrió o no abrió),
+    así que el umbral solo tiene que separar esos dos regímenes: 25% de los
+    rivales con algún pick, con piso absoluto de 10. Sin snapshot no se filtra
+    nada — el pool queda vacío y compute_stats ya lo maneja.
+
+    Un evento excluido NO queda en el archivo persistido, y fecha_a_analizar usa
+    este mismo filtro: cuando un snapshot posterior lo cubra, contará como
+    resultado nuevo y el postmortem se regenerará solo (sin re-avisar cada noche
+    por un evento que el snapshot todavía no puede ver).
+    """
+    if not resultados:
+        return resultados, []
+    rivales = [r for r in pool_participaciones
+               if int(r.get("numero", -1)) not in mis_numeros and r.get("picks")]
+    if not rivales:
+        return resultados, []
+    piso = max(10, int(0.25 * len(rivales)))
+    cobertura = {eid: 0 for eid in resultados}
+    for r in rivales:
+        for eid_str in r["picks"]:
+            eid = int(eid_str)
+            if eid in cobertura:
+                cobertura[eid] += 1
+    cubiertos = {eid: res for eid, res in resultados.items()
+                 if cobertura[eid] >= piso}
+    excluidos = sorted(eid for eid in resultados if cobertura[eid] < piso)
+    return cubiertos, excluidos
+
+
 def compute_stats(
     fecha_n: int,
     eventos_fecha: list[dict],
@@ -652,13 +695,22 @@ def fecha_a_analizar(cfg: dict) -> int | None:
 
     Por eso la condición no es "existe el archivo" sino "el archivo tiene TODOS los
     resultados que hoy se pueden ver". Se rehace solo cuando aparecen más.
+
+    "Se pueden ver" incluye la cobertura del snapshot (resultados_con_cobertura):
+    un resultado cuyo pool todavía no es público no entra al archivo, así que
+    tampoco puede contar como pendiente — sin este filtro simétrico, el evento
+    excluido dispararía una regeneración (y un Telegram) cada noche hasta que el
+    snapshot lo cubra.
     """
+    pool = latest_snapshot_participaciones()
+    mis_numeros = mis_numeros_env()
     nums = sorted(int(n.split()[-1]) for n in cfg["fechas"])
     for n in nums:
         res = resultados_de_fecha(cfg, n, min_jugados=MIN_JUGADOS)
         if res is None:
             break   # las fechas van en orden: si esta no llegó, las siguientes tampoco
         disponibles, _ = res
+        disponibles, _sin_cob = resultados_con_cobertura(disponibles, pool, mis_numeros)
         guardados = _resultados_guardados(n)
         # Regenerar solo ante resultados NUEVOS o CAMBIADOS. Un resultado que
         # desaparece del API (glitch transitorio) no pisa un postmortem bueno.
@@ -714,10 +766,29 @@ def run(fecha: int | None = None, dry_run: bool = False) -> str | None:
     picks, e_pts = picks_de_planilla(fecha, mis_numeros)
     pool = latest_snapshot_participaciones()
 
+    # Solo los resultados cuyo pool YA es público: un evento sin cobertura en el
+    # snapshot haría que el pool cobre 0 ahí mientras nosotros cobramos todo
+    # (infló la F4 a "18.4 vs 12.7" con lo real en 18.4 vs 16.3). Queda afuera
+    # del archivo, así que cuando un snapshot posterior lo cubra cuenta como
+    # resultado nuevo y el postmortem se regenera solo.
+    resultados, sin_cobertura = resultados_con_cobertura(
+        resultados, pool, set(mis_numeros))
+    if sin_cobertura:
+        log.warning("fecha %d: %d resultado(s) sin picks del pool en el snapshot "
+                    "(%s) — quedan fuera de ESTE postmortem para no comparar "
+                    "nuestras filas contra un pool que cobra 0 ahí; se regenera "
+                    "cuando el snapshot los cubra", fecha, len(sin_cobertura),
+                    ", ".join(map(str, sin_cobertura)))
+    if not resultados:
+        log.warning("fecha %d: ningún resultado con cobertura del pool — "
+                    "postmortem pospuesto", fecha)
+        return None
+
     st = compute_stats(fecha, eventos_fecha, resultados, picks, e_pts,
                        pool, set(mis_numeros))
     premios = {p["tipo"]: p["monto"] for p in cfg.get("premios", [])}
-    reporte = formatear_postmortem(st, premio_fecha=premios.get("FECHA"), faltan=faltan)
+    reporte = formatear_postmortem(st, premio_fecha=premios.get("FECHA"),
+                                   faltan=faltan + len(sin_cobertura))
 
     # Chequeo de asignación: fecha (desde el snapshot) + temporada (desde el ranking).
     asig_fecha = chequeo_asignacion(st)
