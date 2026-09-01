@@ -409,3 +409,73 @@ def test_formatear_rivales():
     assert "espejado por nuestra(s) 848" in txt
     assert "⚠️ 003 (60)" in txt and "Albion" in txt
     assert formatear_rivales(None) == ""
+
+
+# -------------------- cobertura del snapshot (el pool no puede cobrar 0) --------------------
+
+def _pool_con_cobertura(n_rivales, eids_cubiertos):
+    return [{"numero": 1000 + i,
+             "picks": {str(e): [1, 0] for e in eids_cubiertos}}
+            for i in range(n_rivales)]
+
+
+def test_cobertura_excluye_el_evento_que_el_snapshot_no_vio():
+    """El caso F4 (31/8): el postmortem tenía el resultado de Racing–Albion pero el
+    snapshot se escaneó antes de que el gate abriera ese partido. Cada rival
+    puntuaba solo lo que tenía → el pool cobraba 0 ahí mientras nuestras filas
+    cobraban todo ("18.4 vs 12.7" con lo real en 18.4 vs 16.3)."""
+    from src.clausura import postmortem as pm
+
+    resultados = {101: (1, 0), 102: (2, 1), 103: (0, 0)}
+    pool = _pool_con_cobertura(100, [101, 102])          # 103 sin cobertura
+    cubiertos, excluidos = pm.resultados_con_cobertura(resultados, pool, set())
+    assert set(cubiertos) == {101, 102}
+    assert excluidos == [103]
+
+
+def test_cobertura_sin_snapshot_no_filtra_nada():
+    """Sin pool no hay comparación que sesgar: compute_stats ya maneja el vacío."""
+    from src.clausura import postmortem as pm
+
+    resultados = {101: (1, 0)}
+    assert pm.resultados_con_cobertura(resultados, [], set()) == (resultados, [])
+    # rivales sin picks tampoco cuentan como cobertura
+    fantasmas = [{"numero": i, "picks": {}} for i in range(50)]
+    assert pm.resultados_con_cobertura(resultados, fantasmas, set()) == (resultados, [])
+
+
+def test_cobertura_ignora_mis_numeros():
+    """Nuestras 12 filas siempre están en el snapshot (somos parte del ranking):
+    si contaran como cobertura, un evento que solo nosotros tenemos pasaría el piso."""
+    from src.clausura import postmortem as pm
+
+    resultados = {101: (1, 0)}
+    mios = [{"numero": 7, "picks": {"101": [1, 0]}}] * 12
+    ajenos = [{"numero": 100 + i, "picks": {"999": [0, 0]}} for i in range(60)]
+    _, excluidos = pm.resultados_con_cobertura(resultados, mios + ajenos, {7})
+    assert excluidos == [101]
+
+
+def test_fecha_a_analizar_no_reprocesa_por_un_evento_sin_cobertura(tmp_path, monkeypatch):
+    """El filtro tiene que ser SIMÉTRICO: si el evento excluido del archivo contara
+    como 'resultado nuevo', el postmortem se regeneraría (y avisaría por Telegram)
+    cada noche hasta que el snapshot lo cubra."""
+    import json
+    from src.clausura import postmortem as pm
+
+    cfg = {"fechas": {"Fecha 1": {"fecha_id": 280}}}
+    monkeypatch.setattr(pm, "pm_path", lambda n: tmp_path / f"fecha_{n:02d}.json")
+    monkeypatch.setattr(pm, "resultados_de_fecha",
+                        lambda cfg, n, min_jugados: ({i: (1, 0) for i in range(8)}, 0))
+    # el snapshot cubre 7 de los 8
+    pool = _pool_con_cobertura(100, list(range(7)))
+    monkeypatch.setattr(pm, "latest_snapshot_participaciones", lambda: pool)
+    # archivo escrito con esos mismos 7
+    (tmp_path / "fecha_01.json").write_text(
+        json.dumps({"resultados": {str(i): [1, 0] for i in range(7)}}), encoding="utf-8")
+    assert pm.fecha_a_analizar(cfg) is None
+
+    # el snapshot ahora cubre el octavo → cuenta como nuevo y se regenera
+    monkeypatch.setattr(pm, "latest_snapshot_participaciones",
+                        lambda: _pool_con_cobertura(100, list(range(8))))
+    assert pm.fecha_a_analizar(cfg) == 1
