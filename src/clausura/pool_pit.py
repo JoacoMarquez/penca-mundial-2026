@@ -242,6 +242,20 @@ def correr_fecha(
     if len(gammas) == 0:
         return None
 
+    # MISMA población que el lado real. `pool_puntos_reales` (postmortem) solo
+    # incluye rivales con ≥1 pick de la fecha; simular también a los ~50-80 que no
+    # cargaron nada (p_show = 0, total 0 seguro) arrastraba la media simulada
+    # ~1-1.5 pts abajo de la real y el PIT de la media clavaba 1.00 tres fechas
+    # seguidas — leído el 31/8 como "el modelo subestima al rival promedio" cuando
+    # era un artefacto de comparar poblaciones distintas: condicionando a
+    # p_show > 0, la media simulada calza con la real en las 4 fechas (±0.3, signo
+    # mixto). Los cuantiles altos nunca se enteraron (los ceros van al fondo),
+    # pero la media es el termómetro de calibración de marginales y tiene que
+    # medir de verdad. Ojo: esto es SOLO del PIT — en producción los no-show valen
+    # como están (existen, ocupan lugar en el pool y de verdad suman 0).
+    con_pick = p_show > 0
+    gammas, p_show = gammas[con_pick], p_show[con_pick]
+
     res_idx = [score_index(min(resultados[eid][0], 5), min(resultados[eid][1], 5))
                for eid in evento_ids]
     pref = [bool(ev["preferencial"]) for ev in eventos]

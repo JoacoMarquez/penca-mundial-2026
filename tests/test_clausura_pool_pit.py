@@ -341,3 +341,42 @@ def test_gammas_fitean_fuera_de_la_fecha_testeada():
     assert len(gammas) == 12 and len(p_show) == 12
     assert (p_show == 1.0).all()               # todos cargaron los 2 partidos
     assert (gammas > 0).all()
+
+
+# -------------------- población: la media compara lo mismo contra lo mismo --------------------
+
+def test_correr_fecha_excluye_a_los_que_no_cargaron():
+    """El lado real (pool_puntos del postmortem) solo tiene rivales con ≥1 pick de
+    la fecha. Simular también a los que no cargaron nada (p_show=0, total 0 seguro)
+    arrastraba la media simulada ~1-1.5 pts abajo de la real: el PIT de la media
+    clavó 1.00 en F2/F3/F4 y se leyó como sesgo del modelo cuando era un artefacto
+    de poblaciones distintas (medido 2026-08-31: condicionando a p_show>0 la media
+    calza en las 4 fechas)."""
+    from src.clausura.pool_pit import correr_fecha
+
+    eventos_yaml = {}
+    participaciones = []
+    eids = [9001, 9002]
+    cfg = {"fechas": {"Fecha 1": {
+        "fecha_id": 1, "eventos": [
+            {"evento_id": eid, "local": "A", "visitante": "B",
+             "inicio_utc": "2026-01-01T00:00:00+00:00",
+             "cierre_pronostico_utc": "2026-01-01T00:00:00+00:00",
+             "preferencial": False} for eid in eids
+        ]}}}
+    # 30 rivales que cargaron (picks en ambos) + 20 fantasmas sin ningún pick
+    rng = np.random.default_rng(7)
+    for n in range(30):
+        participaciones.append({"numero": 1000 + n, "picks": {
+            str(eid): [int(rng.integers(0, 3)), int(rng.integers(0, 3))]
+            for eid in eids}})
+    for n in range(20):
+        participaciones.append({"numero": 2000 + n, "picks": {}})
+    snapshot = {"participaciones": participaciones}
+    resultados = {eid: (1, 0) for eid in eids}
+
+    pit = correr_fecha(1, cfg, snapshot, resultados,
+                       pool_puntos_reales=[5] * 30, mis_numeros=set(), n_sims=50)
+    assert pit is not None
+    # los 20 fantasmas quedan afuera de la población simulada
+    assert pit.n_rivales == 30
