@@ -159,6 +159,9 @@ def test_rehace_el_postmortem_si_aparecieron_mas_resultados(tmp_path, monkeypatc
 
     cfg = {"fechas": {"Fecha 1": {"fecha_id": 280}}}
     monkeypatch.setattr(pm, "pm_path", lambda n: tmp_path / f"fecha_{n:02d}.json")
+    # hermético: sin esto, un snapshot REAL en disco (el caso del VPS) hace que el
+    # filtro de cobertura excluya los eventos ficticios del test y dé None
+    monkeypatch.setattr(pm, "latest_snapshot_participaciones", lambda: [])
 
     def con(k):
         return lambda cfg, n, min_jugados: ({i: (1, 0) for i in range(k)}, 8 - k)
@@ -184,6 +187,9 @@ def test_no_rehace_si_el_archivo_esta_al_dia(tmp_path, monkeypatch):
 
     cfg = {"fechas": {"Fecha 1": {"fecha_id": 280}}}
     monkeypatch.setattr(pm, "pm_path", lambda n: tmp_path / f"fecha_{n:02d}.json")
+    # hermético: sin esto, un snapshot REAL en disco (el caso del VPS) hace que el
+    # filtro de cobertura excluya los eventos ficticios del test y dé None
+    monkeypatch.setattr(pm, "latest_snapshot_participaciones", lambda: [])
     monkeypatch.setattr(pm, "resultados_de_fecha",
                         lambda cfg, n, min_jugados: ({i: (1, 0) for i in range(8)}, 0))
     (tmp_path / "fecha_01.json").write_text(
@@ -217,6 +223,9 @@ def test_rehace_si_un_resultado_fue_CORREGIDO(tmp_path, monkeypatch):
 
     cfg = {"fechas": {"Fecha 1": {"fecha_id": 280}}}
     monkeypatch.setattr(pm, "pm_path", lambda n: tmp_path / f"fecha_{n:02d}.json")
+    # hermético: sin esto, un snapshot REAL en disco (el caso del VPS) hace que el
+    # filtro de cobertura excluya los eventos ficticios del test y dé None
+    monkeypatch.setattr(pm, "latest_snapshot_participaciones", lambda: [])
     monkeypatch.setattr(pm, "resultados_de_fecha",
                         lambda cfg, n, min_jugados: ({1: (1, 0), 2: (2, 2)}, 0))
     (tmp_path / "fecha_01.json").write_text(
@@ -231,6 +240,9 @@ def test_no_rehace_si_un_resultado_DESAPARECE(tmp_path, monkeypatch):
 
     cfg = {"fechas": {"Fecha 1": {"fecha_id": 280}}}
     monkeypatch.setattr(pm, "pm_path", lambda n: tmp_path / f"fecha_{n:02d}.json")
+    # hermético: sin esto, un snapshot REAL en disco (el caso del VPS) hace que el
+    # filtro de cobertura excluya los eventos ficticios del test y dé None
+    monkeypatch.setattr(pm, "latest_snapshot_participaciones", lambda: [])
     monkeypatch.setattr(pm, "resultados_de_fecha",
                         lambda cfg, n, min_jugados: ({1: (1, 0)}, 1))
     (tmp_path / "fecha_01.json").write_text(
