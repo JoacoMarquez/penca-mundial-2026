@@ -1116,11 +1116,6 @@ def run(
     )
 
     eventos_fecha = [ev for ev in eventos if ev["fecha_n"] == target_fecha]
-    planilla = format_planilla(eventos_fecha, port, idx_of, fuentes, n_rivales)
-    planilla += "\n" + format_especiales(port, equipo_nombres, opciones_goleador,
-                                         gol_previos)
-    planilla += "\n" + format_gratuita(eventos_fecha, port, idx_of, equipo_nombres,
-                                       opciones_goleador, gol_previos)
 
     payload = {
         "generado_utc": datetime.now(timezone.utc).isoformat(),
@@ -1196,6 +1191,36 @@ def run(
             for i, ev in enumerate(eventos)
         ],
     }
+    # ---------- gate por valor contra LO CARGADO (marcas del modo carga) ----------
+    # La corrida diaria reescribía la planilla sin medir nada: un pick que el
+    # usuario YA cargó podía cambiar en silencio y el gate del rerun no lo veía,
+    # porque compara contra la planilla vigente — que es la salida de ESTA corrida.
+    # En la F4 eso costó 28 puntos en el clásico ⭐x2. Ver src.clausura.carga_gate.
+    # Solo en corridas que se guardan: la corrida fría es un control y adoptarle
+    # lo cargado contaminaría justo lo que viene a auditar.
+    aviso_carga = None
+    if guardar:
+        from src.clausura.carga_gate import aplicar_gate
+        try:
+            aviso_carga = aplicar_gate(
+                payload, port, idx_of, grids, target_fecha,
+                n_participaciones, sorted(mis_numeros))
+        except Exception as e:                                # noqa: BLE001
+            # El gate protege contra drift, no puede volverse él mismo el motivo
+            # de que la planilla del día no salga.
+            log.error("gate por carga falló (%s) — la planilla sale sin él",
+                      e, exc_info=True)
+
+    # La planilla legible se arma DESPUÉS del gate: si el gate adoptó lo cargado,
+    # lo que se manda por Telegram y muestra el modo carga tiene que ser eso.
+    planilla = format_planilla(eventos_fecha, port, idx_of, fuentes, n_rivales)
+    planilla += "\n" + format_especiales(port, equipo_nombres, opciones_goleador,
+                                         gol_previos)
+    planilla += "\n" + format_gratuita(eventos_fecha, port, idx_of, equipo_nombres,
+                                       opciones_goleador, gol_previos)
+    if aviso_carga:
+        planilla += "\n\n" + aviso_carga
+
     if contexto is not None:
         contexto.update(portfolio=port, evaluador=port.evaluador,
                         idx_of=idx_of, eventos=eventos,
