@@ -54,6 +54,9 @@ files.zip
 # Claude Code
 .claude/
 
+# Worktrees locales de desarrollo
+.worktrees/
+
 # Snapshots del pool: los escribe el VPS con su propia numeración (latest_version
 # elige por NÚMERO de versión). Commitear uno generado a mano crea una segunda línea
 # de versionado en el mismo directorio: quedan dos vN y el sistema puede quedarse con
