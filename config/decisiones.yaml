@@ -136,20 +136,29 @@ decisiones:
   - nombre: goleador dentro del Monte Carlo
     donde: src.clausura.picks.GOLEADOR_EN_MC
     valor: false
-    medida_con: {sims: 9600, participaciones: 12}
-    resultado: "prenderlo mide −$609 ± 308 / −$716 ± 324 / −$199 ± 442 según el prior"
-    # el prior MENOS desfavorable de los tres: es el caso que más cerca estuvo de
-    # dar vuelta el rechazo, así que es contra el que hay que juzgar la potencia
-    delta: -199
-    se: 442
+    medida_con: {sims: 19200, participaciones: 12}
+    resultado: "prenderlo mide −$148 ± 327 / −$186 ± 384 / −$382 ± 415 según el prior (tabla / Arezo ×1,5 / Gómez ×1,5); con el prior del pool, −$596 ± 327"
+    # el prior MENOS desfavorable de los tres (la tabla del Clausura): es el caso que
+    # más cerca estuvo de dar vuelta el rechazo, así que es contra el que hay que
+    # juzgar la potencia
+    delta: -148
+    se: 327
     unidad: pesos
-    fecha: 2026-08-10
-    vencida: >-
-      Medida a 9.600 y producción corre 19.200. El NÚMERO probablemente aguanta (los 12
-      goleadores están congelados y caen en el top-3 junto con el 84,6% del pool, así
-      que los 25 pts son un desplazamiento casi común), pero su EXPLICACIÓN citaba "el
-      mismo mecanismo que hace ganar al menú chico", y ese mecanismo se dio vuelta.
-      Barata de re-medir; el premio esperado es chico.
+    fecha: 2026-09-24
+    nota: >-
+      Re-medida el 24/9 (fecha 8, 19.200 sorteos, 5 semillas frescas pareadas,
+      scripts/backtest_goleador_actual.py; evidencia en
+      data/experimentos/goleador_actual_20260924.json) porque la premisa del 10/8 —"los 25
+      pts son un desplazamiento casi común"— ya no valía: el líder y 20 del top-60 tienen
+      a Arezo y nuestro gap al líder va de 22 a 46 según el goleador. Pero el goleador es
+      el del CLAUSURA (Art. 3), y en esa tabla lidera Da Silva (Torque, fuera del menú):
+      el prior desde la tabla da 74% a "Otros", 16% López, 6% Arezo, <1% Gómez, ~0 Abel.
+      En el 74% de los mundos nadie de arriba cobra, que es justo lo que asume el flag
+      apagado. ΔP(ganar la penca) −0,05pp ± 0,10 (tabla), −0,05pp ± 0,11 (Arezo),
+      −0,11pp ± 0,11 (Gómez): inconcluso por la regla del diseño, todos negativos.
+      Prenderlo TAL CUAL (prior = consenso del pool, que sobrejuega Arezo/Gómez) es
+      claramente peor: −0,20pp ± 0,09. Re-medir si Arezo pasa a liderar la tabla del
+      Clausura: es el único goleador que le suma al líder.
 
   - nombre: umbral del aviso por valor del rerun
     donde: src.clausura.rerun_cierre.UMBRAL_SE

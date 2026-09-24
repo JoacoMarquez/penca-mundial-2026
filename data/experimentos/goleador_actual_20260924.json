@@ -1,0 +1,224 @@
+{
+ "generado_utc": "2026-09-24T14:43:43.060030+00:00",
+ "fecha": 8,
+ "n_participaciones": 12,
+ "n_sims": 19200,
+ "n_seeds": 5,
+ "entradas": {
+  "n_odds": 9,
+  "snapshot_utc": "2026-09-24T11:11:49.728647+00:00",
+  "n_participaciones_snapshot": 774
+ },
+ "menu": [
+  "Matías Arezo",
+  "Abel Hernández",
+  "Maximiliano Gómez",
+  "Maximiliano Silvera",
+  "Álvaro López",
+  "Federico Martínez",
+  "Fernando Mimbacas",
+  "Rubén Bentancur",
+  "Sebastián da Silva",
+  "Tomás Habib",
+  "Luciano Cosentino",
+  "Jonathan Rodríguez",
+  "José Neris",
+  "Brian Montenegro",
+  "Salomón Rodriguez",
+  "Otros"
+ ],
+ "priors": {
+  "central": {
+   "Matías Arezo": 0.0586,
+   "Abel Hernández": 0.0001,
+   "Maximiliano Gómez": 0.0075,
+   "Maximiliano Silvera": 0.0,
+   "Álvaro López": 0.1633,
+   "Federico Martínez": 0.0001,
+   "Fernando Mimbacas": 0.0142,
+   "Rubén Bentancur": 0.0009,
+   "Sebastián da Silva": 0.0,
+   "Tomás Habib": 0.0009,
+   "Luciano Cosentino": 0.0142,
+   "Jonathan Rodríguez": 0.0,
+   "José Neris": 0.0,
+   "Brian Montenegro": 0.0,
+   "Salomón Rodriguez": 0.0005,
+   "Otros": 0.7398
+  },
+  "arezo": {
+   "Matías Arezo": 0.0854,
+   "Abel Hernández": 0.0001,
+   "Maximiliano Gómez": 0.0073,
+   "Maximiliano Silvera": 0.0,
+   "Álvaro López": 0.1586,
+   "Federico Martínez": 0.0001,
+   "Fernando Mimbacas": 0.0138,
+   "Rubén Bentancur": 0.0008,
+   "Sebastián da Silva": 0.0,
+   "Tomás Habib": 0.0008,
+   "Luciano Cosentino": 0.0138,
+   "Jonathan Rodríguez": 0.0,
+   "José Neris": 0.0,
+   "Brian Montenegro": 0.0,
+   "Salomón Rodriguez": 0.0005,
+   "Otros": 0.7187
+  },
+  "gomez": {
+   "Matías Arezo": 0.0584,
+   "Abel Hernández": 0.0001,
+   "Maximiliano Gómez": 0.0112,
+   "Maximiliano Silvera": 0.0,
+   "Álvaro López": 0.1627,
+   "Federico Martínez": 0.0001,
+   "Fernando Mimbacas": 0.0142,
+   "Rubén Bentancur": 0.0009,
+   "Sebastián da Silva": 0.0,
+   "Tomás Habib": 0.0009,
+   "Luciano Cosentino": 0.0141,
+   "Jonathan Rodríguez": 0.0,
+   "José Neris": 0.0,
+   "Brian Montenegro": 0.0,
+   "Salomón Rodriguez": 0.0005,
+   "Otros": 0.737
+  },
+  "abel": {
+   "Matías Arezo": 0.0586,
+   "Abel Hernández": 0.0002,
+   "Maximiliano Gómez": 0.0075,
+   "Maximiliano Silvera": 0.0,
+   "Álvaro López": 0.1633,
+   "Federico Martínez": 0.0001,
+   "Fernando Mimbacas": 0.0142,
+   "Rubén Bentancur": 0.0009,
+   "Sebastián da Silva": 0.0,
+   "Tomás Habib": 0.0009,
+   "Luciano Cosentino": 0.0142,
+   "Jonathan Rodríguez": 0.0,
+   "José Neris": 0.0,
+   "Brian Montenegro": 0.0,
+   "Salomón Rodriguez": 0.0005,
+   "Otros": 0.7397
+  }
+ },
+ "resultados": {
+  "central": {
+   "metricas": {
+    "p_gana_penca": {
+     "delta": -0.0005416666666666666,
+     "se": 0.0009882941163523466,
+     "a": 0.05811458333333334,
+     "b": 0.057572916666666675
+    },
+    "e_premio_penca": {
+     "delta": -148.26388888888832,
+     "se": 326.67393711617734,
+     "a": 19323.828125,
+     "b": 19175.564236111113
+    },
+    "e_premio_total": {
+     "delta": -115.89335317460355,
+     "se": 329.6466430547649,
+     "a": 21450.75099206349,
+     "b": 21334.857638888887
+    },
+    "e_puntos_mejor": {
+     "delta": 0.02861458333331939,
+     "se": 0.019708395271666495,
+     "a": 324.28211458333334,
+     "b": 324.31072916666665
+    }
+   },
+   "celdas_distintas": 80
+  },
+  "arezo": {
+   "metricas": {
+    "p_gana_penca": {
+     "delta": -0.0005000000000000004,
+     "se": 0.0011283707219310103,
+     "a": 0.0578125,
+     "b": 0.0573125
+    },
+    "e_premio_penca": {
+     "delta": -185.6336805555562,
+     "se": 383.5235848440027,
+     "a": 19253.645833333336,
+     "b": 19068.012152777777
+    },
+    "e_premio_total": {
+     "delta": -182.082837301588,
+     "se": 384.4880780941189,
+     "a": 21380.568700396827,
+     "b": 21198.485863095237
+    },
+    "e_puntos_mejor": {
+     "delta": -0.18340625000000726,
+     "se": 0.029784343141222015,
+     "a": 324.65468749999997,
+     "b": 324.47128125
+    }
+   },
+   "celdas_distintas": 79
+  },
+  "gomez": {
+   "metricas": {
+    "p_gana_penca": {
+     "delta": -0.0010833333333333333,
+     "se": 0.0011475366128267006,
+     "a": 0.05841666666666667,
+     "b": 0.05733333333333333
+    },
+    "e_premio_penca": {
+     "delta": -382.204861111111,
+     "se": 415.35062799469597,
+     "a": 19428.34201388889,
+     "b": 19046.137152777777
+    },
+    "e_premio_total": {
+     "delta": -349.14794146825443,
+     "se": 418.5427117237542,
+     "a": 21555.26488095238,
+     "b": 21206.116939484124
+    },
+    "e_puntos_mejor": {
+     "delta": -0.1479687500000068,
+     "se": 0.03340023803219055,
+     "a": 324.35409375,
+     "b": 324.206125
+    }
+   },
+   "celdas_distintas": 80
+  },
+  "pool": {
+   "metricas": {
+    "p_gana_penca": {
+     "delta": -0.002020833333333333,
+     "se": 0.0009114434522594729,
+     "a": 0.05811458333333334,
+     "b": 0.05609375
+    },
+    "e_premio_penca": {
+     "delta": -596.3975694444453,
+     "se": 326.9874325974782,
+     "a": 19323.828125,
+     "b": 18727.430555555555
+    },
+    "e_premio_total": {
+     "delta": -598.613715277778,
+     "se": 333.712404127295,
+     "a": 21450.75099206349,
+     "b": 20852.137276785714
+    },
+    "e_puntos_mejor": {
+     "delta": -0.24347916666665698,
+     "se": 0.029885734356980137,
+     "a": 324.28211458333334,
+     "b": 324.0386354166667
+    }
+   },
+   "celdas_distintas": 79,
+   "nota": "prior de producción, evaluado bajo la verdad central"
+  }
+ },
+ "veredicto": "inconcluso"
+}
