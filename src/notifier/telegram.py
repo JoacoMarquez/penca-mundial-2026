@@ -13,7 +13,9 @@ Usa HTML parse mode (solo escapa &, <, >). Menos mess que MarkdownV2.
 from __future__ import annotations
 
 import html
+import logging
 import os
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
@@ -25,6 +27,26 @@ TELEGRAM_API = "https://api.telegram.org/bot{token}/sendMessage"
 TELEGRAM_PIN = "https://api.telegram.org/bot{token}/pinChatMessage"
 TELEGRAM_UNPIN = "https://api.telegram.org/bot{token}/unpinChatMessage"
 TELEGRAM_EDIT = "https://api.telegram.org/bot{token}/editMessageText"
+
+
+class _RedactarToken(logging.Filter):
+    """Tapa el token del bot en los logs de httpx.
+
+    httpx loguea cada request a INFO con la URL completa, y la URL de la Bot API
+    lleva el token en el path: con el root en INFO (todos los mains del Clausura) el
+    token quedaba en claro en /var/lib/penca/logs/*.err (visto el 2026-09-24).
+    """
+
+    _PATRON = re.compile(r"/bot[^/\s]+/")
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        msg = record.getMessage()
+        if "/bot" in msg:
+            record.msg, record.args = self._PATRON.sub("/bot<token>/", msg), ()
+        return True
+
+
+logging.getLogger("httpx").addFilter(_RedactarToken())
 
 
 # Labels humanos para los 5 objetivos de strategy/portfolio.py

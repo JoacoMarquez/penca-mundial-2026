@@ -517,7 +517,7 @@ decisiones:
 
   - nombre: recargar los picks de cada día con la corrida de ESE día
     donde: (nada — rechazo, la rutina de carga queda libre)
-    valor: "cargar todo junto está bien"
+    valor: null
     medida_con: {sims: 19200, participaciones: 12, escenarios: 10, seeds_eval: 8}
     resultado: "+$139 ± 50 de E[premio] (8/10 escenarios positivos)"
     delta: 139
