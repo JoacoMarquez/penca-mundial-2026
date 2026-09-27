@@ -561,6 +561,20 @@ def comparar_puntos_publicados(
     return difs
 
 
+def puntos_propios(
+    picks: dict[int, dict[int, tuple[int, int]]],
+    resultados: dict[int, tuple[int, int]],
+    eventos_fecha: list[dict],
+) -> dict[int, int]:
+    """Puntos de la fecha por participación nuestra, sobre `resultados` (kernel real)."""
+    pref_de = {ev["evento_id"]: bool(ev.get("preferencial")) for ev in eventos_fecha}
+    return {
+        numero: sum(supermatch_points(mios[eid], real, pref_de.get(eid, False))
+                    for eid, real in resultados.items() if eid in mios)
+        for numero, mios in picks.items()
+    }
+
+
 def _totales_calculados(fecha: int, puntos_fecha: dict[int, int]) -> dict[int, int] | None:
     """Puntos de temporada por participación: postmortems previos + la fecha actual.
 
@@ -771,6 +785,7 @@ def run(fecha: int | None = None, dry_run: bool = False) -> str | None:
     # (infló la F4 a "18.4 vs 12.7" con lo real en 18.4 vs 16.3). Queda afuera
     # del archivo, así que cuando un snapshot posterior lo cubra cuenta como
     # resultado nuevo y el postmortem se regenera solo.
+    resultados_jugados = resultados
     resultados, sin_cobertura = resultados_con_cobertura(
         resultados, pool, set(mis_numeros))
     if sin_cobertura:
@@ -816,7 +831,13 @@ def run(fecha: int | None = None, dry_run: bool = False) -> str | None:
         if not ranking_pts:
             raise RuntimeError("sin ranking")
         publicados = {n: p for n, p in ranking_pts.items() if n in set(mis_numeros)}
-        totales = _totales_calculados(fecha, st.puntos)
+        # Contra la web van TODOS los partidos jugados, no solo los que el
+        # snapshot cubre: la web ya liquidó los que el postmortem deja afuera por
+        # falta de picks del pool, y comparar sin ellos disparaba el aviso en casi
+        # todas las filas (F8, 27/9: la diferencia de cada fila era exactamente
+        # lo que había hecho en Juventud-Cerro, excluido por cobertura).
+        totales = _totales_calculados(
+            fecha, puntos_propios(picks, resultados_jugados, eventos_fecha))
         if totales is None:
             log.info("tripwire de puntos omitido: falta el postmortem de una fecha previa")
         else:
