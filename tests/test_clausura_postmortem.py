@@ -285,6 +285,26 @@ def test_tripwire_puntos_vs_web():
     assert comparar_puntos_publicados({899258848: 24}, {}) == []
 
 
+def test_puntos_propios_incluye_partidos_sin_cobertura_del_pool():
+    """El tripwire compara contra la web, que liquida TODO lo jugado. Un partido
+    que el postmortem excluye por falta de picks del pool tiene que sumar igual
+    (F8: 10 falsos avisos, cada uno igual a lo hecho en el partido excluido)."""
+    from src.clausura import postmortem as pm
+
+    picks = {899258856: {1: (1, 2), 2: (0, 0)}, 899258857: {1: (1, 1), 2: (2, 1)}}
+    eventos = [{"evento_id": 1, "preferencial": True}, {"evento_id": 2}]
+    jugados = {1: (1, 2), 2: (0, 0)}
+    cubiertos, excluidos = pm.resultados_con_cobertura(
+        jugados, [{"numero": i, "picks": {"1": [0, 1]}} for i in range(20)], set())
+    assert excluidos == [2]
+
+    todos = pm.puntos_propios(picks, jugados, eventos)
+    solo_cubiertos = pm.puntos_propios(picks, cubiertos, eventos)
+    assert todos[899258856] == solo_cubiertos[899258856] + 8     # exacto en el excluido
+    assert todos[899258856] == 2 * 8 + 8                          # preferencial x2
+    assert todos[899258857] == solo_cubiertos[899258857]          # 2-1 vs 0-0 no suma
+
+
 def test_totales_calculados_suman_postmortems_previos(tmp_path, monkeypatch):
     from src.clausura import postmortem as pm
 
