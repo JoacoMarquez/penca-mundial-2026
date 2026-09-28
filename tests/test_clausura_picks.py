@@ -376,6 +376,26 @@ def test_load_frozen_congela_cerrados_de_la_fecha_objetivo(tmp_path, monkeypatch
     assert frozen[1, 0] == score_index(0, 0)
 
 
+def test_load_frozen_suspendido_reprogramado_congela_fechas_posteriores(tmp_path, monkeypatch):
+    """Torque-Peñarol de la F1 jugado el 30/9 con la F8 cerrada: la objetivo es la
+    F1, pero los partidos ya jugados de fechas POSTERIORES conservan sus picks
+    guardados (antes quedaban en 0-0 en el simulador). Lo abierto de una fecha
+    posterior sigue libre."""
+    import src.clausura.picks as picks_mod
+    monkeypatch.setattr(picks_mod, "PRED_DIR", tmp_path)
+
+    eventos = [_evento(10, "A", "B", fecha_n=1), _evento(20, "C", "D", fecha_n=2),
+               _evento(30, "E", "F", fecha_n=2)]
+    save_version(1, {"picks": [{"evento_id": 10, "scores": [[1, 1]]}]})
+    save_version(2, {"picks": [{"evento_id": 20, "scores": [[2, 0]]},
+                               {"evento_id": 30, "scores": [[0, 1]]}]})
+
+    frozen, mask = load_frozen(eventos, target_fecha=1, n_participaciones=1,
+                               cerrados={20})
+    assert mask.tolist() == [False, True, False]
+    assert frozen[0, 1] == score_index(2, 0)
+
+
 def test_load_frozen_sin_cerrados_no_congela_la_fecha_objetivo(tmp_path, monkeypatch):
     import src.clausura.picks as picks_mod
     monkeypatch.setattr(picks_mod, "PRED_DIR", tmp_path)

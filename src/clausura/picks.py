@@ -430,10 +430,16 @@ def load_frozen(
     picks guardados para él. Si falta el archivo de una fecha pasada avisamos: eso
     significa que lo cargado en la web no está registrado acá.
 
-    `cerrados`: evento_ids de la PROPIA fecha objetivo cuyo pick ya no se puede
-    cambiar (cierre pasado o partido jugado). Sin esto, una regeneración intra-fecha
-    (p.ej. la corrida del sábado con el partido del viernes ya jugado) pisaría esos
-    picks con 0-0 y rompería drift audit, postmortem y el estado del simulador.
+    `cerrados`: evento_ids cuyo pick ya no se puede cambiar (cierre pasado o
+    partido jugado), de la fecha objetivo o de fechas POSTERIORES. Sin esto, una
+    regeneración intra-fecha (p.ej. la corrida del sábado con el partido del viernes
+    ya jugado) pisaría esos picks con 0-0 y rompería drift audit, postmortem y el
+    estado del simulador.
+
+    Las fechas posteriores a la objetivo existen cuando la objetivo es un partido
+    SUSPENDIDO y reprogramado (Torque-Peñarol de la F1, jugado el 30/9 con la F8 ya
+    cerrada): fecha_actual apunta a la F1 y, si solo se leyeran las fechas ≤1, los
+    55 partidos jugados de F2-F8 quedaban con nuestros picks en 0-0 en el simulador.
     """
     cerrados = cerrados or set()
     n = len(eventos)
@@ -441,7 +447,8 @@ def load_frozen(
     mask = np.zeros(n, dtype=bool)
     idx_by_evento = {ev["evento_id"]: i for i, ev in enumerate(eventos)}
 
-    for f in range(1, target_fecha + 1):
+    fechas = {int(ev.get("fecha_n", target_fecha)) for ev in eventos} | {target_fecha}
+    for f in sorted(x for x in fechas if x >= 1):
         d = fecha_dir(f)
         latest = latest_version(d.glob("v*_*.json")) if d.exists() else None
         if latest is None:
@@ -454,8 +461,8 @@ def load_frozen(
             i = idx_by_evento.get(row["evento_id"])
             if i is None:
                 continue
-            if f == target_fecha and row["evento_id"] not in cerrados:
-                continue   # la fecha objetivo solo congela sus partidos ya cerrados
+            if f >= target_fecha and row["evento_id"] not in cerrados:
+                continue   # objetivo y posteriores solo congelan lo ya cerrado
             if len(row["scores"]) < n_participaciones:
                 log.warning("fecha %d: el archivo tiene %d participaciones y se piden "
                             "%d — las filas faltantes quedan congeladas en 0-0",
@@ -936,12 +943,13 @@ def run(
                     "llena recién al CIERRE de la fecha.",
                     objetivo, efectiva, pool_cfg.temperature, exact_rate)
 
-    # partidos de la fecha objetivo que ya no se pueden cambiar (jugados o cerrados):
-    # se congelan con SUS picks guardados, no se regeneran
+    # partidos de la fecha objetivo (o posteriores, si la objetivo es un suspendido
+    # reprogramado) que ya no se pueden cambiar: se congelan con SUS picks
+    # guardados, no se regeneran
     now = datetime.now(timezone.utc)
     cerrados = {
         ev["evento_id"] for ev in eventos
-        if ev["fecha_n"] == target_fecha
+        if ev["fecha_n"] >= target_fecha
         and (ev["evento_id"] in resultados
              or datetime.fromisoformat(ev["cierre_pronostico_utc"]) <= now)
     }
