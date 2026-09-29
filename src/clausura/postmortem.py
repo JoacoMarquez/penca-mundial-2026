@@ -871,6 +871,12 @@ def run(fecha: int | None = None, dry_run: bool = False) -> str | None:
 
     print(reporte.replace("<b>", "").replace("</b>", "").replace("<i>", "").replace("</i>", ""))
     if not dry_run:
+        # Telegram ANTES del archivo: el archivo es lo que marca la fecha como hecha,
+        # y si se escribía primero, un envío fallido (F8, 28/9: "message is too
+        # long") no se reintentaba nunca y el aviso del premio no llegó. Así, un
+        # fallo deja la fecha pendiente y la corrida de la noche siguiente reintenta.
+        from src.notifier.telegram import TelegramConfig, TelegramNotifier
+        TelegramNotifier(TelegramConfig.from_env()).send(reporte)
         PM_DIR.mkdir(parents=True, exist_ok=True)
         pm_path(fecha).write_text(json.dumps({
             "generado_utc": datetime.now(timezone.utc).isoformat(),
@@ -884,8 +890,6 @@ def run(fecha: int | None = None, dry_run: bool = False) -> str | None:
             "asignacion": {"fecha": asig_fecha, "temporada": asig_temp},
             "rivales_directos": rivales,
         }, ensure_ascii=False, indent=1), encoding="utf-8")
-        from src.notifier.telegram import TelegramConfig, TelegramNotifier
-        TelegramNotifier(TelegramConfig.from_env()).send(reporte)
     return reporte
 
 
