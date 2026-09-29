@@ -256,7 +256,14 @@ def _find_sharp_quote(by_key: dict, sharp_quotes, leg: dict):
     # 1. por el event_id sharp que resolvió el matching en el scan (camino normal)
     sharp_eid = leg.get("sharp_event_id")
     if sharp_eid:
-        direct = by_key.get((sharp_eid, q["market"], q["outcome"]))
+        from src.valuebet.matching import INV_SUFFIX
+        if sharp_eid.endswith(INV_SUFFIX):
+            # localía invertida entre casas: el 'home' soft es el 'away' de Pinnacle
+            swap = {"home": "away", "away": "home"}
+            direct = by_key.get((sharp_eid[:-len(INV_SUFFIX)], q["market"],
+                                 swap.get(q["outcome"], q["outcome"])))
+        else:
+            direct = by_key.get((sharp_eid, q["market"], q["outcome"]))
         if direct:
             return direct
     # 2. match directo por si la pata ya era una cuota pinnacle
