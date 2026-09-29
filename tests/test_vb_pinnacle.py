@@ -83,3 +83,29 @@ def test_total_linea_entera_canonica():
            "prices": [{"designation": "over", "price": -105}, {"designation": "under", "price": -115}]}]
     q = normalize_sport("soccer", MATCHUPS, mk, league_ids={100})
     assert {x.market for x in q} == {"total_3"}
+
+
+def test_total_con_points_en_los_precios():
+    # Pinnacle real (verificado 2026-09-29): `points` viene dentro de cada precio, no a
+    # nivel mercado. Antes esto descartaba TODOS los totales (raw de julio: cero).
+    mk = [{"matchupId": 1, "type": "total", "period": 0, "key": "s;0;ou;2.5",
+           "prices": [{"designation": "over", "points": 2.5, "price": -124},
+                      {"designation": "under", "points": 2.5, "price": -101}]}]
+    q = normalize_sport("soccer", MATCHUPS, mk, league_ids={100})
+    assert {x.market for x in q} == {"total_2.5"}
+    assert {x.outcome for x in q} == {"over", "under"}
+
+
+def test_total_sin_points_en_ningun_lado_se_descarta():
+    mk = [{"matchupId": 1, "type": "total", "period": 0,
+           "prices": [{"designation": "over", "price": -110}, {"designation": "under", "price": -110}]}]
+    assert normalize_sport("soccer", MATCHUPS, mk, league_ids={100}) == []
+
+
+def test_deportes_nicho_son_moneyline_2way():
+    mk = [{"matchupId": 2, "type": "moneyline", "period": 0,
+           "prices": [{"designation": "home", "price": -150}, {"designation": "away", "price": 130}]}]
+    for sport in ("darts", "mma", "boxing", "volleyball"):
+        q = normalize_sport(sport, MATCHUPS, mk, league_ids={200})
+        assert [x.market for x in q] == ["moneyline", "moneyline"], sport
+        assert {x.outcome for x in q} == {"home", "away"}, sport

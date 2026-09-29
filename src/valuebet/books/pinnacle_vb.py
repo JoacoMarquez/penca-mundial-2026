@@ -39,8 +39,11 @@ HEADERS = {
     "Accept-Language": "en-US,en;q=0.9",
 }
 
-# Deportes SIN empate en el mercado principal (moneyline 2-way)
-TWO_WAY_SPORTS = {"tennis", "basketball"}
+# Deportes SIN empate en el mercado principal (moneyline 2-way). Verificado desde el
+# VPS 2026-09-29: dardos/MMA/boxeo/vóley publican solo home/away en period 0.
+# Handball es 2-way en Pinnacle pero 1x2 en Supermatch → no comparable, queda afuera;
+# hockey/béisbol/fútbol americano/rugby traen precios sin `designation` → afuera.
+TWO_WAY_SPORTS = {"tennis", "basketball", "darts", "mma", "boxing", "volleyball"}
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
@@ -153,7 +156,15 @@ def normalize_sport(
                     "away": prices.get("away", 0.0),
                 }
         elif mtype == "total":
+            # Pinnacle publica `points` DENTRO de cada precio (over/under), no a nivel
+            # mercado. Buscarlo solo en el mercado descartaba TODOS los totales — el raw
+            # de julio no tiene ni uno de Pinnacle por esto (auditoría 2026-09-29).
             points = market.get("points")
+            if points is None:
+                pts = {p.get("points") for p in market.get("prices", [])
+                       if p.get("points") is not None}
+                if len(pts) == 1:
+                    points = pts.pop()
             if points is None:
                 continue
             market_name = total_market(points)
