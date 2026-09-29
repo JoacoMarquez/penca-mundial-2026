@@ -59,6 +59,10 @@ decisiones:
       Meseta de 5 a 8 (indistinguibles); 10 mide −$1.532 ± 428 en el control. Todo el
       valor está en 3→5. El óptimo SUBE con los sorteos: a 2.400 el menú de 5 medía
       −$4.192. Si se bajan los sorteos, esta decisión se da vuelta.
+      Re-medido 2026-09-29 con el pipeline de producción a gap 31 del líder (fecha 9,
+      frío, 3 reps, scripts/ab_menu_produccion.py): 5→8 = +$483 ± 379, bajo el umbral.
+      El arnés por fecha sin standings (scripts/ab_cap_diversidad_vivo.py) daba
+      +$3.613 ± 507: sobreestima porque su objetivo es "ganar un bloque". Sigue 5.
 
   - nombre: rama de hueco del menú
     donde: src.clausura.strategy.K_HUECO
