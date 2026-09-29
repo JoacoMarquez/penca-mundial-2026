@@ -125,8 +125,11 @@ def evaluar(ev: Evaluador, picks: np.ndarray, campeon: np.ndarray,
     v, tot, _ = ev.valor(fecha_pts, esp)
     total = fecha_pts.sum(1) + esp
     pp = ev._premio(total, ev.so.riv_total_max, ev.so.riv_total_cnt, PREMIO_PENCA)
+    pf = ev._premio(fecha_pts, ev.so.riv_fecha_max, ev.so.riv_fecha_cnt, PREMIO_FECHA)   # (S, F)
     return {"e_premio": v, "se": float(tot.std() / np.sqrt(len(tot))), "e_penca": float(pp.mean()),
-            "p_penca": float((pp > 0).mean()), "e_fechas": float(v - pp.mean())}
+            "p_penca": float((pp > 0).mean()), "p_penca_entero": float((pp >= PREMIO_PENCA - 1e-6).mean()),
+            "e_fechas": float(v - pp.mean()), "e_n_fechas": float((pf > 0).sum(1).mean()),
+            "p_alguna_fecha": float(((pf > 0).sum(1) > 0).mean()), "_tot": tot}
 
 
 def optimizar(ev: Evaluador, campeon_opts: list[int], campeon_init: np.ndarray | None = None,

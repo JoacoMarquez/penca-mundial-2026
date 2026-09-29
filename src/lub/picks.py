@@ -151,7 +151,7 @@ def correr(k: int, n_sims: int, n_rivales: int, refrescar: bool = True, now: dat
         "campeon": [so.equipos[int(t)] for t in port.campeon],
         "especiales_libres": especiales_libres,
         "p_campeon": {so.equipos[t]: round(float(p_camp[t]), 3) for t in orden_camp},
-        "e_premio": round(port.e_premio), "oos": {kk: round(v, 3) for kk, v in oos.items()}, "detalle": {kk: round(v, 1) if isinstance(v, float) else v
+        "e_premio": round(port.e_premio), "oos": {kk: round(v, 3) for kk, v in oos.items() if not kk.startswith("_")}, "_oos_tot": oos["_tot"], "detalle": {kk: round(v, 1) if isinstance(v, float) else v
                                                        for kk, v in port.detalle.items()},
         "costo": k * PRECIO,
         "ratings": {e: round(v, 1) for e, v in sorted(rt.r.items(), key=lambda kv: -kv[1])},
@@ -198,6 +198,11 @@ def main() -> None:
         for i, k in enumerate(int(x) for x in a.sweep.split(",")):
             pl = correr(k, a.sims, a.rivales, refrescar=(i == 0 and not a.no_refrescar))
             d = pl["oos"]
+            net = pl["_oos_tot"] - pl["costo"]
+            print(f"K={k:2d} DIST  P(perder plata) {(net < 0).mean():.1%}  P(ganar penca) {d['p_penca']:.1%} "
+                  f"(entero {d['p_penca_entero']:.1%})  P(≥1 fecha) {d['p_alguna_fecha']:.1%}  "
+                  f"fechas ganadas E {d['e_n_fechas']:.2f}  neto p10/p50/p90 "
+                  f"{np.percentile(net, 10):+,.0f} / {np.percentile(net, 50):+,.0f} / {np.percentile(net, 90):+,.0f}", flush=True)
             print(f"K={k:2d}  E[premio] OOS ${d['e_premio']:>7,.0f} ± {d['se']:,.0f} (in-sample ${pl['e_premio']:,})  "
                   f"costo ${pl['costo']:>5,.0f}  neto ${d['e_premio'] - pl['costo']:>+7,.0f}  "
                   f"(penca ${d['e_penca']:,.0f}, P {d['p_penca']:.1%}; fechas ${d['e_fechas']:,.0f})", flush=True)
@@ -205,6 +210,7 @@ def main() -> None:
     pl = correr(a.k, a.sims, a.rivales, refrescar=not a.no_refrescar)
     txt = formatear(pl)
     print(txt)
+    pl.pop("_oos_tot", None)
     if not a.no_guardar:
         print("→", guardar(pl))
     if a.telegram:
