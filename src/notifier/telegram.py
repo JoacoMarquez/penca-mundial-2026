@@ -59,6 +59,60 @@ HUMAN_OBJECTIVE_LABELS: dict[str, tuple[str, str]] = {
 }
 
 
+# Telegram rechaza con 400 "message is too long" pasado 4096 caracteres (contados
+# después de parsear el HTML y en unidades UTF-16: un emoji vale 2). Pasó con el
+# postmortem de la F8 (28/9): la sección del PIT crece una fecha por vez, el
+# mensaje se cayó entero y el archivo ya estaba escrito, así que nunca se reintentó
+# — el aviso del premio de fecha no llegó. Margen amplio sobre el texto CRUDO.
+MAX_CHARS = 3800
+
+
+def _partir(text: str, limite: int = MAX_CHARS) -> list[str]:
+    """Parte un mensaje largo en trozos ≤ limite, cortando por secciones.
+
+    Corta primero entre párrafos ("\n\n"), después entre líneas y recién ahí a
+    lo bruto. Los tags HTML de este módulo viven dentro de una línea, así que
+    cortar por párrafo o línea no deja un <b> sin cerrar.
+    """
+    if len(text) <= limite:
+        return [text]
+    trozos: list[str] = []
+    actual = ""
+
+    def agregar(pieza: str, sep: str) -> bool:
+        nonlocal actual
+        candidato = pieza if not actual else actual + sep + pieza
+        if len(candidato) > limite:
+            return False
+        actual = candidato
+        return True
+
+    def cerrar() -> None:
+        nonlocal actual
+        if actual:
+            trozos.append(actual)
+            actual = ""
+
+    for parrafo in text.split("\n\n"):
+        if agregar(parrafo, "\n\n"):
+            continue
+        cerrar()
+        if agregar(parrafo, "\n\n"):
+            continue
+        # párrafo más largo que el límite: por líneas, y una línea gigante a lo bruto
+        for linea in parrafo.split("\n"):
+            if agregar(linea, "\n"):
+                continue
+            cerrar()
+            while len(linea) > limite:
+                trozos.append(linea[:limite])
+                linea = linea[limite:]
+            agregar(linea, "\n")
+        cerrar()
+    cerrar()
+    return trozos
+
+
 def _esc(text: str | int | float) -> str:
     """Escape de HTML para Telegram (solo & < >)."""
     return html.escape(str(text), quote=False)
@@ -84,7 +138,12 @@ class TelegramNotifier:
         self._client = httpx.Client(timeout=10.0)
 
     def send(self, text: str, parse_mode: Literal["HTML", "MarkdownV2"] = "HTML") -> int:
-        """Envía un mensaje y devuelve el message_id."""
+        """Envía un mensaje y devuelve el message_id (del primero, si hubo que partirlo)."""
+        trozos = _partir(text)
+        ids = [self._send_uno(t, parse_mode) for t in trozos]
+        return ids[0]
+
+    def _send_uno(self, text: str, parse_mode: Literal["HTML", "MarkdownV2"]) -> int:
         url = TELEGRAM_API.format(token=self.config.bot_token)
         resp = self._client.post(url, json={
             "chat_id": self.config.chat_id,
