@@ -39,8 +39,13 @@ HEADERS = {
     "Accept-Language": "es-UY,es;q=0.9",
 }
 
-# nombre del deporte en Supermatch (sportName.keyword) por clave interna
-SPORT_NAMES = {"soccer": "Fútbol", "basketball": "Baloncesto", "tennis": "Tenis"}
+# nombre del deporte en Supermatch (sportName.keyword) por clave interna. Los de nicho
+# (2026-09-29) publican "Ganador" como ft2w con los nombres de los participantes,
+# igual que tenis — el mapeo de _map_line es el mismo.
+SPORT_NAMES = {
+    "soccer": "Fútbol", "basketball": "Baloncesto", "tennis": "Tenis",
+    "darts": "Dardos", "mma": "MMA", "boxing": "Boxeo", "volleyball": "Voleibol",
+}
 
 _TOTAL_RE = re.compile(r"\(\s*([0-9]+(?:\.[0-9]+)?)\s*\)\s*$")
 LOOKAHEAD_MS = 3 * 24 * 3600 * 1000  # 3 días

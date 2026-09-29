@@ -83,3 +83,16 @@ def test_total_de_corners_o_tarjetas_se_descarta():
                             {"result": "Menos de", "dividend": 1.9}]}
         market, _ = _map_line("soccer", line, "A", "B")
         assert market is None, desc
+
+
+def test_deporte_nicho_ganador_ft2w():
+    # Dardos/MMA/boxeo/vóley publican "Ganador" como ft2w con los nombres de los
+    # participantes — mismo mapeo que tenis
+    from src.valuebet.books.supermatch import SPORT_NAMES, _map_line
+    assert {"darts", "mma", "boxing", "volleyball"} <= set(SPORT_NAMES)
+    line = {"type": "ft2w", "description": "Ganador",
+            "options": [{"result": "Humphries, Luke", "dividend": 1.55, "idext": "4"},
+                        {"result": "Smith, Michael", "dividend": 2.35, "idext": "5"}]}
+    market, m = _map_line("darts", line, "Humphries, Luke", "Smith, Michael")
+    assert market == "moneyline"
+    assert m == {"home": 1.55, "away": 2.35}
