@@ -65,6 +65,52 @@ def page_carga(request: Request, token: str, fecha: Optional[int] = None):
     return templates.TemplateResponse(request, "carga.html", {"data": data, "token": token})
 
 
+@app.get("/dash/{token}/lub/carga/", response_class=HTMLResponse)
+def page_lub_carga(request: Request, token: str):
+    """Modo carga de la penca LUB: mismo template, sus propias marcas (src.lub.dashboard)."""
+    _check_token(token)
+    from src.lub.dashboard import load_lub_carga
+
+    return templates.TemplateResponse(request, "carga.html",
+                                      {"data": load_lub_carga(token), "token": token})
+
+
+@app.get("/dash/{token}/lub/api/data")
+def api_lub_data(token: str):
+    _check_token(token)
+    from src.lub.dashboard import load_lub_carga
+
+    return JSONResponse(load_lub_carga(token))
+
+
+@app.get("/dash/{token}/lub/api/carga-marcas")
+def api_lub_marcas(token: str):
+    _check_token(token)
+    from src.clausura.carga_state import MARCAS_LUB_PATH, leer
+
+    return JSONResponse({"marcas": leer(MARCAS_LUB_PATH)})
+
+
+@app.post("/dash/{token}/lub/api/carga-marcas")
+async def api_lub_marcas_set(token: str, request: Request):
+    """Como /api/carga-marcas pero contra el archivo de la LUB (claves lub:v1:)."""
+    _check_token(token)
+    from src.clausura.carga_state import MARCAS_LUB_PATH, aplicar, fusionar
+
+    body = await request.json()
+    try:
+        if "fusionar" in body:
+            marcas = fusionar(body.get("fusionar") or {}, MARCAS_LUB_PATH)
+        else:
+            marcas = aplicar(body.get("clave", ""), body.get("valor"), MARCAS_LUB_PATH)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except OSError as e:
+        log.warning("no pude guardar las marcas de carga LUB: %s", e)
+        raise HTTPException(503, "no pude guardar")
+    return JSONResponse({"marcas": marcas})
+
+
 @app.get("/dash/{token}/pool/", response_class=HTMLResponse)
 def page_pool(request: Request, token: str):
     """Estado competitivo: el pool entero, el premio y dónde caen nuestras 12."""

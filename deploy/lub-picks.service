@@ -1,0 +1,20 @@
+[Unit]
+Description=Penca LUB 26/27 — planilla de lo que cierra hoy + Telegram
+After=network-online.target
+Wants=network-online.target
+OnFailure=penca-failure-notify@%n.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/penca/env
+Environment="PYTHONPATH=/opt/penca"
+WorkingDirectory=/opt/penca
+# --ventana-h 24 con una corrida por día: cada partido sale "para cargar hoy" una sola
+# vez, la mañana de su cierre. Sin cierres en 24h sale en silencio (sin Telegram).
+# --sims 4000: el valor con el que se midió el barrido de K del 30/9 (PR #224). Medido
+# en la Mac: ~100 s y 610 MB de pico con K=16 — no subirlo sin medir la memoria junto
+# al clausura-picks (548 MB) en el droplet de 2 GB.
+ExecStart=/opt/penca/.venv/bin/python -m src.lub.picks --ventana-h 24 --telegram --sims 4000
+StandardOutput=append:/var/lib/penca/logs/lub-picks.log
+StandardError=append:/var/lib/penca/logs/lub-picks.err
+User=root

@@ -134,15 +134,20 @@ def evaluar(ev: Evaluador, picks: np.ndarray, campeon: np.ndarray,
 
 def optimizar(ev: Evaluador, campeon_opts: list[int], campeon_init: np.ndarray | None = None,
               especiales_libres: bool = True, max_pasadas: int = 4, min_delta: float = 1.0,
-              goleador_opts: list[int] | None = None) -> Portfolio:
-    """Ascenso por coordenadas: picks de la fecha actual y campeón (y goleador)."""
+              goleador_opts: list[int] | None = None,
+              goleador_init: np.ndarray | None = None) -> Portfolio:
+    """Ascenso por coordenadas: picks de la fecha actual y campeón (y goleador).
+
+    campeon_init / goleador_init: los especiales ya cargados (−1 = ninguno); con
+    especiales_libres=False entran a la valuación tal cual y no se mueven."""
     so, K = ev.so, ev.K
     n = len(ev.actual)
     # inicio: pick EV (según el modelo) en todas las participaciones
     ev_pick = [int(expected_points(so.probs[:, j].mean(0)).argmax()) for j in ev.actual]
     picks = np.tile(np.array(ev_pick, int), (K, 1))
     campeon = campeon_init.copy() if campeon_init is not None else np.full(K, campeon_opts[0])
-    goleador = np.full(K, goleador_opts[0]) if goleador_opts else None
+    goleador = (goleador_init.copy() if goleador_init is not None
+                else np.full(K, goleador_opts[0]) if goleador_opts else None)
     fecha_pts = ev.fecha_pts.copy()
     if n:
         fecha_pts[:, ev.fecha_actual] = ev.base_fecha_actual + ev.pts_actual(picks)
@@ -176,7 +181,7 @@ def optimizar(ev: Evaluador, campeon_opts: list[int], campeon_init: np.ndarray |
                         mejor, cambio = v, True
                     else:
                         campeon[e] = viejo
-                if goleador is not None:
+                if goleador is not None and goleador_opts:
                     for g in goleador_opts:
                         if g == goleador[e]:
                             continue

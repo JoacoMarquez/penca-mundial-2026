@@ -1,12 +1,13 @@
 {% extends "base_clausura.html" %}
-{% block title %}Modo carga — Fecha {{ data.fecha_n }}{% endblock %}
+{% block title %}Modo carga — {{ data.get('fecha_label', 'Fecha ' ~ data.fecha_n) }}{% endblock %}
+{% block marca %}{{ data.get('torneo', '🇺🇾 Penca Clausura 2026') }}{% endblock %}
 {% block autorefresh %}{% endblock %}{# sin auto-refresh: no saltar a mitad de carga #}
 
 {% block content %}
 {% if not data.ok or not data.planilla %}
   <div class="bg-slate-800 rounded-xl p-4 text-slate-300">
-    Sin planilla para la Fecha {{ data.fecha_n }} —
-    <code class="text-xs bg-slate-700 px-1.5 py-0.5 rounded">python3 -m src.clausura.picks --fecha {{ data.fecha_n }}</code>
+    Sin planilla para la {{ data.get('fecha_label', 'Fecha ' ~ data.fecha_n) }} —
+    <code class="text-xs bg-slate-700 px-1.5 py-0.5 rounded">{{ data.get('cmd_hint', 'python3 -m src.clausura.picks --fecha ' ~ data.fecha_n) }}</code>
   </div>
 {% else %}
 
@@ -16,22 +17,25 @@
               ring-1 ring-indigo-400/70 bg-indigo-500/10 bg-emerald-600 text-white"></div>
 
   <div class="flex flex-wrap items-center gap-x-3 gap-y-2 mb-1">
-    <h1 class="text-lg font-bold whitespace-nowrap">📲 Modo carga — Fecha {{ data.fecha_n }}</h1>
+    <h1 class="text-lg font-bold whitespace-nowrap">📲 Modo carga — {{ data.get('fecha_label', 'Fecha ' ~ data.fecha_n) }}</h1>
     <a href="{{ data.supermatch_url }}" target="_blank" rel="noopener"
        class="text-sm bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg font-medium whitespace-nowrap">
       Abrir penca ↗
     </a>
+    {# la LUB no tiene verificación contra la web (todavía): sin botón #}
+    {% if data.get('verificar', True) %}
     <button id="btn-verificar" type="button"
             class="text-sm bg-slate-700 hover:bg-slate-600 text-slate-100 px-3 py-1.5
                    rounded-lg font-medium whitespace-nowrap disabled:opacity-50">
       🔎 Verificar contra la web
     </button>
+    {% endif %}
     <button id="btn-filtro" type="button"
             class="text-sm bg-slate-700 hover:bg-slate-600 text-slate-100 px-3 py-1.5
                    rounded-lg font-medium whitespace-nowrap">
       🎯 Solo lo que falta
     </button>
-    <a href="/dash/{{ token }}/?fecha={{ data.fecha_n }}"
+    <a href="{{ data.get('planilla_url', '/dash/' ~ token ~ '/?fecha=' ~ data.fecha_n) }}"
        class="text-sm text-indigo-300 hover:text-indigo-200 whitespace-nowrap">← planilla</a>
   </div>
   <div class="text-xs text-slate-400 mb-3">
@@ -97,7 +101,7 @@
           {% if num %}
             <span class="font-mono text-[10px] text-slate-500 hidden sm:inline">({{ num }})</span>
           {% endif %}
-          {% if i == 0 %}<span class="text-indigo-300 text-xs font-medium">ancla EV</span>{% endif %}
+          {% if i == 0 and data.get('ancla_ev', True) %}<span class="text-indigo-300 text-xs font-medium">ancla EV</span>{% endif %}
           <span class="chip-cambios hidden text-amber-300 text-xs font-semibold"></span>
           {# cuántas filas abiertas faltan en ESTA participación: sin esto el único
              progreso visible era 0/12, que no se mueve durante ocho picks seguidos #}
@@ -171,13 +175,17 @@
     // un marcador que el modelo ya descartó.
     // ------------------------------------------------------------------
     const FECHA = {{ data.fecha_n }};
+    // Prefijo de las claves: cada penca guarda sus marcas en su propio archivo del
+    // servidor y localStorage es uno solo por origen — con el mismo prefijo, la
+    // sincronización de una página borraría las marcas locales de la otra.
+    const PRE = {{ data.get('marca_prefijo', 'carga:v2:') | tojson }};
     const VER = {{ (data.planilla.version_file if data.planilla else '') | tojson }};
-    const kRow = (part, ev) => `carga:v2:${FECHA}:${part}:${ev}`;
-    const kEsp = part => `carga:v2:esp:${part}`;   // los especiales son de temporada, no de fecha
+    const kRow = (part, ev) => `${PRE}${FECHA}:${part}:${ev}`;
+    const kEsp = part => `${PRE}esp:${part}`;   // los especiales son de temporada, no de fecha
 
     // El filtro sobrevive al refresco: si te vas a la web y volvés, seguís donde
     // estabas y no con la lista entera otra vez.
-    const kFiltro = `carga:v2:${FECHA}:filtro`;
+    const kFiltro = `${PRE}${FECHA}:filtro`;
     let filtro = localStorage.getItem(kFiltro) === '1';
 
     const filas = [...document.querySelectorAll('.pick-row')];
@@ -205,8 +213,8 @@
     // marcas, NO preferencias de pantalla (el filtro y la marca de migración se
     // quedan locales — esconder lo cargado en el celu no debe esconderlo en la PC).
     // ------------------------------------------------------------------
-    const API_MARCAS = {{ ('/dash/' + token + '/api/carga-marcas') | tojson }};
-    const RE_MARCA = /^carga:v2:(esp:)?[0-9]{1,12}(:[0-9]{1,12}){0,2}$/;
+    const API_MARCAS = {{ data.get('api_marcas_url', '/dash/' ~ token ~ '/api/carga-marcas') | tojson }};
+    const RE_MARCA = new RegExp('^' + PRE + '(esp:)?[0-9]{1,12}(:[0-9]{1,12}){0,2}$');
     const clavesLocales = () => {
       const out = {};
       for (let i = 0; i < localStorage.length; i++) {
@@ -253,7 +261,7 @@
     // tiene sentido para la versión que está en pantalla — las marcas de versiones
     // anteriores ya eran invisibles. Se corre una sola vez para no resucitar lo que
     // desmarcaste a mano.
-    const migKey = `carga:v2:${FECHA}:migrado:${VER}`;
+    const migKey = `${PRE}${FECHA}:migrado:${VER}`;
     if (VER && localStorage.getItem(migKey) !== '1') {
       filas.forEach(tr => {
         if (guardado(tr) !== null) return;
@@ -589,7 +597,7 @@
       refrescar();
     }
 
-    btnVerif.addEventListener('click', async () => {
+    if (btnVerif) btnVerif.addEventListener('click', async () => {
       const txt = btnVerif.textContent;
       btnVerif.disabled = true;
       btnVerif.textContent = '🔎 verificando…';
@@ -611,7 +619,7 @@
     if (VER) {
       setInterval(async () => {
         try {
-          const r = await fetch('../api/data?fecha={{ data.fecha_n }}', {cache: 'no-store'});
+          const r = await fetch({{ data.get('api_data_url', '../api/data?fecha=' ~ data.fecha_n) | tojson }}, {cache: 'no-store'});
           const d = await r.json();
           if (d.planilla && d.planilla.version_file !== VER) {
             document.getElementById('version-watch').classList.remove('hidden');

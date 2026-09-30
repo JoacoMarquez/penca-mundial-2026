@@ -25,6 +25,10 @@ data/odds/
 # histórico rodante del ranking: lo escribe el dashboard donde corra (VPS), y
 # commitearlo solo generaría conflictos en cada git pull
 data/pool_history/
+# LUB: planillas versionadas, menú de goleador y estado de timers — los escribe el VPS
+data/lub/planillas/
+data/lub/goleador_opciones.json
+data/state/
 
 # Secretos
 .env

@@ -1,0 +1,16 @@
+[Unit]
+Description=Timer de la planilla LUB — diario 15:00 UTC (12:00 UY)
+
+# 15:00 UTC: después del clausura-picks de las 11:00 (~30 min, no se pisan en memoria)
+# y del aviso de compra del 12/10 (14:00 UTC). Los cierres de la LUB caen 22:45-00:30
+# UTC: quedan 7h+ de margen para cargar y las cuotas de la noche ya están publicadas
+# (aparecen 24-48h antes). La planilla cubre los cierres hasta las 15:00 del día
+# siguiente, así que ningún partido queda afuera ni sale dos veces.
+
+[Timer]
+OnCalendar=*-*-* 15:00:00 UTC
+Persistent=true
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target

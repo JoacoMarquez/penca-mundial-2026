@@ -1,0 +1,12 @@
+[Unit]
+Description=Timer del vigía de especiales LUB — cada hora hasta el primer partido
+
+# Dos GETs por tick; avisado cada menú (o arrancada la temporada) el script sale en el
+# acto. Se puede deshabilitar después del 12/10.
+
+[Timer]
+OnCalendar=*-*-* *:07:00 UTC
+Persistent=false
+
+[Install]
+WantedBy=timers.target

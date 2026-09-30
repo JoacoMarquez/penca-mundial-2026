@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
@@ -145,6 +146,47 @@ def fetch_pool(penca_id: int, pause_s: float = PAUSE_S) -> dict:
                 log.info("pool %d: %d/%d", penca_id, i + 1, len(ranking))
     return {"penca_id": penca_id, "fetched_utc": datetime.now(timezone.utc).isoformat(),
             "participaciones": filas}
+
+
+def mis_numeros_env() -> list[int]:
+    """Números de participación propios en la LUB (LUB_MIS_PARTICIPACIONES del env).
+
+    Lista y no set, a diferencia del Clausura: el ORDEN es el contrato con la planilla
+    (columna i ↔ i-ésimo número) y lo tiene que ver igual el modo carga."""
+    raw = os.environ.get("LUB_MIS_PARTICIPACIONES", "")
+    return [int(x) for x in raw.split(",") if x.strip().isdigit()]
+
+
+def fetch_opciones_goleador(penca_id: int = PENCA_ID) -> list[str] | None:
+    """Nombres del menú de goleador; None mientras el admin no lo configure (500)."""
+    with httpx.Client(base_url=BASE, headers=HEADERS, timeout=20.0) as c:
+        r = c.get(f"/front/pencas/{penca_id}/opcionesGoleador")
+    if r.status_code != 200:
+        return None
+    data = r.json().get("opcionesGoleador", {}).get("data", [])
+    return [o["goleador"].strip() for o in data if o.get("goleador")] or None
+
+
+def fetch_especiales_propios(numeros: list[int], penca_id: int = PENCA_ID,
+                             pause_s: float = PAUSE_S) -> list[tuple[str | None, str | None]] | None:
+    """(campeón, goleador) cargados en cada número propio, en el orden de `numeros`.
+
+    Son públicos recién desde el primer partido (mismo gate que los picks). None si el
+    ranking todavía no trae alguno de los números: mejor no evaluar que evaluar con
+    especiales inventados."""
+    with PencaApiClient() as api:
+        ranking = api.ranking(penca_id)
+    pid = {r.numero_participacion: r.participacion_id for r in ranking}
+    if any(n not in pid for n in numeros):
+        return None
+    out = []
+    with httpx.Client(base_url=BASE, headers=HEADERS, timeout=30.0) as c:
+        for n in numeros:
+            r = _get_pacing(c, f"/front/pencas/{pid[n]}/pronosticoCampeonGoleador", pause_s)
+            esp = r.json() if r.status_code == 200 else {}
+            out.append(((esp.get("equipoCampeon") or {}).get("nombre"),
+                        (esp.get("opcionGoleador") or {}).get("goleador")))
+    return out
 
 
 def main() -> None:
