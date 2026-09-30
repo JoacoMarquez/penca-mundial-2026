@@ -1,11 +1,13 @@
 """Monte Carlo de la temporada LUB y liquidación de premios de la penca.
 
-Formato simulado (el de 25/26; el 26/27 agrega un play-in todavía sin definir):
+Formato simulado (26/27 = 25/26):
     Regular      22 fechas × 6 (doble round-robin de 12)
     Liguilla     top-6 de la regular, doble round-robin (10 fechas × 3 partidos)
     Reclasif.    bottom-6, doble round-robin (mismas 10 fechas × 3 partidos)
     Playoffs     liguilla 1-6 + reclasificatorio 1-2 → cuartos (bo5), semis (bo5),
-                 final (bo7); localía para el mejor sembrado (2-2-1 / 2-2-1-1-1)
+                 final (bo7) en el Antel Arena (neutral); localía para el mejor
+                 sembrado (2-2-1). Liguilla y reclasificatorio arrastran el puntaje
+                 de la regular. Formato 26/27 confirmado igual al 25/26 (sin play-in).
 Fechas de la penca: 22 regulares + 10 de liguilla + 5 de playoffs (cuartos 1-2,
 cuartos 3-5, semis 1-2, semis 3-5, finales) = 37 — igual que 25/26.
 
@@ -145,11 +147,19 @@ def simular(rt: Ratings, slots_regulares: list[Slot], cfg: Config,
     wins = np.zeros((S, T))
     dif = np.zeros((S, T))
 
+    k_mu = rt.params.escala_mu
+
     def jugar(h: np.ndarray, a: np.ndarray, slot: Slot, activo: np.ndarray | None = None,
-              mu_fijo: float | None = None) -> np.ndarray:
-        """Juega un slot con local h (S,) y visitante a (S,). Devuelve la clase (S,)."""
-        mu_modelo = rt.hca + base[h] - base[a]          # lo que "ve" el modelo al pickear
-        mu_real = rt.hca + rating[np.arange(S), h] - rating[np.arange(S), a]
+              mu_fijo: float | None = None, neutral: bool = False) -> np.ndarray:
+        """Juega un slot con local h (S,) y visitante a (S,). Devuelve la clase (S,).
+
+        La media pasa por la MISMA escala que Ratings.mu (escala_mu): antes se armaba a
+        mano y la corrección de sub-confianza no llegaba a la simulación. `neutral`:
+        sin localía (las finales se juegan en el Antel Arena)."""
+        hca = 0.0 if neutral else rt.hca
+        mu_modelo = k_mu * (hca + base[h] - base[a])     # lo que "ve" el modelo al pickear
+        delta = (rating[np.arange(S), h] - base[h]) - (rating[np.arange(S), a] - base[a])
+        mu_real = mu_modelo + delta
         if mu_fijo is not None:                          # cuota de mercado disponible
             mu_real = mu_real - mu_modelo + mu_fijo
             mu_modelo = np.full(S, mu_fijo)
@@ -200,11 +210,22 @@ def simular(rt: Ratings, slots_regulares: list[Slot], cfg: Config,
     d_lig = d_l + dif
     in_top = np.zeros((S, T), bool); in_top[np.arange(S)[:, None], top6] = True
     lig = ranking(w_lig, d_lig, in_top)[:, :6]
-    rec = ranking(wins, dif, ~in_top)[:, :2]
+    # el reclasificatorio TAMBIÉN arrastra el puntaje de la regular (formato 26/27:
+    # "acarrearán el puntaje", montevideo.com.uy, lanzamiento de la LUB)
+    rec = ranking(w_lig, d_lig, ~in_top)[:, :2]
     semb = np.concatenate([lig, rec], axis=1)      # (S, 8) sembrados 1..8
 
     # ---- playoffs
-    def serie(alto: np.ndarray, bajo: np.ndarray, mejor_de: int, fechas: list[str]) -> np.ndarray:
+    siembra = np.full((S, T), 99)
+    siembra[np.arange(S)[:, None], semb] = np.arange(8)[None, :]
+
+    def por_siembra(x: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """(mejor sembrado, peor sembrado) — el mejor tiene la localía de la serie."""
+        x_mejor = siembra[np.arange(S), x] <= siembra[np.arange(S), y]
+        return np.where(x_mejor, x, y), np.where(x_mejor, y, x)
+
+    def serie(alto: np.ndarray, bajo: np.ndarray, mejor_de: int, fechas: list[str],
+              neutral: bool = False) -> np.ndarray:
         necesita = mejor_de // 2 + 1
         va, vb = np.zeros(S, int), np.zeros(S, int)
         patron = [1, 1, 0, 0, 1] if mejor_de == 5 else [1, 1, 0, 0, 1, 0, 1]
@@ -214,7 +235,7 @@ def simular(rt: Ratings, slots_regulares: list[Slot], cfg: Config,
             h = alto if local_alto else bajo
             a = bajo if local_alto else alto
             nombre = fechas[0] if g < 2 else fechas[-1]
-            c = jugar(h, a, Slot(nombre, "playoff"), activo=activo)
+            c = jugar(h, a, Slot(nombre, "playoff"), activo=activo, neutral=neutral)
             gana_local = c < N_BANDAS
             gana_alto = gana_local if local_alto else ~gana_local
             va += (activo & gana_alto)
@@ -228,15 +249,12 @@ def simular(rt: Ratings, slots_regulares: list[Slot], cfg: Config,
     g2 = serie(semb[:, 1], semb[:, 6], 5, qf)
     g3 = serie(semb[:, 2], semb[:, 5], 5, qf)
     sf = ["Semifinales (1 y 2)", "Semifinales (3, 4 y 5)"]
-    f1 = serie(g1, g4, 5, sf)       # el mejor sembrado de cada llave es el "alto"
-    f2 = serie(g2, g3, 5, sf)
-    pos = np.argsort(np.concatenate([lig, rec], 1), axis=1)  # no usado: la localía de la final va por siembra
-    siembra = np.full((S, T), 99)
-    siembra[np.arange(S)[:, None], semb] = np.arange(8)[None, :]
-    alto = np.where(siembra[np.arange(S), f1] <= siembra[np.arange(S), f2], f1, f2)
-    bajo = np.where(alto == f1, f2, f1)
-    campeon = serie(alto, bajo, 7, ["Finales", "Finales"])
-    del pos
+    # semis: A(4-5) vs D(1-8) y B(3-6) vs C(2-7); localía para el mejor sembrado que
+    # quedó vivo (antes se le daba al ganador de la llave 1-8 aunque fuera el 8)
+    f1 = serie(*por_siembra(g1, g4), 5, sf)
+    f2 = serie(*por_siembra(g2, g3), 5, sf)
+    # final al mejor de 7 en cancha NEUTRAL (Antel Arena)
+    campeon = serie(*por_siembra(f1, f2), 7, ["Finales", "Finales"], neutral=True)
 
     return ordenar_por_fecha(Sorteo(
         slots=slots, fechas=[],
@@ -333,19 +351,19 @@ def simular_rivales(so: Sorteo, cfg: Config, q_de: Callable[..., np.ndarray],
     S, J = so.clase.shape
     F = len(so.fechas)
     perf = perfiles or Perfiles.plenos()
-    k = rng.integers(0, len(perf.part), R)
-    part = perf.part[k]                     # (R, 3)
-    carga_esp = perf.esp[k]                 # (R,)
-    # estilos: se agrupan los γ en cuantiles para muestrear por grupo (Q por grupo es (S,10))
-    g_r = perf.gamma[k] if perf.gamma is not None else None
-    k_r = kappa + (rng.random(R) * 2 - 1) * kappa_spread
-    gb = _bins(g_r, 6) if g_r is not None else np.zeros(R, int)
-    kb = _bins(k_r, 3) if kappa_spread else np.zeros(R, int)
-    grupos = []
-    for key in set(zip(gb.tolist(), kb.tolist())):
-        cols = np.flatnonzero((gb == key[0]) & (kb == key[1]))
-        grupos.append((cols, float(np.median(g_r[cols])) if g_r is not None else None,
-                       float(np.median(k_r[cols]))))
+    # composición del pool: un perfil por (sorteo, rival). Antes se sorteaba UNA vez por
+    # corrida → todos los sorteos compartían la misma composición y el SE subestimaba
+    # (OOS vs in-sample difería 5 SE). Los γ se agrupan en 6 bins sobre los perfiles.
+    k = rng.integers(0, len(perf.part), (S, R))
+    part = perf.part.astype(np.float32)[k]  # (S, R, 3)
+    carga_esp = perf.esp[k]                 # (S, R)
+    if perf.gamma is not None:
+        gbin = _bins(perf.gamma, 6)
+        grupos_g = [float(np.median(perf.gamma[gbin == b])) for b in range(gbin.max() + 1)]
+        grp = gbin[k].astype(np.int8)       # (S, R)
+    else:
+        grupos_g, grp = [None], np.zeros((S, R), np.int8)
+    k_r = (kappa + (rng.random((S, R)) * 2 - 1) * kappa_spread).astype(np.float32)
     total = np.zeros((S, R), np.int16)
     fmax = np.zeros((S, F), np.int16)
     fcnt = np.zeros((S, F), np.int16)
@@ -357,16 +375,19 @@ def simular_rivales(so: Sorteo, cfg: Config, q_de: Callable[..., np.ndarray],
             fmax[:, fecha_actual], fcnt[:, fecha_actual] = _max_cnt(fecha_pts)
             fecha_pts[:] = 0
             fecha_actual = f
-        picks = np.empty((S, R), np.int8)
-        for cols, g, kg in grupos:
-            q = q_de(so.probs[:, j]) if g is None else q_de(so.probs[:, j], gamma=g)
-            if kg:
-                q = q.copy()
-                q[np.arange(S), so.clase[:, j]] *= math.exp(kg)
-                q /= q.sum(1, keepdims=True)
-            picks[:, cols] = sample_classes(q, rng, len(cols))
+        qg = np.stack([q_de(so.probs[:, j]) if g is None else q_de(so.probs[:, j], gamma=g)
+                       for g in grupos_g]).astype(np.float32)          # (G, S, 10)
+        q = qg[grp, np.arange(S)[:, None]]                              # (S, R, 10)
+        if kappa or kappa_spread:
+            hit = np.zeros((S, 1, N_CLASES), np.float32)
+            hit[np.arange(S), 0, so.clase[:, j]] = 1.0
+            q = q * np.exp(k_r[:, :, None] * hit)
+            q /= q.sum(-1, keepdims=True)
+        cdf = np.cumsum(q, -1)
+        u = rng.random((S, R, 1), dtype=np.float32)
+        picks = (u > cdf[:, :, :-1]).sum(-1).astype(np.int8)
         p = puntos_slot(picks, so.clase[:, j], so.jugado[:, j], bool(so.pref[j]), rng)
-        carga = rng.random((S, R), dtype=np.float32) < part[:, FASE_IDX[so.slots[j].fase]][None, :]
+        carga = rng.random((S, R), dtype=np.float32) < part[:, :, FASE_IDX[so.slots[j].fase]]
         p *= carga
         fecha_pts += p
         total += p
@@ -374,10 +395,10 @@ def simular_rivales(so: Sorteo, cfg: Config, q_de: Callable[..., np.ndarray],
         fmax[:, fecha_actual], fcnt[:, fecha_actual] = _max_cnt(fecha_pts)
     # especiales (solo los que los cargan)
     camp_pick = rng.choice(len(campeon_shares), size=(S, R), p=campeon_shares)
-    total += ((camp_pick == so.campeon[:, None]) & carga_esp[None, :]).astype(np.int16) * PTS_ESPECIAL
+    total += ((camp_pick == so.campeon[:, None]) & carga_esp).astype(np.int16) * PTS_ESPECIAL
     if goleador_real is not None and goleador_shares is not None:
         gol_pick = rng.choice(len(goleador_shares), size=(S, R), p=goleador_shares)
-        total += ((gol_pick == goleador_real[:, None]) & carga_esp[None, :]).astype(np.int16) * PTS_ESPECIAL
+        total += ((gol_pick == goleador_real[:, None]) & carga_esp).astype(np.int16) * PTS_ESPECIAL
     so.riv_fecha_max, so.riv_fecha_cnt = fmax, fcnt
     so.riv_total_max, so.riv_total_cnt = _max_cnt(total)
     return total
