@@ -136,11 +136,16 @@ def test_no_match_equipos_distintos():
     assert pairs == []
 
 
-def test_seguridad_home_away_invertido_no_matchea():
-    # mismo fixture pero local/visitante cruzados → se descarta (no invertir un 1x2)
-    pairs = match_events(_ev("supermatch", "Fluminense vs Gremio"),
-                         _ev("pinnacle", "Gremio vs Fluminense"), aliases={})
-    assert pairs == []
+def test_seguridad_home_away_invertido_intercambia_1x2():
+    # mismo fixture con local/visitante cruzados: se matchea PERO con home↔away
+    # intercambiados (antes del 29/9 se descartaba). El empate no cambia.
+    sharp = _ev("pinnacle", "Gremio vs Fluminense")
+    sharp = [q.__class__(**{**q.__dict__, "decimal_odds": {"home": 1.8, "draw": 3.4, "away": 4.5}[q.outcome]})
+             for q in sharp]
+    pairs = match_events(_ev("supermatch", "Fluminense vs Gremio"), sharp, aliases={})
+    assert len(pairs) == 3
+    sq = {q.outcome: q.decimal_odds for q in pairs[0][1]}
+    assert sq == {"home": 4.5, "draw": 3.4, "away": 1.8}
 
 
 def test_elige_el_mejor_entre_varios_sharp():
@@ -210,3 +215,56 @@ def test_dump_unmatched_jsonl(tmp_path):
     rows = [json.loads(l) for l in files[0].read_text().splitlines()]
     assert rows[0]["home"] == "Fantasma"
     assert rows[0]["reason"] == "below_threshold"
+
+
+# -------------------- auditoría 2026-09-29: selecciones, estados BR, localía invertida --------------------
+
+def test_selecciones_espanol_ingles():
+    assert _sim("Finlandia", "Finland") == 1.0
+    assert _sim("Estados Unidos", "USA") == 1.0
+    assert _sim("Corea del Sur", "South Korea") == 1.0
+    assert _sim("Islas Virgenes, Estados Unidos", "US Virgin Islands") == 1.0
+    assert _sim("Alemania", "Germany") == 1.0
+    assert _sim("Alemania", "Serbia") == 0.0
+
+
+def test_sufijo_estado_brasileno():
+    assert _sim("CR Vasco da Gama RJ", "Vasco da Gama") == 1.0
+    assert _sim("Madureira EC RJ", "Madureira") == 1.0
+    # un "Al" que no es sufijo de estado en mayúsculas no se toca
+    assert _sim("Al Ahly", "Al Hilal") < 0.8
+
+
+def test_selecciones_matchean_evento():
+    soft = _ev("supermatch", "Finlandia vs Alemania")
+    sharp = _ev("pinnacle", "Finland vs Germany")
+    out = match_events(soft, sharp, {})
+    assert len(out) == 3 and out[0][1][0].event_id == sharp[0].event_id
+
+
+def test_localia_invertida_intercambia_outcomes():
+    soft = _ev("supermatch", "Malvin vs Defensor Sporting", sport="basketball",
+               market="moneyline", outcomes=("home", "away"))
+    sharp = [OddsQuote(book="pinnacle", sport="basketball", league="l", event_id="pinn:9",
+                       event_name="Defensor Sporting vs Club Malvin", start_utc=soft[0].start_utc,
+                       market="moneyline", outcome=o, decimal_odds=d, fetched_utc=soft[0].start_utc)
+             for o, d in (("home", 1.5), ("away", 2.6))]
+    out = match_events(soft, sharp, {})
+    assert len(out) == 2
+    sq = {q.outcome: q for q in out[0][1]}
+    # 'home' soft (Malvín) debe compararse contra la cuota de Malvín en Pinnacle (2.6)
+    assert sq["home"].decimal_odds == 2.6 and sq["away"].decimal_odds == 1.5
+    assert sq["home"].event_id == "pinn:9~inv"
+
+
+def test_close_encuentra_cierre_de_evento_invertido():
+    from src.valuebet.runner import _find_sharp_quote
+    cierre = [OddsQuote(book="pinnacle", sport="basketball", league="l", event_id="pinn:9",
+                        event_name="Defensor Sporting vs Club Malvin", start_utc="x",
+                        market="moneyline", outcome=o, decimal_odds=d, fetched_utc="x")
+              for o, d in (("home", 1.4), ("away", 2.9))]
+    by_key = {(q.event_id, q.market, q.outcome): q for q in cierre}
+    leg = {"quote": {"event_id": "sm:1", "market": "moneyline", "outcome": "home",
+                     "event_name": "Malvin vs Defensor Sporting"}, "sharp_event_id": "pinn:9~inv"}
+    sq = _find_sharp_quote(by_key, cierre, leg)
+    assert sq.outcome == "away" and sq.decimal_odds == 2.9

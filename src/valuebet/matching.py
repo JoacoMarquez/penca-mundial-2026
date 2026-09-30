@@ -26,10 +26,12 @@ import logging
 import re
 import unicodedata
 from collections import defaultdict
+from dataclasses import replace
 from datetime import datetime, timezone
 from difflib import SequenceMatcher
 from pathlib import Path
 
+from src.valuebet.paises import PAISES_ES_EN
 from src.valuebet.types import OddsQuote
 
 log = logging.getLogger(__name__)
@@ -84,10 +86,29 @@ def _alias_to_canonical(sport_aliases: dict[str, list[str]]) -> dict[str, str]:
     return out
 
 
+# Supermatch agrega el estado a los clubes brasileños ("Vasco da Gama RJ", "Athletic
+# Club Sjdr MG"); Pinnacle no. Se quita SOLO si es el último token y viene en
+# mayúsculas en el original (así no se come un "Al" de "Al Ahly").
+BR_ESTADOS = {"AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA",
+              "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"}
+_BR_SUFIJO = re.compile(r"\s([A-Z]{2})\s*$")
+
+
+def _sin_estado_br(name: str) -> str:
+    m = _BR_SUFIJO.search(name)
+    return name[:m.start()] if m and m.group(1) in BR_ESTADOS else name
+
+
+def _canon(name: str, alias_map: dict[str, str]) -> str:
+    """Nombre normalizado con sufijo de estado BR quitado, alias y selecciones traducidas."""
+    n = norm_name(_sin_estado_br(name))
+    n = alias_map.get(n, n)                 # alias sobre el nombre completo
+    return PAISES_ES_EN.get(n, n)           # selecciones: español → inglés de Pinnacle
+
+
 def _tokens(name: str, alias_map: dict[str, str]) -> set[str]:
     """Tokens significativos del nombre, con alias aplicado y sufijos removidos."""
-    n = norm_name(name)
-    n = alias_map.get(n, n)  # alias sobre el nombre completo
+    n = _canon(name, alias_map)
     raw = [t for t in n.split() if len(t) > 1]
     core = [t for t in raw if t not in CLUB_SUFFIXES]
     return set(core) if core else set(raw)
@@ -95,8 +116,7 @@ def _tokens(name: str, alias_map: dict[str, str]) -> set[str]:
 
 def _qualifiers(name: str, alias_map: dict[str, str]) -> set[str]:
     """Calificadores de plantel presentes en el nombre (post-alias)."""
-    n = norm_name(name)
-    n = alias_map.get(n, n)
+    n = _canon(name, alias_map)
     return {t for t in n.split() if t in SQUAD_QUALIFIERS}
 
 
@@ -169,6 +189,12 @@ def match_events(
     Devuelve [(cuota_soft, cuotas_sharp_del_evento)]. Alineación home↔home garantizada,
     así que soft.outcome 'home' se compara contra sharp 'home' sin remapear.
 
+    Si las casas listan el partido con la localía INVERTIDA (pasa: Supermatch "Malvín vs
+    Defensor", Pinnacle "Defensor vs Club Malvin"), las cuotas sharp se devuelven con
+    home↔away intercambiados y event_id "{id}~inv" (ver invertir_sharp): el outcome
+    soft 'home' queda comparado contra el mismo EQUIPO en Pinnacle. El close usa el
+    sufijo para reencontrar la línea de cierre del lado correcto.
+
     Si dump_dir se pasa, los eventos sin match se appendean a
     {dump_dir}/{fecha}.jsonl para minar aliases en batch (además del warning en logs).
     """
@@ -185,24 +211,30 @@ def match_events(
 
     for se in soft_ev.values():
         alias_map = _alias_to_canonical(aliases.get(se["sport"], {}))
-        best, best_score, second_score = None, 0.0, 0.0
+        best, best_score, second_score, best_inv = None, 0.0, 0.0, False
         for pe in sharp_by_sport.get(se["sport"], []):
             if abs((_dt(se["start"]) - _dt(pe["start"])).total_seconds()) > MATCH_WINDOW_S:
                 continue
-            score = min(
+            directo = min(
                 team_similarity(se["home"], pe["home"], alias_map),
                 team_similarity(se["away"], pe["away"], alias_map),
             )
+            cruzado = min(
+                team_similarity(se["home"], pe["away"], alias_map),
+                team_similarity(se["away"], pe["home"], alias_map),
+            )
+            score, inv = (cruzado, True) if cruzado > directo else (directo, False)
             if score > best_score:
-                best_score, second_score, best = score, best_score, pe
+                best_score, second_score, best, best_inv = score, best_score, pe, inv
             elif score > second_score:
                 second_score = score
 
         ambiguous = (second_score >= TEAM_SIM_THRESHOLD
                      and best_score - second_score < AMBIGUITY_MARGIN)
         if best is not None and best_score >= TEAM_SIM_THRESHOLD and not ambiguous:
+            sharp_q = invertir_sharp(best["quotes"]) if best_inv else best["quotes"]
             for sq in se["quotes"]:
-                out.append((sq, best["quotes"]))
+                out.append((sq, sharp_q))
         else:
             unmatched.append({
                 "sport": se["sport"], "home": se["home"], "away": se["away"],
@@ -222,6 +254,23 @@ def match_events(
         _dump_unmatched(unmatched, dump_dir)
     log.info("match_events: %d/%d eventos soft matcheados",
              len(soft_ev) - len(unmatched), len(soft_ev))
+    return out
+
+
+INV_SUFFIX = "~inv"
+_SWAP = {"home": "away", "away": "home"}
+
+
+def invertir_sharp(quotes: list[OddsQuote]) -> list[OddsQuote]:
+    """Cuotas sharp de un evento listado con localía invertida, re-expresadas del lado soft.
+
+    home↔away se intercambian (draw/over/under no cambian); el event_id lleva el sufijo
+    ~inv para que el close sepa que tiene que volver a intercambiar al buscar el cierre."""
+    out = []
+    for q in quotes:
+        h, _, a = q.event_name.partition(" vs ")
+        out.append(replace(q, event_id=q.event_id + INV_SUFFIX, event_name=f"{a} vs {h}",
+                           outcome=_SWAP.get(q.outcome, q.outcome)))
     return out
 
 
