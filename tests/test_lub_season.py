@@ -81,3 +81,61 @@ def test_portfolio_optimizar_no_empeora_y_oos():
     assert port.e_premio >= port.detalle["e_premio_inicial"]
     v = evaluar(ev, port.picks_actual, port.campeon)
     assert abs(v["e_premio"] - port.e_premio) < 1e-6
+
+
+# ---- temporada arrancada: condicionar a la penca real (Previos) ----
+
+def _jugadas(n_fechas: int, parcial: int = 0) -> list[Slot]:
+    """Las primeras n_fechas con resultado real y `parcial` partidos de la siguiente."""
+    out = []
+    for s in _slots_regulares():
+        n = int(s.fecha.split()[-1])
+        if n <= n_fechas or (n == n_fechas + 1 and parcial > 0 and s.evento_id % 6 < parcial):
+            s = Slot(s.fecha, s.fase, s.local, s.visitante, s.preferencial, s.evento_id, (80, 70))
+        out.append(s)
+    return out
+
+
+def _sorteo_condicionado(prev, n_fechas=3, parcial=3, S=600):
+    from src.lub.season import Previos  # noqa: F401  (import de la API pública)
+    cfg = Config(n_sims=S, seed=5)
+    so = simular(_ratings(), _jugadas(n_fechas, parcial), cfg)
+    q = lambda p, gamma=None: p
+    tot = simular_rivales(so, cfg, q, np.full(12, 1 / 12), previos=prev)
+    return so, tot
+
+
+def test_previos_rivales_arrancan_de_su_total_real_y_R_es_el_real():
+    from src.lub.season import Previos
+    prev = Previos(tot_riv=np.array([100, 0, 0, 0, 0], np.int16), tot_prop=np.zeros(2, np.int16))
+    so, tot = _sorteo_condicionado(prev)
+    assert tot.shape == (600, 5)                        # R real, no cfg.n_rivales
+    assert (tot[:, 0] >= 100).all()                     # lo hecho no se pierde
+    assert (so.riv_total_max >= 100).all()
+
+
+def test_previos_fechas_cerradas_no_reparten_y_parcial_cuenta():
+    from src.lub.season import Previos, fechas_abiertas
+    prev = Previos(tot_riv=np.zeros(5, np.int16), tot_prop=np.array([30, 30], np.int16),
+                   parcial_riv={"Fecha 4": np.zeros(5, np.int16)},
+                   parcial_prop={"Fecha 4": np.array([60, 0], np.int16)})
+    so, _ = _sorteo_condicionado(prev)
+    abiertas = fechas_abiertas(so)
+    assert not abiertas[:3].any() and abiertas[3:].all()
+    ev = Evaluador(so, 2, [], previos=prev)
+    pf = ev.premios_fecha(ev.fecha_pts)
+    assert (pf[:, :3] == 0).all()                       # F1-F3 ya se liquidaron
+    f4 = so.fechas.index("Fecha 4")
+    # con 60 de ventaja en la F4 a medio jugar, la participación 0 se la lleva casi siempre
+    assert (pf[:, f4] > 0).mean() > 0.9
+    # el total no cuenta dos veces el parcial: offset = total real − parcial
+    assert list(ev.total_offset) == [-30, 30]
+
+
+def test_sin_previos_nada_cambia():
+    """Antes del arranque (previos=None) el evaluador es el de siempre: todas las fechas
+    reparten y no hay offset."""
+    so = simular(_ratings(), _slots_regulares(), Config(n_sims=200, seed=2))
+    simular_rivales(so, Config(n_sims=200, seed=2, n_rivales=20), lambda p, gamma=None: p, np.full(12, 1 / 12))
+    ev = Evaluador(so, 2, [])
+    assert ev.fecha_mask.all() and not ev.total_offset.any()

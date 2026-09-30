@@ -189,6 +189,70 @@ def fetch_especiales_propios(numeros: list[int], penca_id: int = PENCA_ID,
     return out
 
 
+def puntos_parciales(picks_por_part: list[list[dict]], partidos: list[Partido]) -> dict[str, list[int]]:
+    """Puntos de cada participación en las fechas ABIERTAS que ya tienen partidos jugados.
+
+    Se calculan con el kernel propio contra el resultado real, no con el campo `puntos`
+    del API: en el Clausura algunos campos de liquidación se llenaban recién al cerrar
+    la fecha, y acá la fecha está justamente a medio jugar."""
+    from src.lub.scoring import puntos
+
+    actual = [p for p in partidos if p.campeonato_id == CAMPEONATO_ID]
+    abiertas = {p.fecha_nombre for p in actual if p.pts_local is None}
+    jugados = {p.evento_id: p for p in actual if p.pts_local is not None and p.fecha_nombre in abiertas}
+    fechas = sorted({p.fecha_nombre for p in jugados.values()})
+    out = {f: [0] * len(picks_por_part) for f in fechas}
+    for i, picks in enumerate(picks_por_part):
+        for pk in picks:
+            e = jugados.get(pk.get("encuentroId"))
+            if e is None or pk.get("golesEquipoLocal") is None:
+                continue
+            out[e.fecha_nombre][i] += puntos((pk["golesEquipoLocal"], pk["golesEquipoVisitante"]),
+                                             (e.pts_local, e.pts_visitante), e.preferencial)
+    return out
+
+
+def fetch_previos(numeros: list[int], partidos: list[Partido], penca_id: int = PENCA_ID,
+                  pause_s: float = PAUSE_S):
+    """Previos (season.Previos) desde el ranking vivo, o None si falta algún número propio.
+
+    Los totales salen del ranking (una request). Los parciales de fechas abiertas exigen
+    los picks de TODAS las participaciones (una request cada una, ~4 min con pacing) y
+    solo se piden si alguna fecha abierta ya tiene partidos jugados."""
+    import numpy as np
+
+    from src.lub.season import Previos
+
+    with PencaApiClient() as api:
+        ranking = api.ranking(penca_id)
+    por_num = {r.numero_participacion: r for r in ranking}
+    if any(n not in por_num for n in numeros):
+        log.warning("números propios fuera del ranking LUB: %s", [n for n in numeros if n not in por_num])
+        return None
+    propios = [por_num[n] for n in numeros]
+    rivales = [r for r in ranking if r.numero_participacion not in set(numeros)]
+    prev = Previos(tot_riv=np.array([r.puntos_totales or 0 for r in rivales], np.int16),
+                   tot_prop=np.array([r.puntos_totales or 0 for r in propios], np.int16))
+    actual = [p for p in partidos if p.campeonato_id == CAMPEONATO_ID]
+    abiertas = {p.fecha_nombre for p in actual if p.pts_local is None}
+    if not any(p.pts_local is not None and p.fecha_nombre in abiertas for p in actual):
+        return prev
+    filas = propios + rivales
+    picks = []
+    with httpx.Client(base_url=BASE, headers=HEADERS, timeout=30.0) as c:
+        for i, r in enumerate(filas):
+            resp = _get_pacing(c, f"/front/pencas/{r.participacion_id}/pronosticosEventos", pause_s)
+            d = resp.json() if resp.status_code == 200 else []
+            picks.append(d.get("data", d) if isinstance(d, dict) else d)
+            if (i + 1) % 100 == 0:
+                log.info("parciales LUB: %d/%d participaciones", i + 1, len(filas))
+    parc = puntos_parciales(picks, partidos)
+    k = len(propios)
+    prev.parcial_prop = {f: np.array(v[:k], np.int16) for f, v in parc.items()}
+    prev.parcial_riv = {f: np.array(v[k:], np.int16) for f, v in parc.items()}
+    return prev
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     logging.getLogger("httpx").setLevel(logging.WARNING)

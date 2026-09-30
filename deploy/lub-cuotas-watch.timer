@@ -1,0 +1,12 @@
+[Unit]
+Description=Timer del vigía de cuotas LUB — cada hora
+
+# Una búsqueda al Elasticsearch público de Supermatch (+1 de outrights hasta que
+# aparezca). Los avisos son únicos por evento, así que un tick de más es silencio.
+
+[Timer]
+OnCalendar=*-*-* *:37:00 UTC
+Persistent=false
+
+[Install]
+WantedBy=timers.target

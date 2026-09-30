@@ -38,13 +38,13 @@ import numpy as np
 
 from src.lub import odds as lub_odds
 from src.lub.data import (CAMPEONATO_ID, DATA_DIR, TZ_UY, Partido, fetch_especiales_propios,
-                          fetch_opciones_goleador, fetch_temporadas, load_temporadas,
-                          mis_numeros_env, save_temporadas)
+                          fetch_opciones_goleador, fetch_previos, fetch_temporadas,
+                          load_temporadas, mis_numeros_env, save_temporadas)
 from src.lub.model import PARAMS_PROD, fit
 from src.lub.pool import PoolModel, perfiles_de_json
 from src.lub.portfolio import Evaluador, evaluar, optimizar
 from src.lub.scoring import BANDAS, N_BANDAS, marcador_de_clase
-from src.lub.season import KAPPA_POOL, Config, Slot, simular, simular_rivales
+from src.lub.season import KAPPA_POOL, Config, Previos, Slot, simular, simular_rivales
 
 log = logging.getLogger(__name__)
 
@@ -143,11 +143,15 @@ def _especiales_idx(nombres: list[str | None], universo: list[str], k: int) -> n
 def correr(k: int, n_sims: int, n_rivales: int, refrescar: bool = True, now: datetime | None = None,
            campeon_fijo: list[str | None] | None = None, fecha: str | None = None,
            ventana_h: float | None = None, goleador: tuple[list[str], np.ndarray] | None = None,
-           goleador_fijo: list[str | None] | None = None) -> dict:
+           goleador_fijo: list[str | None] | None = None, previos: Previos | None = None) -> dict:
     """Optimiza la fecha abierta `fecha` (default: la del próximo cierre).
 
     campeon_fijo / goleador_fijo: especiales ya cargados (desde que arranca la temporada
-    no se pueden cambiar); entran a la valuación pero no se optimizan."""
+    no se pueden cambiar); entran a la valuación pero no se optimizan.
+    previos: lo ya jugado en la penca real (ranking vivo): condiciona rivales y nuestros
+    totales, y n_rivales pasa a ser el real."""
+    if previos is not None:
+        n_rivales = len(previos.tot_riv)
     now = now or _now()
     if refrescar:
         save_temporadas(fetch_temporadas())
@@ -191,11 +195,12 @@ def correr(k: int, n_sims: int, n_rivales: int, refrescar: bool = True, now: dat
         gol_shares = np.power(p_gol, GOLEADOR_EXP)
         gol_shares /= gol_shares.sum()
     simular_rivales(so, cfg, pm.q, shares, gol_real, gol_shares,
-                    perfiles=perfiles_de_json(pm_json), kappa=KAPPA_POOL)
+                    perfiles=perfiles_de_json(pm_json), kappa=KAPPA_POOL, previos=previos)
 
     ids_actual = {p.evento_id for p in actuales}
     slots_idx = [j for j, s in enumerate(so.slots) if s.evento_id in ids_actual]
-    ev = Evaluador(so, k, slots_idx, goleador_real=gol_real, n_goleadores=len(gol_nombres or []))
+    ev = Evaluador(so, k, slots_idx, goleador_real=gol_real, n_goleadores=len(gol_nombres or []),
+                   previos=previos)
     orden_camp = list(np.argsort(-p_camp))
     opts = [int(t) for t in orden_camp if p_camp[t] >= 0.01]
     especiales_libres = not any(p.temporada == TEMPORADA and datetime.fromisoformat(p.inicio_utc) <= now
@@ -213,13 +218,13 @@ def correr(k: int, n_sims: int, n_rivales: int, refrescar: bool = True, now: dat
     cfg2 = Config(n_sims=n_sims, n_rivales=n_rivales, seed=cfg.seed + 1000)
     so2 = simular(rt, slots_temporada(partidos), cfg2, dict(jugados), mu_override)
     simular_rivales(so2, cfg2, pm.q, shares, gol_real2, gol_shares,
-                    perfiles=perfiles_de_json(pm_json), kappa=KAPPA_POOL)
+                    perfiles=perfiles_de_json(pm_json), kappa=KAPPA_POOL, previos=previos)
     idx2 = [j for j, s in enumerate(so2.slots) if s.evento_id in ids_actual]
     orden1 = [so.slots[j].evento_id for j in slots_idx]
     orden2 = [so2.slots[j].evento_id for j in idx2]
     perm = [orden2.index(e) for e in orden1]
     ev2 = Evaluador(so2, k, [idx2[i] for i in perm], seed=8, goleador_real=gol_real2,
-                    n_goleadores=len(gol_nombres or []))
+                    n_goleadores=len(gol_nombres or []), previos=previos)
     oos = evaluar(ev2, port.picks_actual, port.campeon, port.goleador)
 
     # planilla
@@ -252,6 +257,8 @@ def correr(k: int, n_sims: int, n_rivales: int, refrescar: bool = True, now: dat
         "e_premio": round(port.e_premio), "oos": {kk: round(v, 3) for kk, v in oos.items() if not kk.startswith("_")}, "_oos_tot": oos["_tot"], "detalle": {kk: round(v, 1) if isinstance(v, float) else v
                                                        for kk, v in port.detalle.items()},
         "costo": k * PRECIO,
+        "previos": ({"n_rivales": int(len(previos.tot_riv)), "lider_rival": int(previos.tot_riv.max(initial=0)),
+                     "nuestros": [int(x) for x in previos.tot_prop]} if previos is not None else None),
         "ratings": {e: round(v, 1) for e, v in sorted(rt.r.items(), key=lambda kv: -kv[1])},
     }
 
@@ -292,6 +299,13 @@ def formatear(pl: dict) -> str:
         L.append(f"{e(c['fecha'])}: E[premio] ${o['e_premio']:,.0f} ± {o['se']:,.0f} · penca "
                  f"${o['e_penca']:,.0f} (P {o['p_penca']:.1%}) · fechas ${o['e_fechas']:,.0f}")
     L.append(f"Costo ${pl['costo']:,.0f}")
+    pv = pl.get("previos")
+    if pv:
+        mejor = max(pv["nuestros"], default=0)
+        L.append(f"Pool real: {pv['n_rivales']} rivales · líder {pv['lider_rival']} · nuestra mejor "
+                 f"{mejor} (gap {pv['lider_rival'] - mejor:+d})")
+    else:
+        L.append("<i>Sin condicionar al ranking real (temporada sin arrancar o faltan los números).</i>")
     if not hoy:
         return "\n".join(L + ["\nNada para cargar hoy."])
     L.append("\n<b>Cargar hoy:</b>")
@@ -410,6 +424,14 @@ def main() -> None:
     if arranco and camp_fijo is None:
         log.warning("temporada arrancada sin especiales conocidos: se valúa como si no acertaran")
         camp_fijo = [None] * k
+    previos = None
+    if arranco and numeros:
+        try:
+            previos = fetch_previos(numeros, partidos)
+        except Exception as ex:          # sin ranking: la planilla sale igual, sin condicionar
+            log.warning("no pude leer el ranking LUB: %s", ex)
+    elif arranco:
+        log.warning("temporada arrancada sin LUB_MIS_PARTICIPACIONES: no se condiciona al ranking")
     goleador = None
     try:
         goleador = cargar_goleador(fetch_opciones_goleador())
@@ -417,7 +439,8 @@ def main() -> None:
         log.warning("no pude leer el menú de goleador: %s", ex)
 
     pls = [correr(k, a.sims, a.rivales, refrescar=False, now=now, campeon_fijo=camp_fijo, fecha=f,
-                  ventana_h=a.ventana_h, goleador=goleador, goleador_fijo=gol_fijo) for f in fechas]
+                  ventana_h=a.ventana_h, goleador=goleador, goleador_fijo=gol_fijo, previos=previos)
+           for f in fechas]
     pl = combinar(pls, numeros, a.ventana_h)
     txt = formatear(pl)
     print(txt)

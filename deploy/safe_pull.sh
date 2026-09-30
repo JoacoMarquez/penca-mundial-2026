@@ -150,7 +150,7 @@ try:
                               gate_watch, heartbeat, picks, pool, pool_snapshot,
                               postmortem, rerun_cierre, rivals, scoring, strategy,
                               sync, verificar_carga, webapp)
-    from src.lub import carga_alert as lub_carga_alert, dashboard as lub_dashboard, goleador_watch, picks as lub_picks
+    from src.lub import carga_alert as lub_carga_alert, cuotas_watch, dashboard as lub_dashboard, goleador_watch, picks as lub_picks
     from src.notifier import telegram
     print('OK')
 except Exception as e:

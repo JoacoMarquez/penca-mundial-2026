@@ -127,6 +127,33 @@ class Sorteo:
     riv_total_cnt: np.ndarray = field(default=None)   # (S,)
 
 
+@dataclass
+class Previos:
+    """Lo que ya pasó en la penca real (desde el primer partido): condiciona la simulación.
+
+    Sin esto, cada corrida simulaba la temporada ENTERA desde cero, contra 320 rivales
+    supuestos: un líder con 40 puntos de ventaja o nuestras filas en el fondo del
+    ranking no movían nada. Con Previos, los partidos jugados no se re-sortean para
+    nadie: los totales salen del ranking vivo (rivales y nuestros), la cantidad de
+    rivales es la real y las fechas ya cerradas no reparten premio.
+
+    parcial_*: puntos ya hechos en cada fecha ABIERTA que tiene partidos jugados (las
+    fechas de la LUB duran varios días), para el premio de esa fecha."""
+    tot_riv: np.ndarray                          # (R,) ranking vivo, sin los nuestros
+    tot_prop: np.ndarray                         # (K,) los nuestros, en el orden de la planilla
+    parcial_riv: dict[str, np.ndarray] = field(default_factory=dict)   # fecha → (R,)
+    parcial_prop: dict[str, np.ndarray] = field(default_factory=dict)  # fecha → (K,)
+
+
+def fechas_abiertas(so: "Sorteo") -> np.ndarray:
+    """(F,) bool: la fecha tiene algún partido sin resultado real (todavía reparte premio)."""
+    abiertas = np.zeros(len(so.fechas), bool)
+    for j, sl in enumerate(so.slots):
+        if sl.resultado is None:
+            abiertas[so.fecha_de_slot[j]] = True
+    return abiertas
+
+
 def simular(rt: Ratings, slots_regulares: list[Slot], cfg: Config,
             partidos_jugados_por_equipo: dict[str, int] | None = None,
             mu_override: dict[int, float] | None = None) -> Sorteo:
@@ -332,7 +359,8 @@ def simular_rivales(so: Sorteo, cfg: Config, q_de: Callable[..., np.ndarray],
                     goleador_real: np.ndarray | None = None, goleador_shares: np.ndarray | None = None,
                     perfiles: Perfiles | None = None,
                     n_rivales: int | None = None, seed: int | None = None,
-                    kappa: float = 0.0, kappa_spread: float = 0.0) -> np.ndarray:
+                    kappa: float = 0.0, kappa_spread: float = 0.0,
+                    previos: Previos | None = None) -> np.ndarray:
     """Puntajes de R rivales por fecha y totales → max y cantidad en el max (in place).
 
     q_de(probs (S,10)) → (S,10): distribución de picks del pool dado lo que "ve" el modelo.
@@ -344,10 +372,14 @@ def simular_rivales(so: Sorteo, cfg: Config, q_de: Callable[..., np.ndarray],
     resultado: Q(c) × e^κ_i en la clase que efectivamente sale, con κ_i ~ U(κ ± spread)
     por rival (la habilidad varía: sd real de los plenos 40 vs 34 con κ común).
     κ y spread se calibran con el PIT.
+    previos: con la temporada arrancada, R es la cantidad REAL de rivales, los partidos
+    jugados no se simulan (ya están en tot_riv / parcial_riv) y cada rival arranca de
+    su total real. La composición de perfiles sigue siendo sorteada: el total real ya
+    lleva lo que cada rival mostró, y el estilo futuro no se infiere de ahí (todavía).
     Devuelve los totales (S, R) — útil para diagnósticos.
     """
     rng = np.random.default_rng(seed or cfg.seed + 1)
-    R = n_rivales or cfg.n_rivales
+    R = len(previos.tot_riv) if previos is not None else (n_rivales or cfg.n_rivales)
     S, J = so.clase.shape
     F = len(so.fechas)
     perf = perfiles or Perfiles.plenos()
@@ -364,17 +396,25 @@ def simular_rivales(so: Sorteo, cfg: Config, q_de: Callable[..., np.ndarray],
     else:
         grupos_g, grp = [None], np.zeros((S, R), np.int8)
     k_r = (kappa + (rng.random((S, R)) * 2 - 1) * kappa_spread).astype(np.float32)
-    total = np.zeros((S, R), np.int16)
+    def parcial(f: int) -> np.ndarray:
+        if previos is None or so.fechas[f] not in previos.parcial_riv:
+            return np.zeros(R, np.int16)
+        return np.asarray(previos.parcial_riv[so.fechas[f]], np.int16)
+
+    total = (np.tile(np.asarray(previos.tot_riv, np.int16), (S, 1)) if previos is not None
+             else np.zeros((S, R), np.int16))
     fmax = np.zeros((S, F), np.int16)
     fcnt = np.zeros((S, F), np.int16)
-    fecha_pts = np.zeros((S, R), np.int16)
     fecha_actual = so.fecha_de_slot[0] if J else 0
+    fecha_pts = np.tile(parcial(fecha_actual), (S, 1)) if J else np.zeros((S, R), np.int16)
     for j in range(J):
         f = so.fecha_de_slot[j]
         if f != fecha_actual:
             fmax[:, fecha_actual], fcnt[:, fecha_actual] = _max_cnt(fecha_pts)
-            fecha_pts[:] = 0
+            fecha_pts[:] = parcial(f)[None, :]
             fecha_actual = f
+        if previos is not None and so.slots[j].resultado is not None:
+            continue            # jugado: sus puntos reales ya están en tot_riv / parcial_riv
         qg = np.stack([q_de(so.probs[:, j]) if g is None else q_de(so.probs[:, j], gamma=g)
                        for g in grupos_g]).astype(np.float32)          # (G, S, 10)
         q = qg[grp, np.arange(S)[:, None]]                              # (S, R, 10)
