@@ -1,0 +1,13 @@
+[Unit]
+Description=Timer de recordatorios de carga LUB — cada hora 11-23 UTC
+
+# Cierres LUB 22:45-00:30 UTC: el aviso de 6h cae 16:45-18:30 y el de 2h 20:45-22:30,
+# los dos dentro de la ventana. Fuera de días de partido sale en silencio.
+# Persistent=true: un tick perdido es un recordatorio que no vuelve (ver el del Clausura).
+
+[Timer]
+OnCalendar=*-*-* 11..23:12:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

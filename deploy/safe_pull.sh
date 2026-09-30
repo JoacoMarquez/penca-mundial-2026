@@ -32,7 +32,7 @@ sync_units() {
             # Unit del repo que el VPS no tiene: instalarlo requiere decidir si va
             # habilitado (setup_clausura.sh), pero callarlo es peor — gate-watch y
             # heartbeat nacieron después del setup inicial y nadie se enteraba.
-            case "$u" in clausura-*) faltantes+=("$u");; esac
+            case "$u" in clausura-*|lub-*) faltantes+=("$u");; esac
             continue
         fi
         if ! cmp -s "$src" "$dst"; then
@@ -43,7 +43,7 @@ sync_units() {
 
     if [ ${#faltantes[@]} -gt 0 ]; then
         echo "⚠️  Units del repo NO instalados en el VPS: ${faltantes[*]}" >&2
-        echo "    Si tienen que correr, instalalos con: bash deploy/setup_clausura.sh" >&2
+        echo "    Si tienen que correr, instalalos con: bash deploy/setup_clausura.sh (clausura-*) o deploy/setup_lub.sh (lub-*)" >&2
     fi
 
     if [ ${#cambiados[@]} -eq 0 ]; then
@@ -88,7 +88,11 @@ sync_units() {
 #     ExecStartPre (sin "-", o sea obligatorio) de clausura-picks y de
 #     clausura-rerun-cierre. Su diff local es solo `generado_utc` y `estado`, y
 #     NADIE lee `estado` del config (verificado por grep 2026-08-10).
-REGENERADOS=(config/clausura2026.yaml)
+#   * data/lub/temporadas.json — lo re-baja src.lub.picks (lub-picks, diario) y
+#     src.lub.carga_alert cuando su marca de refresco (data/state/, sin trackear)
+#     tiene más de 6h. La marca NO es el mtime del archivo justamente por esto: el
+#     checkout de acá lo deja con mtime nuevo y contenido viejo.
+REGENERADOS=(config/clausura2026.yaml data/lub/temporadas.json)
 
 descartar_regenerados() {
     local f sucios=()
@@ -146,6 +150,7 @@ try:
                               gate_watch, heartbeat, picks, pool, pool_snapshot,
                               postmortem, rerun_cierre, rivals, scoring, strategy,
                               sync, verificar_carga, webapp)
+    from src.lub import carga_alert as lub_carga_alert, dashboard as lub_dashboard, goleador_watch, picks as lub_picks
     from src.notifier import telegram
     print('OK')
 except Exception as e:

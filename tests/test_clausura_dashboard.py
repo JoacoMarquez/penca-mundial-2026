@@ -362,9 +362,10 @@ def test_modo_carga_la_clave_no_depende_de_la_version():
     progreso y el cambio de pick pasaba invisible. La clave es (fecha, part, evento)."""
     html = _render_carga([_pick(111, ["2-1", "1-1"])], version="v9_zzz.json")
 
-    assert "`carga:v2:${FECHA}:${part}:${ev}`" in html
+    assert "`${PRE}${FECHA}:${part}:${ev}`" in html
+    assert 'const PRE = "carga:v2:"' in html     # el Clausura conserva sus claves de siempre
     # el version_file sigue embebido (vigía + migración) pero no como clave de fila
-    assert 'carga:v2:${FECHA}:${part}:${ev}:${VER}' not in html
+    assert '${PRE}${FECHA}:${part}:${ev}:${VER}' not in html
     assert "migrado" in html          # las marcas del esquema viejo se rescatan una vez
 
 

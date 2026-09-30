@@ -35,11 +35,13 @@ log = logging.getLogger(__name__)
 
 ROOT = Path(__file__).resolve().parents[2]
 MARCAS_PATH = ROOT / "data" / "state" / "carga_marcas.json"
+MARCAS_LUB_PATH = ROOT / "data" / "state" / "lub_carga_marcas.json"
 
 # Las claves las arma el navegador (kRow/kEsp en carga.html). Se validan acá igual:
 # este endpoint ESCRIBE en disco y está expuesto en internet detrás de un token en la
 # URL, así que no se acepta cualquier string como nombre de archivo lógico.
-CLAVE_RE = re.compile(r"^carga:v2:(esp:)?[0-9]{1,12}(:[0-9]{1,12}){0,2}$")
+# lub:v1: el modo carga de la penca LUB (mismo esquema, otro archivo: MARCAS_LUB_PATH)
+CLAVE_RE = re.compile(r"^(?:carga:v2|lub:v1):(esp:)?[0-9]{1,12}(:[0-9]{1,12}){0,2}$")
 
 # Un marcador ("2-1") o el id de un especial. Corto a propósito.
 MAX_VALOR = 32
