@@ -576,13 +576,23 @@ def puntos_propios(
 
 
 def _totales_calculados(fecha: int, puntos_fecha: dict[int, int]) -> dict[int, int] | None:
-    """Puntos de temporada por participación: postmortems previos + la fecha actual.
+    """Puntos de temporada por participación: los demás postmortems + la fecha actual.
 
     None si falta el postmortem de alguna fecha anterior — sin la serie completa
     la comparación contra `puntos_totales` del ranking daría falsas alarmas.
+
+    Suma también las fechas POSTERIORES que ya tienen postmortem: la Fecha 1 se
+    regeneró el 2026-10-01 —Torque–Peñarol se jugó dos meses tarde— con F2-F8 ya
+    liquidadas en la web, y comparar la F1 sola contra el total de temporada
+    disparaba el aviso en las 12 filas ("calculado 26 vs web 148").
     """
     totales = dict(puntos_fecha)
-    for n in range(1, fecha):
+    ultima = fecha
+    while pm_path(ultima + 1).exists():
+        ultima += 1
+    for n in range(1, ultima + 1):
+        if n == fecha:
+            continue          # la versión vieja de la fecha que se está rehaciendo
         p = pm_path(n)
         if not p.exists():
             return None
