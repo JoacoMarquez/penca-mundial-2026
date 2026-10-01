@@ -317,6 +317,18 @@ def test_totales_calculados_suman_postmortems_previos(tmp_path, monkeypatch):
     assert pm._totales_calculados(3, {899258848: 5}) is None
 
 
+def test_totales_calculados_suman_fechas_posteriores_al_rehacer(tmp_path, monkeypatch):
+    """Rehacer la F1 con F2 ya escrita: el total incluye la F2 y NO la F1 vieja."""
+    from src.clausura import postmortem as pm
+
+    monkeypatch.setattr(pm, "pm_path", lambda n: tmp_path / f"fecha_{n:02d}.json")
+    (tmp_path / "fecha_01.json").write_text(
+        json.dumps({"puntos": {"899258848": 99}}), encoding="utf-8")
+    (tmp_path / "fecha_02.json").write_text(
+        json.dumps({"puntos": {"899258848": 7}}), encoding="utf-8")
+    assert pm._totales_calculados(1, {899258848: 26}) == {899258848: 33}
+
+
 # -------------------- chequeo de asignación --------------------
 
 from src.clausura.postmortem import (  # noqa: E402
