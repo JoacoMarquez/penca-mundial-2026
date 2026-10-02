@@ -1,0 +1,15 @@
+{
+  "_fuente": "basquetcaliente.com/planteles-de-la-liga-uruguaya-5/ (30/9/2026). Fichas mayores y sub 23 = jugadores nacionales; innominadas = extranjeras (o nacionales, pero no las usamos). Verificado contra el texto crudo de la página el 2/10.",
+  "Aguada": {"mayores": ["Santiago Vidal", "Alex López", "Joaquín Rodríguez", "Agustín Da Costa", "Agustín Zuvich"], "sub23": ["Matías Espinosa", "Manuel Fernández", "Facundo Morales", "Valentino Acuña"]},
+  "Atenas": {"mayores": ["Luciano Planells", "Mateo Pose", "Rafael Previatti", "Rogelio De León"], "sub23": ["Eduardo Superi", "Jerónimo Galeano", "Mateo Gómez", "Moises Adames"]},
+  "Bigua": {"mayores": ["Hernán Álvarez", "Federico Pereiras", "Theo Metzger", "Mathías Calfani", "Sebastián Ottonello"], "sub23": ["Thiago Rodríguez", "Juan Ignacio Durán", "Álvaro Payovich"]},
+  "Defensor Sporting": {"mayores": ["Juan Santiso", "Mateo Giano", "Federico Soto", "Bernardo Barrera", "Mateo Bianchi"], "sub23": ["Maximiliano Antúnez", "Andrés Aron", "Brahian Gomez", "Melvin Soto"]},
+  "Goes": {"mayores": ["Manuel Mayora", "Emiliano Bonet", "Agustín Méndez", "Xavier Cousté", "Juan Ignacio Ducasse"], "sub23": ["Lucas Bennett", "Ignacio Dos Santos"]},
+  "Hebraica Macabi": {"mayores": ["Santiago Fernández", "Manuel Romero", "Martín Trelles", "Nicolás Catalá", "Federico Haller"], "sub23": ["Stefan Casanova", "Matías Khoury", "Lautaro Viatri"]},
+  "Larrañaga": {"mayores": ["Gustavo Barrera", "Nicolás Bessio", "Joaquín Osimani", "Fernando Verrone", "Mauricio Arregui"], "sub23": ["Martín Rodríguez", "Guillermo Jones", "Felipe Suárez"]},
+  "Malvín": {"mayores": ["Salvador Zanotta", "Fernando Salsamendi", "Marcel Souberbielle", "Manuel Oyenard", "Kiril Wachsmann"], "sub23": ["Nahuel Rodríguez", "Franco Brun", "Nicolás Testa", "Camilo Gagliano"]},
+  "Nacional": {"mayores": ["Patricio Prieto", "Gastón Semiglia", "Ignacio Xavier", "Gianfranco Espíndola", "Pablo Gómez"], "sub23": ["Juan Ignacio Stoll", "Thomas Araújo", "Luis Pedro Imas"]},
+  "Peñarol": {"mayores": ["Santiago Vescovi", "Santiago Calimares", "Nicola Pomoli", "Emiliano Serres", "Martín Rojas"], "sub23": ["Lucas Rodríguez", "Nicolás Lema", "Conrado Heilmann"]},
+  "Unión Atlética": {"mayores": ["Manuel Saavedra", "Mauro Zubiaurre", "Mateo Mac Mullen", "Guillermo Souza", "Rodrigo Brause"], "sub23": ["Agustín Irastorza"]},
+  "Urunday Universitario": {"mayores": ["Mateo Sarni", "Santiago Massa", "Octavio Medina", "Nahuel Amichetti", "Agustín Gentile"], "sub23": ["Bruno Curadossi", "Agustín Moller", "Matías Benítez", "Francisco Moleda"]}
+}

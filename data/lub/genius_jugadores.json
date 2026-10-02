@@ -1,0 +1,10232 @@
+{
+"24/25": [
+{
+"pid": 43206,
+"nombre": "A. AMARAL",
+"pj": 3,
+"ppg": 4.3,
+"pts": 13,
+"equipo": "",
+"tid": 1846
+},
+{
+"pid": 1651515,
+"nombre": "G. BRUN",
+"pj": 3,
+"ppg": 18.0,
+"pts": 54,
+"equipo": "",
+"tid": 1846
+},
+{
+"pid": 2096885,
+"nombre": "A. PEÑA",
+"pj": 1,
+"ppg": 23.0,
+"pts": 23,
+"equipo": "",
+"tid": 1846
+},
+{
+"pid": 2417184,
+"nombre": "A. DUNCAN",
+"pj": 2,
+"ppg": 14.5,
+"pts": 29,
+"equipo": "",
+"tid": 1846
+},
+{
+"pid": 16785,
+"nombre": "F. FERREIRA",
+"pj": 3,
+"ppg": 12.0,
+"pts": 36,
+"equipo": "",
+"tid": 1846
+},
+{
+"pid": 16793,
+"nombre": "H. CACERES",
+"pj": 3,
+"ppg": 3.0,
+"pts": 9,
+"equipo": "",
+"tid": 1846
+},
+{
+"pid": 16801,
+"nombre": "F. FERREIRA",
+"pj": 3,
+"ppg": 11.7,
+"pts": 35,
+"equipo": "",
+"tid": 1846
+},
+{
+"pid": 17160,
+"nombre": "F. SINIESTRO",
+"pj": 3,
+"ppg": 8.7,
+"pts": 26,
+"equipo": "",
+"tid": 1846
+},
+{
+"pid": 1161000,
+"nombre": "V. LOPEZ",
+"pj": 1,
+"ppg": 2.0,
+"pts": 2,
+"equipo": "",
+"tid": 1846
+},
+{
+"pid": 1434490,
+"nombre": "S. RUIZ",
+"pj": 2,
+"ppg": 1.0,
+"pts": 2,
+"equipo": "",
+"tid": 1846
+},
+{
+"pid": 2217689,
+"nombre": "C. MAZZUCCHI",
+"pj": 3,
+"ppg": 5.7,
+"pts": 17,
+"equipo": "",
+"tid": 1846
+},
+{
+"pid": 43206,
+"nombre": "A. AMARAL",
+"pj": 3,
+"ppg": 4.3,
+"pts": 13,
+"equipo": "REMEROS MERCEDES",
+"tid": 1846
+},
+{
+"pid": 1651515,
+"nombre": "G. BRUN",
+"pj": 3,
+"ppg": 18.0,
+"pts": 54,
+"equipo": "REMEROS MERCEDES",
+"tid": 1846
+},
+{
+"pid": 2096885,
+"nombre": "A. PEÑA",
+"pj": 1,
+"ppg": 23.0,
+"pts": 23,
+"equipo": "REMEROS MERCEDES",
+"tid": 1846
+},
+{
+"pid": 2417184,
+"nombre": "A. DUNCAN",
+"pj": 2,
+"ppg": 14.5,
+"pts": 29,
+"equipo": "REMEROS MERCEDES",
+"tid": 1846
+},
+{
+"pid": 16785,
+"nombre": "F. FERREIRA",
+"pj": 3,
+"ppg": 12.0,
+"pts": 36,
+"equipo": "REMEROS MERCEDES",
+"tid": 1846
+},
+{
+"pid": 16793,
+"nombre": "H. CACERES",
+"pj": 3,
+"ppg": 3.0,
+"pts": 9,
+"equipo": "REMEROS MERCEDES",
+"tid": 1846
+},
+{
+"pid": 16801,
+"nombre": "F. FERREIRA",
+"pj": 3,
+"ppg": 11.7,
+"pts": 35,
+"equipo": "REMEROS MERCEDES",
+"tid": 1846
+},
+{
+"pid": 17160,
+"nombre": "F. SINIESTRO",
+"pj": 3,
+"ppg": 8.7,
+"pts": 26,
+"equipo": "REMEROS MERCEDES",
+"tid": 1846
+},
+{
+"pid": 1161000,
+"nombre": "V. LOPEZ",
+"pj": 1,
+"ppg": 2.0,
+"pts": 2,
+"equipo": "REMEROS MERCEDES",
+"tid": 1846
+},
+{
+"pid": 1434490,
+"nombre": "S. RUIZ",
+"pj": 2,
+"ppg": 1.0,
+"pts": 2,
+"equipo": "REMEROS MERCEDES",
+"tid": 1846
+},
+{
+"pid": 2217689,
+"nombre": "C. MAZZUCCHI",
+"pj": 3,
+"ppg": 5.7,
+"pts": 17,
+"equipo": "REMEROS MERCEDES",
+"tid": 1846
+},
+{
+"pid": 14735,
+"nombre": "I. LORIENTE",
+"pj": 16,
+"ppg": 3.4,
+"pts": 55,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 16554,
+"nombre": "N. DELGADO",
+"pj": 23,
+"ppg": 6.5,
+"pts": 149,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 16914,
+"nombre": "R. BRAUSE",
+"pj": 17,
+"ppg": 5.7,
+"pts": 96,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 17045,
+"nombre": "C. PEREIRA",
+"pj": 6,
+"ppg": 4.8,
+"pts": 29,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 1457105,
+"nombre": "F. SATUT HORNOS",
+"pj": 11,
+"ppg": 1.5,
+"pts": 16,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 1661033,
+"nombre": "G. CORBISIERO",
+"pj": 25,
+"ppg": 3.6,
+"pts": 90,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 1714808,
+"nombre": "B. CURADOSSI",
+"pj": 14,
+"ppg": 1.9,
+"pts": 27,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 1765563,
+"nombre": "A. MOLLER",
+"pj": 12,
+"ppg": 5.6,
+"pts": 67,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 1937748,
+"nombre": "M. RODRIGUEZ",
+"pj": 23,
+"ppg": 4.0,
+"pts": 91,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 2399946,
+"nombre": "J. WEBSTER",
+"pj": 10,
+"ppg": 16.5,
+"pts": 165,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 2400122,
+"nombre": "E. THOMAS",
+"pj": 10,
+"ppg": 21.5,
+"pts": 215,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 15273,
+"nombre": "F. MARTINEZ",
+"pj": 23,
+"ppg": 5.5,
+"pts": 127,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 16508,
+"nombre": "A. ACOSTA",
+"pj": 23,
+"ppg": 6.7,
+"pts": 153,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 1703642,
+"nombre": "G. DEVAUGHN",
+"pj": 8,
+"ppg": 11.4,
+"pts": 91,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 1960946,
+"nombre": "I. ASKA",
+"pj": 12,
+"ppg": 18.3,
+"pts": 219,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 2060974,
+"nombre": "R. WHITFIELD",
+"pj": 16,
+"ppg": 12.4,
+"pts": 199,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 2386053,
+"nombre": "W. LANGSTON",
+"pj": 15,
+"ppg": 16.3,
+"pts": 244,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 2395550,
+"nombre": "D. DAVIS",
+"pj": 3,
+"ppg": 8.3,
+"pts": 25,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 2413789,
+"nombre": "D. CONGER",
+"pj": 3,
+"ppg": 8.3,
+"pts": 25,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 14735,
+"nombre": "I. LORIENTE",
+"pj": 16,
+"ppg": 3.4,
+"pts": 55,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 16554,
+"nombre": "N. DELGADO",
+"pj": 23,
+"ppg": 6.5,
+"pts": 149,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 16914,
+"nombre": "R. BRAUSE",
+"pj": 17,
+"ppg": 5.7,
+"pts": 96,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 17045,
+"nombre": "C. PEREIRA",
+"pj": 6,
+"ppg": 4.8,
+"pts": 29,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 1457105,
+"nombre": "F. SATUT HORNOS",
+"pj": 11,
+"ppg": 1.5,
+"pts": 16,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 1661033,
+"nombre": "G. CORBISIERO",
+"pj": 25,
+"ppg": 3.6,
+"pts": 90,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 1714808,
+"nombre": "B. CURADOSSI",
+"pj": 14,
+"ppg": 1.9,
+"pts": 27,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 1765563,
+"nombre": "A. MOLLER",
+"pj": 12,
+"ppg": 5.6,
+"pts": 67,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 1937748,
+"nombre": "M. RODRIGUEZ",
+"pj": 23,
+"ppg": 4.0,
+"pts": 91,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 2399946,
+"nombre": "J. WEBSTER",
+"pj": 10,
+"ppg": 16.5,
+"pts": 165,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 2400122,
+"nombre": "E. THOMAS",
+"pj": 10,
+"ppg": 21.5,
+"pts": 215,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 15273,
+"nombre": "F. MARTINEZ",
+"pj": 23,
+"ppg": 5.5,
+"pts": 127,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 16508,
+"nombre": "A. ACOSTA",
+"pj": 23,
+"ppg": 6.7,
+"pts": 153,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 1703642,
+"nombre": "G. DEVAUGHN",
+"pj": 8,
+"ppg": 11.4,
+"pts": 91,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 1960946,
+"nombre": "I. ASKA",
+"pj": 12,
+"ppg": 18.3,
+"pts": 219,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 2060974,
+"nombre": "R. WHITFIELD",
+"pj": 16,
+"ppg": 12.4,
+"pts": 199,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 2386053,
+"nombre": "W. LANGSTON",
+"pj": 15,
+"ppg": 16.3,
+"pts": 244,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 2395550,
+"nombre": "D. DAVIS",
+"pj": 3,
+"ppg": 8.3,
+"pts": 25,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 2413789,
+"nombre": "D. CONGER",
+"pj": 3,
+"ppg": 8.3,
+"pts": 25,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 16596,
+"nombre": "R. DE LEON",
+"pj": 2,
+"ppg": 5.0,
+"pts": 10,
+"equipo": "",
+"tid": 2429
+},
+{
+"pid": 2100636,
+"nombre": "J. CARDOZO",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 2429
+},
+{
+"pid": 15502,
+"nombre": "E. GIANO",
+"pj": 2,
+"ppg": 8.5,
+"pts": 17,
+"equipo": "",
+"tid": 2429
+},
+{
+"pid": 1897468,
+"nombre": "R. DE LOS SANTOS",
+"pj": 2,
+"ppg": 0.5,
+"pts": 1,
+"equipo": "",
+"tid": 2429
+},
+{
+"pid": 1897470,
+"nombre": "A. CABALLERO",
+"pj": 2,
+"ppg": 7.0,
+"pts": 14,
+"equipo": "",
+"tid": 2429
+},
+{
+"pid": 1897473,
+"nombre": "M. CERPA",
+"pj": 2,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 2429
+},
+{
+"pid": 1897479,
+"nombre": "A. CABALLERO",
+"pj": 2,
+"ppg": 2.5,
+"pts": 5,
+"equipo": "",
+"tid": 2429
+},
+{
+"pid": 2406729,
+"nombre": "C. BARNES",
+"pj": 2,
+"ppg": 21.5,
+"pts": 43,
+"equipo": "",
+"tid": 2429
+},
+{
+"pid": 2406730,
+"nombre": "C. DOMINGOS",
+"pj": 2,
+"ppg": 11.5,
+"pts": 23,
+"equipo": "",
+"tid": 2429
+},
+{
+"pid": 2411719,
+"nombre": "C. WILLIAMS",
+"pj": 2,
+"ppg": 17.0,
+"pts": 34,
+"equipo": "",
+"tid": 2429
+},
+{
+"pid": 16596,
+"nombre": "R. DE LEON",
+"pj": 2,
+"ppg": 5.0,
+"pts": 10,
+"equipo": "FERRO CARRIL",
+"tid": 2429
+},
+{
+"pid": 2100636,
+"nombre": "J. CARDOZO",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "FERRO CARRIL",
+"tid": 2429
+},
+{
+"pid": 15502,
+"nombre": "E. GIANO",
+"pj": 2,
+"ppg": 8.5,
+"pts": 17,
+"equipo": "FERRO CARRIL",
+"tid": 2429
+},
+{
+"pid": 1897468,
+"nombre": "R. DE LOS SANTOS",
+"pj": 2,
+"ppg": 0.5,
+"pts": 1,
+"equipo": "FERRO CARRIL",
+"tid": 2429
+},
+{
+"pid": 1897470,
+"nombre": "A. CABALLERO",
+"pj": 2,
+"ppg": 7.0,
+"pts": 14,
+"equipo": "FERRO CARRIL",
+"tid": 2429
+},
+{
+"pid": 1897473,
+"nombre": "M. CERPA",
+"pj": 2,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "FERRO CARRIL",
+"tid": 2429
+},
+{
+"pid": 1897479,
+"nombre": "A. CABALLERO",
+"pj": 2,
+"ppg": 2.5,
+"pts": 5,
+"equipo": "FERRO CARRIL",
+"tid": 2429
+},
+{
+"pid": 2406729,
+"nombre": "C. BARNES",
+"pj": 2,
+"ppg": 21.5,
+"pts": 43,
+"equipo": "FERRO CARRIL",
+"tid": 2429
+},
+{
+"pid": 2406730,
+"nombre": "C. DOMINGOS",
+"pj": 2,
+"ppg": 11.5,
+"pts": 23,
+"equipo": "FERRO CARRIL",
+"tid": 2429
+},
+{
+"pid": 2411719,
+"nombre": "C. WILLIAMS",
+"pj": 2,
+"ppg": 17.0,
+"pts": 34,
+"equipo": "FERRO CARRIL",
+"tid": 2429
+},
+{
+"pid": 16616,
+"nombre": "N. CATALA",
+"pj": 31,
+"ppg": 9.1,
+"pts": 282,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 16807,
+"nombre": "A. LOPEZ",
+"pj": 32,
+"ppg": 4.8,
+"pts": 154,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 17071,
+"nombre": "F. BAVOSI",
+"pj": 31,
+"ppg": 5.3,
+"pts": 164,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 208488,
+"nombre": "J. DUCASSE",
+"pj": 28,
+"ppg": 5.1,
+"pts": 143,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 1942261,
+"nombre": "M. ESPINOSA",
+"pj": 30,
+"ppg": 5.0,
+"pts": 150,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 1989296,
+"nombre": "T. RODRIGUEZ",
+"pj": 23,
+"ppg": 4.7,
+"pts": 108,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 2199918,
+"nombre": "J. DURAN",
+"pj": 3,
+"ppg": 0.7,
+"pts": 2,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 2214818,
+"nombre": "A. PAYOVICH",
+"pj": 27,
+"ppg": 2.6,
+"pts": 70,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 2344218,
+"nombre": "J. DIAZ",
+"pj": 3,
+"ppg": 1.3,
+"pts": 4,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 2365151,
+"nombre": "A. SPIGHT",
+"pj": 25,
+"ppg": 23.7,
+"pts": 593,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 1808061,
+"nombre": "I. HAMILTON",
+"pj": 4,
+"ppg": 11.5,
+"pts": 46,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 1924883,
+"nombre": "L. CERMINATO",
+"pj": 32,
+"ppg": 9.7,
+"pts": 311,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 2134151,
+"nombre": "M. GREIVER",
+"pj": 5,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 2148607,
+"nombre": "J. CUNNINGHAM",
+"pj": 28,
+"ppg": 14.5,
+"pts": 405,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 2321092,
+"nombre": "M. TAVARES",
+"pj": 6,
+"ppg": 6.8,
+"pts": 41,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 2325359,
+"nombre": "V. MALACHIAS",
+"pj": 8,
+"ppg": 5.6,
+"pts": 45,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 2397710,
+"nombre": "J. TELLO",
+"pj": 18,
+"ppg": 13.3,
+"pts": 239,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 2401185,
+"nombre": "V. PASTOR",
+"pj": 2,
+"ppg": 4.5,
+"pts": 9,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 16616,
+"nombre": "N. CATALA",
+"pj": 31,
+"ppg": 9.1,
+"pts": 282,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 16807,
+"nombre": "A. LOPEZ",
+"pj": 32,
+"ppg": 4.8,
+"pts": 154,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 17071,
+"nombre": "F. BAVOSI",
+"pj": 31,
+"ppg": 5.3,
+"pts": 164,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 208488,
+"nombre": "J. DUCASSE",
+"pj": 28,
+"ppg": 5.1,
+"pts": 143,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 1942261,
+"nombre": "M. ESPINOSA",
+"pj": 30,
+"ppg": 5.0,
+"pts": 150,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 1989296,
+"nombre": "T. RODRIGUEZ",
+"pj": 23,
+"ppg": 4.7,
+"pts": 108,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 2199918,
+"nombre": "J. DURAN",
+"pj": 3,
+"ppg": 0.7,
+"pts": 2,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 2214818,
+"nombre": "A. PAYOVICH",
+"pj": 27,
+"ppg": 2.6,
+"pts": 70,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 2344218,
+"nombre": "J. DIAZ",
+"pj": 3,
+"ppg": 1.3,
+"pts": 4,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 2365151,
+"nombre": "A. SPIGHT",
+"pj": 25,
+"ppg": 23.7,
+"pts": 593,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 1808061,
+"nombre": "I. HAMILTON",
+"pj": 4,
+"ppg": 11.5,
+"pts": 46,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 1924883,
+"nombre": "L. CERMINATO",
+"pj": 32,
+"ppg": 9.7,
+"pts": 311,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 2134151,
+"nombre": "M. GREIVER",
+"pj": 5,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 2148607,
+"nombre": "J. CUNNINGHAM",
+"pj": 28,
+"ppg": 14.5,
+"pts": 405,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 2321092,
+"nombre": "M. TAVARES",
+"pj": 6,
+"ppg": 6.8,
+"pts": 41,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 2325359,
+"nombre": "V. MALACHIAS",
+"pj": 8,
+"ppg": 5.6,
+"pts": 45,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 2397710,
+"nombre": "J. TELLO",
+"pj": 18,
+"ppg": 13.3,
+"pts": 239,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 2401185,
+"nombre": "V. PASTOR",
+"pj": 2,
+"ppg": 4.5,
+"pts": 9,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 14724,
+"nombre": "S. VIDAL",
+"pj": 28,
+"ppg": 9.5,
+"pts": 265,
+"equipo": "",
+"tid": 2442
+},
+{
+"pid": 15493,
+"nombre": "J. OSIMANI",
+"pj": 39,
+"ppg": 6.1,
+"pts": 237,
+"equipo": "",
+"tid": 2442
+},
+{
+"pid": 17101,
+"nombre": "J. SANTISO",
+"pj": 40,
+"ppg": 9.2,
+"pts": 368,
+"equipo": "",
+"tid": 2442
+},
+{
+"pid": 17554,
+"nombre": "A. ZUVICH",
+"pj": 38,
+"ppg": 8.0,
+"pts": 303,
+"equipo": "",
+"tid": 2442
+},
+{
+"pid": 701864,
+"nombre": "D. SIMS",
+"pj": 42,
+"ppg": 22.0,
+"pts": 924,
+"equipo": "",
+"tid": 2442
+},
+{
+"pid": 1645559,
+"nombre": "J. STOLL",
+"pj": 18,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 2442
+},
+{
+"pid": 1709203,
+"nombre": "E. HOLT",
+"pj": 10,
+"ppg": 15.2,
+"pts": 152,
+"equipo": "",
+"tid": 2442
+},
+{
+"pid": 1717089,
+"nombre": "A. GENTILE",
+"pj": 40,
+"ppg": 1.0,
+"pts": 41,
+"equipo": "",
+"tid": 2442
+},
+{
+"pid": 1924909,
+"nombre": "F. HASSELL",
+"pj": 42,
+"ppg": 15.4,
+"pts": 648,
+"equipo": "",
+"tid": 2442
+},
+{
+"pid": 2074488,
+"nombre": "M. BENITEZ",
+"pj": 26,
+"ppg": 2.0,
+"pts": 53,
+"equipo": "",
+"tid": 2442
+},
+{
+"pid": 2158090,
+"nombre": "M. FERNANDEZ",
+"pj": 8,
+"ppg": 0.4,
+"pts": 3,
+"equipo": "",
+"tid": 2442
+},
+{
+"pid": 2222567,
+"nombre": "V. ACUÑA",
+"pj": 4,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 2442
+},
+{
+"pid": 2337281,
+"nombre": "T. BARRAGAN",
+"pj": 27,
+"ppg": 1.6,
+"pts": 44,
+"equipo": "",
+"tid": 2442
+},
+{
+"pid": 17571,
+"nombre": "F. PEREIRAS",
+"pj": 42,
+"ppg": 6.3,
+"pts": 266,
+"equipo": "",
+"tid": 2442
+},
+{
+"pid": 2166536,
+"nombre": "I. LEGUIZAMON",
+"pj": 4,
+"ppg": 0.5,
+"pts": 2,
+"equipo": "",
+"tid": 2442
+},
+{
+"pid": 2391776,
+"nombre": "J. WILSON",
+"pj": 30,
+"ppg": 15.7,
+"pts": 471,
+"equipo": "",
+"tid": 2442
+},
+{
+"pid": 14724,
+"nombre": "S. VIDAL",
+"pj": 28,
+"ppg": 9.5,
+"pts": 265,
+"equipo": "AGUADA",
+"tid": 2442
+},
+{
+"pid": 15493,
+"nombre": "J. OSIMANI",
+"pj": 39,
+"ppg": 6.1,
+"pts": 237,
+"equipo": "AGUADA",
+"tid": 2442
+},
+{
+"pid": 17101,
+"nombre": "J. SANTISO",
+"pj": 40,
+"ppg": 9.2,
+"pts": 368,
+"equipo": "AGUADA",
+"tid": 2442
+},
+{
+"pid": 17554,
+"nombre": "A. ZUVICH",
+"pj": 38,
+"ppg": 8.0,
+"pts": 303,
+"equipo": "AGUADA",
+"tid": 2442
+},
+{
+"pid": 701864,
+"nombre": "D. SIMS",
+"pj": 42,
+"ppg": 22.0,
+"pts": 924,
+"equipo": "AGUADA",
+"tid": 2442
+},
+{
+"pid": 1645559,
+"nombre": "J. STOLL",
+"pj": 18,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "AGUADA",
+"tid": 2442
+},
+{
+"pid": 1709203,
+"nombre": "E. HOLT",
+"pj": 10,
+"ppg": 15.2,
+"pts": 152,
+"equipo": "AGUADA",
+"tid": 2442
+},
+{
+"pid": 1717089,
+"nombre": "A. GENTILE",
+"pj": 40,
+"ppg": 1.0,
+"pts": 41,
+"equipo": "AGUADA",
+"tid": 2442
+},
+{
+"pid": 1924909,
+"nombre": "F. HASSELL",
+"pj": 42,
+"ppg": 15.4,
+"pts": 648,
+"equipo": "AGUADA",
+"tid": 2442
+},
+{
+"pid": 2074488,
+"nombre": "M. BENITEZ",
+"pj": 26,
+"ppg": 2.0,
+"pts": 53,
+"equipo": "AGUADA",
+"tid": 2442
+},
+{
+"pid": 2158090,
+"nombre": "M. FERNANDEZ",
+"pj": 8,
+"ppg": 0.4,
+"pts": 3,
+"equipo": "AGUADA",
+"tid": 2442
+},
+{
+"pid": 2222567,
+"nombre": "V. ACUÑA",
+"pj": 4,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "AGUADA",
+"tid": 2442
+},
+{
+"pid": 2337281,
+"nombre": "T. BARRAGAN",
+"pj": 27,
+"ppg": 1.6,
+"pts": 44,
+"equipo": "AGUADA",
+"tid": 2442
+},
+{
+"pid": 17571,
+"nombre": "F. PEREIRAS",
+"pj": 42,
+"ppg": 6.3,
+"pts": 266,
+"equipo": "AGUADA",
+"tid": 2442
+},
+{
+"pid": 2166536,
+"nombre": "I. LEGUIZAMON",
+"pj": 4,
+"ppg": 0.5,
+"pts": 2,
+"equipo": "AGUADA",
+"tid": 2442
+},
+{
+"pid": 2391776,
+"nombre": "J. WILSON",
+"pj": 30,
+"ppg": 15.7,
+"pts": 471,
+"equipo": "AGUADA",
+"tid": 2442
+},
+{
+"pid": 16717,
+"nombre": "G. SEMIGLIA",
+"pj": 40,
+"ppg": 10.2,
+"pts": 406,
+"equipo": "",
+"tid": 2443
+},
+{
+"pid": 17628,
+"nombre": "E. OGLIVIE",
+"pj": 15,
+"ppg": 12.2,
+"pts": 183,
+"equipo": "",
+"tid": 2443
+},
+{
+"pid": 17669,
+"nombre": "G. ESPINDOLA",
+"pj": 39,
+"ppg": 8.2,
+"pts": 320,
+"equipo": "",
+"tid": 2443
+},
+{
+"pid": 17677,
+"nombre": "B. BARRERA",
+"pj": 40,
+"ppg": 7.6,
+"pts": 305,
+"equipo": "",
+"tid": 2443
+},
+{
+"pid": 43224,
+"nombre": "N. COLMENARES",
+"pj": 15,
+"ppg": 7.5,
+"pts": 113,
+"equipo": "",
+"tid": 2443
+},
+{
+"pid": 43252,
+"nombre": "M. SARNI",
+"pj": 41,
+"ppg": 4.8,
+"pts": 197,
+"equipo": "",
+"tid": 2443
+},
+{
+"pid": 191795,
+"nombre": "S. OTTONELLO",
+"pj": 41,
+"ppg": 7.1,
+"pts": 292,
+"equipo": "",
+"tid": 2443
+},
+{
+"pid": 1722930,
+"nombre": "P. PRIETO",
+"pj": 41,
+"ppg": 7.8,
+"pts": 320,
+"equipo": "",
+"tid": 2443
+},
+{
+"pid": 1894506,
+"nombre": "A. MENDEZ",
+"pj": 37,
+"ppg": 3.5,
+"pts": 128,
+"equipo": "",
+"tid": 2443
+},
+{
+"pid": 1937775,
+"nombre": "L. BENNETT",
+"pj": 4,
+"ppg": 0.8,
+"pts": 3,
+"equipo": "",
+"tid": 2443
+},
+{
+"pid": 1937783,
+"nombre": "G. MARTINEZ",
+"pj": 3,
+"ppg": 0.7,
+"pts": 2,
+"equipo": "",
+"tid": 2443
+},
+{
+"pid": 2150245,
+"nombre": "E. SUPERI",
+"pj": 21,
+"ppg": 1.7,
+"pts": 36,
+"equipo": "",
+"tid": 2443
+},
+{
+"pid": 2197574,
+"nombre": "M. SIMON",
+"pj": 5,
+"ppg": 10.4,
+"pts": 52,
+"equipo": "",
+"tid": 2443
+},
+{
+"pid": 2225720,
+"nombre": "F. PEREIRA",
+"pj": 2,
+"ppg": 4.5,
+"pts": 9,
+"equipo": "",
+"tid": 2443
+},
+{
+"pid": 2225721,
+"nombre": "L. IMAS",
+"pj": 12,
+"ppg": 2.6,
+"pts": 31,
+"equipo": "",
+"tid": 2443
+},
+{
+"pid": 2321121,
+"nombre": "J. FELDEINE",
+"pj": 35,
+"ppg": 17.3,
+"pts": 607,
+"equipo": "",
+"tid": 2443
+},
+{
+"pid": 2386709,
+"nombre": "C. ZINAICH",
+"pj": 10,
+"ppg": 21.6,
+"pts": 216,
+"equipo": "",
+"tid": 2443
+},
+{
+"pid": 1937766,
+"nombre": "L. FERNANDEZ",
+"pj": 3,
+"ppg": 1.3,
+"pts": 4,
+"equipo": "",
+"tid": 2443
+},
+{
+"pid": 2134177,
+"nombre": "M. SMITH",
+"pj": 5,
+"ppg": 20.2,
+"pts": 101,
+"equipo": "",
+"tid": 2443
+},
+{
+"pid": 2321119,
+"nombre": "M. SUAREZ",
+"pj": 17,
+"ppg": 13.9,
+"pts": 237,
+"equipo": "",
+"tid": 2443
+},
+{
+"pid": 2418601,
+"nombre": "J. PEREIRA",
+"pj": 15,
+"ppg": 12.5,
+"pts": 188,
+"equipo": "",
+"tid": 2443
+},
+{
+"pid": 16717,
+"nombre": "G. SEMIGLIA",
+"pj": 40,
+"ppg": 10.2,
+"pts": 406,
+"equipo": "NACIONAL",
+"tid": 2443
+},
+{
+"pid": 17628,
+"nombre": "E. OGLIVIE",
+"pj": 15,
+"ppg": 12.2,
+"pts": 183,
+"equipo": "NACIONAL",
+"tid": 2443
+},
+{
+"pid": 17669,
+"nombre": "G. ESPINDOLA",
+"pj": 39,
+"ppg": 8.2,
+"pts": 320,
+"equipo": "NACIONAL",
+"tid": 2443
+},
+{
+"pid": 17677,
+"nombre": "B. BARRERA",
+"pj": 40,
+"ppg": 7.6,
+"pts": 305,
+"equipo": "NACIONAL",
+"tid": 2443
+},
+{
+"pid": 43224,
+"nombre": "N. COLMENARES",
+"pj": 15,
+"ppg": 7.5,
+"pts": 113,
+"equipo": "NACIONAL",
+"tid": 2443
+},
+{
+"pid": 43252,
+"nombre": "M. SARNI",
+"pj": 41,
+"ppg": 4.8,
+"pts": 197,
+"equipo": "NACIONAL",
+"tid": 2443
+},
+{
+"pid": 191795,
+"nombre": "S. OTTONELLO",
+"pj": 41,
+"ppg": 7.1,
+"pts": 292,
+"equipo": "NACIONAL",
+"tid": 2443
+},
+{
+"pid": 1722930,
+"nombre": "P. PRIETO",
+"pj": 41,
+"ppg": 7.8,
+"pts": 320,
+"equipo": "NACIONAL",
+"tid": 2443
+},
+{
+"pid": 1894506,
+"nombre": "A. MENDEZ",
+"pj": 37,
+"ppg": 3.5,
+"pts": 128,
+"equipo": "NACIONAL",
+"tid": 2443
+},
+{
+"pid": 1937775,
+"nombre": "L. BENNETT",
+"pj": 4,
+"ppg": 0.8,
+"pts": 3,
+"equipo": "NACIONAL",
+"tid": 2443
+},
+{
+"pid": 1937783,
+"nombre": "G. MARTINEZ",
+"pj": 3,
+"ppg": 0.7,
+"pts": 2,
+"equipo": "NACIONAL",
+"tid": 2443
+},
+{
+"pid": 2150245,
+"nombre": "E. SUPERI",
+"pj": 21,
+"ppg": 1.7,
+"pts": 36,
+"equipo": "NACIONAL",
+"tid": 2443
+},
+{
+"pid": 2197574,
+"nombre": "M. SIMON",
+"pj": 5,
+"ppg": 10.4,
+"pts": 52,
+"equipo": "NACIONAL",
+"tid": 2443
+},
+{
+"pid": 2225720,
+"nombre": "F. PEREIRA",
+"pj": 2,
+"ppg": 4.5,
+"pts": 9,
+"equipo": "NACIONAL",
+"tid": 2443
+},
+{
+"pid": 2225721,
+"nombre": "L. IMAS",
+"pj": 12,
+"ppg": 2.6,
+"pts": 31,
+"equipo": "NACIONAL",
+"tid": 2443
+},
+{
+"pid": 2321121,
+"nombre": "J. FELDEINE",
+"pj": 35,
+"ppg": 17.3,
+"pts": 607,
+"equipo": "NACIONAL",
+"tid": 2443
+},
+{
+"pid": 2386709,
+"nombre": "C. ZINAICH",
+"pj": 10,
+"ppg": 21.6,
+"pts": 216,
+"equipo": "NACIONAL",
+"tid": 2443
+},
+{
+"pid": 1937766,
+"nombre": "L. FERNANDEZ",
+"pj": 3,
+"ppg": 1.3,
+"pts": 4,
+"equipo": "NACIONAL",
+"tid": 2443
+},
+{
+"pid": 2134177,
+"nombre": "M. SMITH",
+"pj": 5,
+"ppg": 20.2,
+"pts": 101,
+"equipo": "NACIONAL",
+"tid": 2443
+},
+{
+"pid": 2321119,
+"nombre": "M. SUAREZ",
+"pj": 17,
+"ppg": 13.9,
+"pts": 237,
+"equipo": "NACIONAL",
+"tid": 2443
+},
+{
+"pid": 2418601,
+"nombre": "J. PEREIRA",
+"pj": 15,
+"ppg": 12.5,
+"pts": 188,
+"equipo": "NACIONAL",
+"tid": 2443
+},
+{
+"pid": 16177,
+"nombre": "M. ROMERO",
+"pj": 31,
+"ppg": 5.5,
+"pts": 170,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 17148,
+"nombre": "M. SOUBERBIELLE",
+"pj": 33,
+"ppg": 7.8,
+"pts": 257,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 17488,
+"nombre": "K. WACHSMAN",
+"pj": 37,
+"ppg": 5.2,
+"pts": 192,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 1645560,
+"nombre": "N. MARTINEZ",
+"pj": 37,
+"ppg": 9.0,
+"pts": 332,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 1661037,
+"nombre": "M. ARREGUI",
+"pj": 7,
+"ppg": 7.4,
+"pts": 52,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 1796527,
+"nombre": "N. RODRIGUEZ",
+"pj": 14,
+"ppg": 3.6,
+"pts": 50,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 1937721,
+"nombre": "F. BRUN",
+"pj": 28,
+"ppg": 1.4,
+"pts": 38,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 2091545,
+"nombre": "N. TESTA",
+"pj": 12,
+"ppg": 1.4,
+"pts": 17,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 2134150,
+"nombre": "P. VILLAR",
+"pj": 3,
+"ppg": 1.0,
+"pts": 3,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 2156021,
+"nombre": "E. ESPINOSA",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 2321115,
+"nombre": "C. GUYTON",
+"pj": 37,
+"ppg": 15.4,
+"pts": 570,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 2394559,
+"nombre": "D. ZEKOVIC",
+"pj": 22,
+"ppg": 14.1,
+"pts": 309,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 2397427,
+"nombre": "A. PEREZ",
+"pj": 2,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 17271,
+"nombre": "M. ROSAS",
+"pj": 10,
+"ppg": 0.8,
+"pts": 8,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 617417,
+"nombre": "L. CAPALBO",
+"pj": 37,
+"ppg": 13.5,
+"pts": 499,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 1711645,
+"nombre": "A. HILLIARD",
+"pj": 37,
+"ppg": 14.3,
+"pts": 530,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 2169956,
+"nombre": "F. MURO",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 2446336,
+"nombre": "M. MIJOVIC",
+"pj": 2,
+"ppg": 6.0,
+"pts": 12,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 16177,
+"nombre": "M. ROMERO",
+"pj": 31,
+"ppg": 5.5,
+"pts": 170,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 17148,
+"nombre": "M. SOUBERBIELLE",
+"pj": 33,
+"ppg": 7.8,
+"pts": 257,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 17488,
+"nombre": "K. WACHSMAN",
+"pj": 37,
+"ppg": 5.2,
+"pts": 192,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 1645560,
+"nombre": "N. MARTINEZ",
+"pj": 37,
+"ppg": 9.0,
+"pts": 332,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 1661037,
+"nombre": "M. ARREGUI",
+"pj": 7,
+"ppg": 7.4,
+"pts": 52,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 1796527,
+"nombre": "N. RODRIGUEZ",
+"pj": 14,
+"ppg": 3.6,
+"pts": 50,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 1937721,
+"nombre": "F. BRUN",
+"pj": 28,
+"ppg": 1.4,
+"pts": 38,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 2091545,
+"nombre": "N. TESTA",
+"pj": 12,
+"ppg": 1.4,
+"pts": 17,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 2134150,
+"nombre": "P. VILLAR",
+"pj": 3,
+"ppg": 1.0,
+"pts": 3,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 2156021,
+"nombre": "E. ESPINOSA",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 2321115,
+"nombre": "C. GUYTON",
+"pj": 37,
+"ppg": 15.4,
+"pts": 570,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 2394559,
+"nombre": "D. ZEKOVIC",
+"pj": 22,
+"ppg": 14.1,
+"pts": 309,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 2397427,
+"nombre": "A. PEREZ",
+"pj": 2,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 17271,
+"nombre": "M. ROSAS",
+"pj": 10,
+"ppg": 0.8,
+"pts": 8,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 617417,
+"nombre": "L. CAPALBO",
+"pj": 37,
+"ppg": 13.5,
+"pts": 499,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 1711645,
+"nombre": "A. HILLIARD",
+"pj": 37,
+"ppg": 14.3,
+"pts": 530,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 2169956,
+"nombre": "F. MURO",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 2446336,
+"nombre": "M. MIJOVIC",
+"pj": 2,
+"ppg": 6.0,
+"pts": 12,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 825306,
+"nombre": "G. CURBELO",
+"pj": 26,
+"ppg": 6.2,
+"pts": 161,
+"equipo": "",
+"tid": 2453
+},
+{
+"pid": 968070,
+"nombre": "G. SOUZA",
+"pj": 25,
+"ppg": 6.9,
+"pts": 173,
+"equipo": "",
+"tid": 2453
+},
+{
+"pid": 1346396,
+"nombre": "S. FERNANDEZ",
+"pj": 26,
+"ppg": 12.6,
+"pts": 328,
+"equipo": "",
+"tid": 2453
+},
+{
+"pid": 1569431,
+"nombre": "N. BESSIO",
+"pj": 25,
+"ppg": 3.9,
+"pts": 98,
+"equipo": "",
+"tid": 2453
+},
+{
+"pid": 1661038,
+"nombre": "P. GOMEZ",
+"pj": 25,
+"ppg": 5.0,
+"pts": 126,
+"equipo": "",
+"tid": 2453
+},
+{
+"pid": 1765561,
+"nombre": "F. MORALES",
+"pj": 23,
+"ppg": 4.7,
+"pts": 107,
+"equipo": "",
+"tid": 2453
+},
+{
+"pid": 1977269,
+"nombre": "A. IRASTORZA",
+"pj": 5,
+"ppg": 0.8,
+"pts": 4,
+"equipo": "",
+"tid": 2453
+},
+{
+"pid": 2337288,
+"nombre": "M. BIRRIEL",
+"pj": 3,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 2453
+},
+{
+"pid": 2342689,
+"nombre": "F. CABOT",
+"pj": 1,
+"ppg": 3.0,
+"pts": 3,
+"equipo": "",
+"tid": 2453
+},
+{
+"pid": 16386,
+"nombre": "S. GARCIA",
+"pj": 1,
+"ppg": 2.0,
+"pts": 2,
+"equipo": "",
+"tid": 2453
+},
+{
+"pid": 348401,
+"nombre": "R. GLENN",
+"pj": 6,
+"ppg": 9.8,
+"pts": 59,
+"equipo": "",
+"tid": 2453
+},
+{
+"pid": 582892,
+"nombre": "L. LEE ROSS",
+"pj": 7,
+"ppg": 10.4,
+"pts": 73,
+"equipo": "",
+"tid": 2453
+},
+{
+"pid": 624251,
+"nombre": "E. WATSON",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 2453
+},
+{
+"pid": 1346399,
+"nombre": "M. TESSADRI",
+"pj": 26,
+"ppg": 4.2,
+"pts": 108,
+"equipo": "",
+"tid": 2453
+},
+{
+"pid": 1643989,
+"nombre": "S. TUCUNA",
+"pj": 24,
+"ppg": 3.5,
+"pts": 85,
+"equipo": "",
+"tid": 2453
+},
+{
+"pid": 1884359,
+"nombre": "C. WARE",
+"pj": 11,
+"ppg": 10.1,
+"pts": 111,
+"equipo": "",
+"tid": 2453
+},
+{
+"pid": 2248105,
+"nombre": "M. BOLIVAR",
+"pj": 20,
+"ppg": 14.1,
+"pts": 282,
+"equipo": "",
+"tid": 2453
+},
+{
+"pid": 2248106,
+"nombre": "M. DIAZ",
+"pj": 11,
+"ppg": 6.4,
+"pts": 70,
+"equipo": "",
+"tid": 2453
+},
+{
+"pid": 2289068,
+"nombre": "F. QUEIROS",
+"pj": 5,
+"ppg": 3.0,
+"pts": 15,
+"equipo": "",
+"tid": 2453
+},
+{
+"pid": 2342694,
+"nombre": "J. LUCCHINI",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 2453
+},
+{
+"pid": 2371590,
+"nombre": "T. DA SILVA",
+"pj": 4,
+"ppg": 5.8,
+"pts": 23,
+"equipo": "",
+"tid": 2453
+},
+{
+"pid": 2408625,
+"nombre": "J. JENKINS",
+"pj": 4,
+"ppg": 3.8,
+"pts": 15,
+"equipo": "",
+"tid": 2453
+},
+{
+"pid": 2411364,
+"nombre": "G. RICKS JR.",
+"pj": 6,
+"ppg": 18.3,
+"pts": 110,
+"equipo": "",
+"tid": 2453
+},
+{
+"pid": 825306,
+"nombre": "G. CURBELO",
+"pj": 26,
+"ppg": 6.2,
+"pts": 161,
+"equipo": "TROUVILLE",
+"tid": 2453
+},
+{
+"pid": 968070,
+"nombre": "G. SOUZA",
+"pj": 25,
+"ppg": 6.9,
+"pts": 173,
+"equipo": "TROUVILLE",
+"tid": 2453
+},
+{
+"pid": 1346396,
+"nombre": "S. FERNANDEZ",
+"pj": 26,
+"ppg": 12.6,
+"pts": 328,
+"equipo": "TROUVILLE",
+"tid": 2453
+},
+{
+"pid": 1569431,
+"nombre": "N. BESSIO",
+"pj": 25,
+"ppg": 3.9,
+"pts": 98,
+"equipo": "TROUVILLE",
+"tid": 2453
+},
+{
+"pid": 1661038,
+"nombre": "P. GOMEZ",
+"pj": 25,
+"ppg": 5.0,
+"pts": 126,
+"equipo": "TROUVILLE",
+"tid": 2453
+},
+{
+"pid": 1765561,
+"nombre": "F. MORALES",
+"pj": 23,
+"ppg": 4.7,
+"pts": 107,
+"equipo": "TROUVILLE",
+"tid": 2453
+},
+{
+"pid": 1977269,
+"nombre": "A. IRASTORZA",
+"pj": 5,
+"ppg": 0.8,
+"pts": 4,
+"equipo": "TROUVILLE",
+"tid": 2453
+},
+{
+"pid": 2337288,
+"nombre": "M. BIRRIEL",
+"pj": 3,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "TROUVILLE",
+"tid": 2453
+},
+{
+"pid": 2342689,
+"nombre": "F. CABOT",
+"pj": 1,
+"ppg": 3.0,
+"pts": 3,
+"equipo": "TROUVILLE",
+"tid": 2453
+},
+{
+"pid": 16386,
+"nombre": "S. GARCIA",
+"pj": 1,
+"ppg": 2.0,
+"pts": 2,
+"equipo": "TROUVILLE",
+"tid": 2453
+},
+{
+"pid": 348401,
+"nombre": "R. GLENN",
+"pj": 6,
+"ppg": 9.8,
+"pts": 59,
+"equipo": "TROUVILLE",
+"tid": 2453
+},
+{
+"pid": 582892,
+"nombre": "L. LEE ROSS",
+"pj": 7,
+"ppg": 10.4,
+"pts": 73,
+"equipo": "TROUVILLE",
+"tid": 2453
+},
+{
+"pid": 624251,
+"nombre": "E. WATSON",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "TROUVILLE",
+"tid": 2453
+},
+{
+"pid": 1346399,
+"nombre": "M. TESSADRI",
+"pj": 26,
+"ppg": 4.2,
+"pts": 108,
+"equipo": "TROUVILLE",
+"tid": 2453
+},
+{
+"pid": 1643989,
+"nombre": "S. TUCUNA",
+"pj": 24,
+"ppg": 3.5,
+"pts": 85,
+"equipo": "TROUVILLE",
+"tid": 2453
+},
+{
+"pid": 1884359,
+"nombre": "C. WARE",
+"pj": 11,
+"ppg": 10.1,
+"pts": 111,
+"equipo": "TROUVILLE",
+"tid": 2453
+},
+{
+"pid": 2248105,
+"nombre": "M. BOLIVAR",
+"pj": 20,
+"ppg": 14.1,
+"pts": 282,
+"equipo": "TROUVILLE",
+"tid": 2453
+},
+{
+"pid": 2248106,
+"nombre": "M. DIAZ",
+"pj": 11,
+"ppg": 6.4,
+"pts": 70,
+"equipo": "TROUVILLE",
+"tid": 2453
+},
+{
+"pid": 2289068,
+"nombre": "F. QUEIROS",
+"pj": 5,
+"ppg": 3.0,
+"pts": 15,
+"equipo": "TROUVILLE",
+"tid": 2453
+},
+{
+"pid": 2342694,
+"nombre": "J. LUCCHINI",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "TROUVILLE",
+"tid": 2453
+},
+{
+"pid": 2371590,
+"nombre": "T. DA SILVA",
+"pj": 4,
+"ppg": 5.8,
+"pts": 23,
+"equipo": "TROUVILLE",
+"tid": 2453
+},
+{
+"pid": 2408625,
+"nombre": "J. JENKINS",
+"pj": 4,
+"ppg": 3.8,
+"pts": 15,
+"equipo": "TROUVILLE",
+"tid": 2453
+},
+{
+"pid": 2411364,
+"nombre": "G. RICKS JR.",
+"pj": 6,
+"ppg": 18.3,
+"pts": 110,
+"equipo": "TROUVILLE",
+"tid": 2453
+},
+{
+"pid": 15217,
+"nombre": "F. HALLER",
+"pj": 25,
+"ppg": 13.2,
+"pts": 329,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 16600,
+"nombre": "M. DE GOUVEIA",
+"pj": 5,
+"ppg": 4.6,
+"pts": 23,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 16715,
+"nombre": "B. GARCIA",
+"pj": 23,
+"ppg": 8.8,
+"pts": 202,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 17643,
+"nombre": "A. DA COSTA",
+"pj": 16,
+"ppg": 11.6,
+"pts": 185,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 53096,
+"nombre": "S. WOHLWEND",
+"pj": 1,
+"ppg": 5.0,
+"pts": 5,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 62685,
+"nombre": "S. MASSA",
+"pj": 29,
+"ppg": 9.5,
+"pts": 276,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 258698,
+"nombre": "M. MAYORA",
+"pj": 25,
+"ppg": 10.3,
+"pts": 257,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 1342734,
+"nombre": "M. ASTRAMSKAS",
+"pj": 31,
+"ppg": 5.0,
+"pts": 154,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 1642412,
+"nombre": "S. HOGAN",
+"pj": 17,
+"ppg": 19.6,
+"pts": 333,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 1661035,
+"nombre": "M. SAAVEDRA",
+"pj": 27,
+"ppg": 3.2,
+"pts": 87,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 1675384,
+"nombre": "L. VIATRI",
+"pj": 31,
+"ppg": 2.4,
+"pts": 73,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 2212601,
+"nombre": "G. VOLCAN",
+"pj": 6,
+"ppg": 1.8,
+"pts": 11,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 2345182,
+"nombre": "A. HAZAN",
+"pj": 2,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 2345184,
+"nombre": "S. CHANES",
+"pj": 4,
+"ppg": 1.5,
+"pts": 6,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 2413907,
+"nombre": "E. BELL",
+"pj": 9,
+"ppg": 17.3,
+"pts": 156,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 272225,
+"nombre": "J. AYARZA",
+"pj": 3,
+"ppg": 14.3,
+"pts": 43,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 1434488,
+"nombre": "M. FAZIO FAGUNDEZ",
+"pj": 12,
+"ppg": 0.4,
+"pts": 5,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 1644558,
+"nombre": "J. ASZYN",
+"pj": 7,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 2157742,
+"nombre": "A. ZELSKY",
+"pj": 6,
+"ppg": 0.3,
+"pts": 2,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 2249141,
+"nombre": "K. OKANU",
+"pj": 24,
+"ppg": 14.9,
+"pts": 357,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 2321113,
+"nombre": "D. DRAPER",
+"pj": 10,
+"ppg": 18.2,
+"pts": 182,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 2345183,
+"nombre": "J. IGLESIAS DE ANGELIS",
+"pj": 2,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 2392010,
+"nombre": "A. VICENS",
+"pj": 7,
+"ppg": 6.9,
+"pts": 48,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 2433097,
+"nombre": "G. FARTO",
+"pj": 2,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 2433098,
+"nombre": "F. STEINER",
+"pj": 2,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 15217,
+"nombre": "F. HALLER",
+"pj": 25,
+"ppg": 13.2,
+"pts": 329,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 16600,
+"nombre": "M. DE GOUVEIA",
+"pj": 5,
+"ppg": 4.6,
+"pts": 23,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 16715,
+"nombre": "B. GARCIA",
+"pj": 23,
+"ppg": 8.8,
+"pts": 202,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 17643,
+"nombre": "A. DA COSTA",
+"pj": 16,
+"ppg": 11.6,
+"pts": 185,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 53096,
+"nombre": "S. WOHLWEND",
+"pj": 1,
+"ppg": 5.0,
+"pts": 5,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 62685,
+"nombre": "S. MASSA",
+"pj": 29,
+"ppg": 9.5,
+"pts": 276,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 258698,
+"nombre": "M. MAYORA",
+"pj": 25,
+"ppg": 10.3,
+"pts": 257,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 1342734,
+"nombre": "M. ASTRAMSKAS",
+"pj": 31,
+"ppg": 5.0,
+"pts": 154,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 1642412,
+"nombre": "S. HOGAN",
+"pj": 17,
+"ppg": 19.6,
+"pts": 333,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 1661035,
+"nombre": "M. SAAVEDRA",
+"pj": 27,
+"ppg": 3.2,
+"pts": 87,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 1675384,
+"nombre": "L. VIATRI",
+"pj": 31,
+"ppg": 2.4,
+"pts": 73,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 2212601,
+"nombre": "G. VOLCAN",
+"pj": 6,
+"ppg": 1.8,
+"pts": 11,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 2345182,
+"nombre": "A. HAZAN",
+"pj": 2,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 2345184,
+"nombre": "S. CHANES",
+"pj": 4,
+"ppg": 1.5,
+"pts": 6,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 2413907,
+"nombre": "E. BELL",
+"pj": 9,
+"ppg": 17.3,
+"pts": 156,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 272225,
+"nombre": "J. AYARZA",
+"pj": 3,
+"ppg": 14.3,
+"pts": 43,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 1434488,
+"nombre": "M. FAZIO FAGUNDEZ",
+"pj": 12,
+"ppg": 0.4,
+"pts": 5,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 1644558,
+"nombre": "J. ASZYN",
+"pj": 7,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 2157742,
+"nombre": "A. ZELSKY",
+"pj": 6,
+"ppg": 0.3,
+"pts": 2,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 2249141,
+"nombre": "K. OKANU",
+"pj": 24,
+"ppg": 14.9,
+"pts": 357,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 2321113,
+"nombre": "D. DRAPER",
+"pj": 10,
+"ppg": 18.2,
+"pts": 182,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 2345183,
+"nombre": "J. IGLESIAS DE ANGELIS",
+"pj": 2,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 2392010,
+"nombre": "A. VICENS",
+"pj": 7,
+"ppg": 6.9,
+"pts": 48,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 2433097,
+"nombre": "G. FARTO",
+"pj": 2,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 2433098,
+"nombre": "F. STEINER",
+"pj": 2,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 16511,
+"nombre": "S. MOGLIA",
+"pj": 26,
+"ppg": 14.5,
+"pts": 378,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 16739,
+"nombre": "G. BARRERA",
+"pj": 23,
+"ppg": 9.1,
+"pts": 210,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 16985,
+"nombre": "R. CARDOZO",
+"pj": 26,
+"ppg": 5.2,
+"pts": 136,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 909792,
+"nombre": "A. AREVALO",
+"pj": 27,
+"ppg": 9.8,
+"pts": 264,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 1137657,
+"nombre": "S. ALVAREZ",
+"pj": 28,
+"ppg": 6.9,
+"pts": 192,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 1719070,
+"nombre": "J. ORTIZ",
+"pj": 9,
+"ppg": 3.6,
+"pts": 32,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 2077420,
+"nombre": "F. SOSA",
+"pj": 2,
+"ppg": 1.0,
+"pts": 2,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 2096885,
+"nombre": "A. PEÑA",
+"pj": 1,
+"ppg": 34.0,
+"pts": 34,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 2334029,
+"nombre": "F. GIOVANETTI",
+"pj": 5,
+"ppg": 1.4,
+"pts": 7,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 2334033,
+"nombre": "M. PROTA",
+"pj": 5,
+"ppg": 1.2,
+"pts": 6,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 2334035,
+"nombre": "J. TERRA",
+"pj": 3,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 2377994,
+"nombre": "S. MARTINEZ",
+"pj": 2,
+"ppg": 1.0,
+"pts": 2,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 2386796,
+"nombre": "T. SEGUI",
+"pj": 5,
+"ppg": 0.6,
+"pts": 3,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 16720,
+"nombre": "D. ALVAREZ",
+"pj": 4,
+"ppg": 4.5,
+"pts": 18,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 702488,
+"nombre": "M. GELLER",
+"pj": 21,
+"ppg": 3.1,
+"pts": 65,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 858052,
+"nombre": "L. SILVA",
+"pj": 26,
+"ppg": 7.0,
+"pts": 183,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 1873834,
+"nombre": "G. VIERA",
+"pj": 22,
+"ppg": 2.5,
+"pts": 55,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 2334034,
+"nombre": "E. GRAMAJO",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 2343087,
+"nombre": "J. SYLVER",
+"pj": 2,
+"ppg": 11.5,
+"pts": 23,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 2355978,
+"nombre": "S. ACUÑA",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 2358830,
+"nombre": "S. DeSOUZA",
+"pj": 24,
+"ppg": 10.9,
+"pts": 262,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 2371592,
+"nombre": "B. BEAVERS",
+"pj": 21,
+"ppg": 17.8,
+"pts": 373,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 16511,
+"nombre": "S. MOGLIA",
+"pj": 26,
+"ppg": 14.5,
+"pts": 378,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 16739,
+"nombre": "G. BARRERA",
+"pj": 23,
+"ppg": 9.1,
+"pts": 210,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 16985,
+"nombre": "R. CARDOZO",
+"pj": 26,
+"ppg": 5.2,
+"pts": 136,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 909792,
+"nombre": "A. AREVALO",
+"pj": 27,
+"ppg": 9.8,
+"pts": 264,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 1137657,
+"nombre": "S. ALVAREZ",
+"pj": 28,
+"ppg": 6.9,
+"pts": 192,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 1719070,
+"nombre": "J. ORTIZ",
+"pj": 9,
+"ppg": 3.6,
+"pts": 32,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 2077420,
+"nombre": "F. SOSA",
+"pj": 2,
+"ppg": 1.0,
+"pts": 2,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 2096885,
+"nombre": "A. PEÑA",
+"pj": 1,
+"ppg": 34.0,
+"pts": 34,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 2334029,
+"nombre": "F. GIOVANETTI",
+"pj": 5,
+"ppg": 1.4,
+"pts": 7,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 2334033,
+"nombre": "M. PROTA",
+"pj": 5,
+"ppg": 1.2,
+"pts": 6,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 2334035,
+"nombre": "J. TERRA",
+"pj": 3,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 2377994,
+"nombre": "S. MARTINEZ",
+"pj": 2,
+"ppg": 1.0,
+"pts": 2,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 2386796,
+"nombre": "T. SEGUI",
+"pj": 5,
+"ppg": 0.6,
+"pts": 3,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 16720,
+"nombre": "D. ALVAREZ",
+"pj": 4,
+"ppg": 4.5,
+"pts": 18,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 702488,
+"nombre": "M. GELLER",
+"pj": 21,
+"ppg": 3.1,
+"pts": 65,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 858052,
+"nombre": "L. SILVA",
+"pj": 26,
+"ppg": 7.0,
+"pts": 183,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 1873834,
+"nombre": "G. VIERA",
+"pj": 22,
+"ppg": 2.5,
+"pts": 55,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 2334034,
+"nombre": "E. GRAMAJO",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 2343087,
+"nombre": "J. SYLVER",
+"pj": 2,
+"ppg": 11.5,
+"pts": 23,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 2355978,
+"nombre": "S. ACUÑA",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 2358830,
+"nombre": "S. DeSOUZA",
+"pj": 24,
+"ppg": 10.9,
+"pts": 262,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 2371592,
+"nombre": "B. BEAVERS",
+"pj": 21,
+"ppg": 17.8,
+"pts": 373,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 17044,
+"nombre": "F. VERRONE",
+"pj": 32,
+"ppg": 9.9,
+"pts": 317,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 17147,
+"nombre": "M. TRELLES",
+"pj": 5,
+"ppg": 7.6,
+"pts": 38,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 961332,
+"nombre": "E. BONET",
+"pj": 31,
+"ppg": 4.6,
+"pts": 143,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 1338848,
+"nombre": "M. GIANO",
+"pj": 25,
+"ppg": 7.9,
+"pts": 197,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 1642407,
+"nombre": "D. PENA GARCIA",
+"pj": 32,
+"ppg": 7.7,
+"pts": 246,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 1676246,
+"nombre": "N. LEMA",
+"pj": 20,
+"ppg": 6.0,
+"pts": 119,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 1807060,
+"nombre": "M. VIAZZO",
+"pj": 7,
+"ppg": 1.0,
+"pts": 7,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 2081918,
+"nombre": "L. ECHEVERRIA",
+"pj": 19,
+"ppg": 0.3,
+"pts": 6,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 2134158,
+"nombre": "M. SCHELL",
+"pj": 5,
+"ppg": 1.0,
+"pts": 5,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 2232160,
+"nombre": "S. GARCIA",
+"pj": 5,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 2255313,
+"nombre": "V. ANDRADE",
+"pj": 32,
+"ppg": 13.8,
+"pts": 442,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 2324181,
+"nombre": "D. HICKS",
+"pj": 30,
+"ppg": 18.9,
+"pts": 566,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 2411715,
+"nombre": "T. CHARBONNIER",
+"pj": 2,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 2785563,
+"nombre": "X. COUSTE",
+"pj": 30,
+"ppg": 8.7,
+"pts": 262,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 2351142,
+"nombre": "M. FALL",
+"pj": 8,
+"ppg": 6.3,
+"pts": 50,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 2392563,
+"nombre": "N. ELMORE",
+"pj": 8,
+"ppg": 3.8,
+"pts": 30,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 2410611,
+"nombre": "K. HUNTER",
+"pj": 12,
+"ppg": 17.0,
+"pts": 204,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 17044,
+"nombre": "F. VERRONE",
+"pj": 32,
+"ppg": 9.9,
+"pts": 317,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 17147,
+"nombre": "M. TRELLES",
+"pj": 5,
+"ppg": 7.6,
+"pts": 38,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 961332,
+"nombre": "E. BONET",
+"pj": 31,
+"ppg": 4.6,
+"pts": 143,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 1338848,
+"nombre": "M. GIANO",
+"pj": 25,
+"ppg": 7.9,
+"pts": 197,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 1642407,
+"nombre": "D. PENA GARCIA",
+"pj": 32,
+"ppg": 7.7,
+"pts": 246,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 1676246,
+"nombre": "N. LEMA",
+"pj": 20,
+"ppg": 6.0,
+"pts": 119,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 1807060,
+"nombre": "M. VIAZZO",
+"pj": 7,
+"ppg": 1.0,
+"pts": 7,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 2081918,
+"nombre": "L. ECHEVERRIA",
+"pj": 19,
+"ppg": 0.3,
+"pts": 6,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 2134158,
+"nombre": "M. SCHELL",
+"pj": 5,
+"ppg": 1.0,
+"pts": 5,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 2232160,
+"nombre": "S. GARCIA",
+"pj": 5,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 2255313,
+"nombre": "V. ANDRADE",
+"pj": 32,
+"ppg": 13.8,
+"pts": 442,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 2324181,
+"nombre": "D. HICKS",
+"pj": 30,
+"ppg": 18.9,
+"pts": 566,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 2411715,
+"nombre": "T. CHARBONNIER",
+"pj": 2,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 2785563,
+"nombre": "X. COUSTE",
+"pj": 30,
+"ppg": 8.7,
+"pts": 262,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 2351142,
+"nombre": "M. FALL",
+"pj": 8,
+"ppg": 6.3,
+"pts": 50,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 2392563,
+"nombre": "N. ELMORE",
+"pj": 8,
+"ppg": 3.8,
+"pts": 30,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 2410611,
+"nombre": "K. HUNTER",
+"pj": 12,
+"ppg": 17.0,
+"pts": 204,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 17046,
+"nombre": "M. ZUBIAURRE",
+"pj": 35,
+"ppg": 6.8,
+"pts": 238,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 191820,
+"nombre": "F. TERRA",
+"pj": 36,
+"ppg": 13.0,
+"pts": 467,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 539387,
+"nombre": "F. SOTO",
+"pj": 23,
+"ppg": 9.0,
+"pts": 206,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 725720,
+"nombre": "T. METZGER",
+"pj": 25,
+"ppg": 9.4,
+"pts": 235,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 999249,
+"nombre": "M. BIANCHI",
+"pj": 33,
+"ppg": 7.0,
+"pts": 232,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 1723827,
+"nombre": "M. MAC MULLEN",
+"pj": 26,
+"ppg": 2.7,
+"pts": 70,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 1940451,
+"nombre": "M. CUERVO",
+"pj": 2,
+"ppg": 1.5,
+"pts": 3,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 1940452,
+"nombre": "M. ANTUNEZ",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 1981004,
+"nombre": "D. WRIGHT",
+"pj": 27,
+"ppg": 17.6,
+"pts": 475,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 2117743,
+"nombre": "A. GRYTSAK",
+"pj": 24,
+"ppg": 6.9,
+"pts": 166,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 2243963,
+"nombre": "B. GOMEZ",
+"pj": 11,
+"ppg": 1.1,
+"pts": 12,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 2250412,
+"nombre": "M. SOTO",
+"pj": 5,
+"ppg": 2.0,
+"pts": 10,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 2383405,
+"nombre": "F. DE LEON",
+"pj": 8,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 17373,
+"nombre": "J. GALLETTO",
+"pj": 35,
+"ppg": 4.7,
+"pts": 163,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 1956763,
+"nombre": "R. VALENZANI",
+"pj": 3,
+"ppg": 2.0,
+"pts": 6,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 2117720,
+"nombre": "M. CURRY",
+"pj": 31,
+"ppg": 16.1,
+"pts": 499,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 2255314,
+"nombre": "B. ACUÑA",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 2321103,
+"nombre": "J. MONTGOMERY",
+"pj": 8,
+"ppg": 10.5,
+"pts": 84,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 2417026,
+"nombre": "A. GORDON",
+"pj": 11,
+"ppg": 5.6,
+"pts": 61,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 2435836,
+"nombre": "D. McCLANAHAN",
+"pj": 5,
+"ppg": 18.2,
+"pts": 91,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 17046,
+"nombre": "M. ZUBIAURRE",
+"pj": 35,
+"ppg": 6.8,
+"pts": 238,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 191820,
+"nombre": "F. TERRA",
+"pj": 36,
+"ppg": 13.0,
+"pts": 467,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 539387,
+"nombre": "F. SOTO",
+"pj": 23,
+"ppg": 9.0,
+"pts": 206,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 725720,
+"nombre": "T. METZGER",
+"pj": 25,
+"ppg": 9.4,
+"pts": 235,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 999249,
+"nombre": "M. BIANCHI",
+"pj": 33,
+"ppg": 7.0,
+"pts": 232,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 1723827,
+"nombre": "M. MAC MULLEN",
+"pj": 26,
+"ppg": 2.7,
+"pts": 70,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 1940451,
+"nombre": "M. CUERVO",
+"pj": 2,
+"ppg": 1.5,
+"pts": 3,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 1940452,
+"nombre": "M. ANTUNEZ",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 1981004,
+"nombre": "D. WRIGHT",
+"pj": 27,
+"ppg": 17.6,
+"pts": 475,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 2117743,
+"nombre": "A. GRYTSAK",
+"pj": 24,
+"ppg": 6.9,
+"pts": 166,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 2243963,
+"nombre": "B. GOMEZ",
+"pj": 11,
+"ppg": 1.1,
+"pts": 12,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 2250412,
+"nombre": "M. SOTO",
+"pj": 5,
+"ppg": 2.0,
+"pts": 10,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 2383405,
+"nombre": "F. DE LEON",
+"pj": 8,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 17373,
+"nombre": "J. GALLETTO",
+"pj": 35,
+"ppg": 4.7,
+"pts": 163,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 1956763,
+"nombre": "R. VALENZANI",
+"pj": 3,
+"ppg": 2.0,
+"pts": 6,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 2117720,
+"nombre": "M. CURRY",
+"pj": 31,
+"ppg": 16.1,
+"pts": 499,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 2255314,
+"nombre": "B. ACUÑA",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 2321103,
+"nombre": "J. MONTGOMERY",
+"pj": 8,
+"ppg": 10.5,
+"pts": 84,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 2417026,
+"nombre": "A. GORDON",
+"pj": 11,
+"ppg": 5.6,
+"pts": 61,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 2435836,
+"nombre": "D. McCLANAHAN",
+"pj": 5,
+"ppg": 18.2,
+"pts": 91,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 15257,
+"nombre": "F. MEDINA",
+"pj": 28,
+"ppg": 11.3,
+"pts": 317,
+"equipo": "",
+"tid": 84883
+},
+{
+"pid": 15784,
+"nombre": "A. AGARBADO",
+"pj": 27,
+"ppg": 5.2,
+"pts": 140,
+"equipo": "",
+"tid": 84883
+},
+{
+"pid": 17110,
+"nombre": "O. MEDINA",
+"pj": 27,
+"ppg": 12.1,
+"pts": 326,
+"equipo": "",
+"tid": 84883
+},
+{
+"pid": 17379,
+"nombre": "P. RUSCH",
+"pj": 28,
+"ppg": 5.0,
+"pts": 140,
+"equipo": "",
+"tid": 84883
+},
+{
+"pid": 983931,
+"nombre": "T. LEITES",
+"pj": 28,
+"ppg": 9.4,
+"pts": 264,
+"equipo": "",
+"tid": 84883
+},
+{
+"pid": 1314581,
+"nombre": "R. PREVIATTI",
+"pj": 27,
+"ppg": 4.2,
+"pts": 114,
+"equipo": "",
+"tid": 84883
+},
+{
+"pid": 1572486,
+"nombre": "N. LINARES",
+"pj": 4,
+"ppg": 0.8,
+"pts": 3,
+"equipo": "",
+"tid": 84883
+},
+{
+"pid": 1643387,
+"nombre": "N. AMICHETTI",
+"pj": 27,
+"ppg": 4.8,
+"pts": 130,
+"equipo": "",
+"tid": 84883
+},
+{
+"pid": 1644398,
+"nombre": "J. SACCO",
+"pj": 28,
+"ppg": 4.1,
+"pts": 115,
+"equipo": "",
+"tid": 84883
+},
+{
+"pid": 2162018,
+"nombre": "S. GUILLOT",
+"pj": 4,
+"ppg": 0.8,
+"pts": 3,
+"equipo": "",
+"tid": 84883
+},
+{
+"pid": 1572449,
+"nombre": "R. IRIARTE",
+"pj": 20,
+"ppg": 0.9,
+"pts": 18,
+"equipo": "",
+"tid": 84883
+},
+{
+"pid": 1703641,
+"nombre": "G. NATESAN",
+"pj": 11,
+"ppg": 13.0,
+"pts": 143,
+"equipo": "",
+"tid": 84883
+},
+{
+"pid": 1924925,
+"nombre": "R. GOODWIN",
+"pj": 8,
+"ppg": 14.4,
+"pts": 115,
+"equipo": "",
+"tid": 84883
+},
+{
+"pid": 2154068,
+"nombre": "J. PARODI",
+"pj": 2,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 84883
+},
+{
+"pid": 2182421,
+"nombre": "A. LINARES",
+"pj": 1,
+"ppg": 2.0,
+"pts": 2,
+"equipo": "",
+"tid": 84883
+},
+{
+"pid": 2321171,
+"nombre": "T. WROTEN",
+"pj": 6,
+"ppg": 6.7,
+"pts": 40,
+"equipo": "",
+"tid": 84883
+},
+{
+"pid": 2346681,
+"nombre": "A. PEACOCK",
+"pj": 27,
+"ppg": 15.6,
+"pts": 422,
+"equipo": "",
+"tid": 84883
+},
+{
+"pid": 2396456,
+"nombre": "M. LISSIDINI",
+"pj": 1,
+"ppg": 3.0,
+"pts": 3,
+"equipo": "",
+"tid": 84883
+},
+{
+"pid": 2409203,
+"nombre": "J. COAKLEY",
+"pj": 3,
+"ppg": 2.0,
+"pts": 6,
+"equipo": "",
+"tid": 84883
+},
+{
+"pid": 15257,
+"nombre": "F. MEDINA",
+"pj": 28,
+"ppg": 11.3,
+"pts": 317,
+"equipo": "URUPAN",
+"tid": 84883
+},
+{
+"pid": 15784,
+"nombre": "A. AGARBADO",
+"pj": 27,
+"ppg": 5.2,
+"pts": 140,
+"equipo": "URUPAN",
+"tid": 84883
+},
+{
+"pid": 17110,
+"nombre": "O. MEDINA",
+"pj": 27,
+"ppg": 12.1,
+"pts": 326,
+"equipo": "URUPAN",
+"tid": 84883
+},
+{
+"pid": 17379,
+"nombre": "P. RUSCH",
+"pj": 28,
+"ppg": 5.0,
+"pts": 140,
+"equipo": "URUPAN",
+"tid": 84883
+},
+{
+"pid": 983931,
+"nombre": "T. LEITES",
+"pj": 28,
+"ppg": 9.4,
+"pts": 264,
+"equipo": "URUPAN",
+"tid": 84883
+},
+{
+"pid": 1314581,
+"nombre": "R. PREVIATTI",
+"pj": 27,
+"ppg": 4.2,
+"pts": 114,
+"equipo": "URUPAN",
+"tid": 84883
+},
+{
+"pid": 1572486,
+"nombre": "N. LINARES",
+"pj": 4,
+"ppg": 0.8,
+"pts": 3,
+"equipo": "URUPAN",
+"tid": 84883
+},
+{
+"pid": 1643387,
+"nombre": "N. AMICHETTI",
+"pj": 27,
+"ppg": 4.8,
+"pts": 130,
+"equipo": "URUPAN",
+"tid": 84883
+},
+{
+"pid": 1644398,
+"nombre": "J. SACCO",
+"pj": 28,
+"ppg": 4.1,
+"pts": 115,
+"equipo": "URUPAN",
+"tid": 84883
+},
+{
+"pid": 2162018,
+"nombre": "S. GUILLOT",
+"pj": 4,
+"ppg": 0.8,
+"pts": 3,
+"equipo": "URUPAN",
+"tid": 84883
+},
+{
+"pid": 1572449,
+"nombre": "R. IRIARTE",
+"pj": 20,
+"ppg": 0.9,
+"pts": 18,
+"equipo": "URUPAN",
+"tid": 84883
+},
+{
+"pid": 1703641,
+"nombre": "G. NATESAN",
+"pj": 11,
+"ppg": 13.0,
+"pts": 143,
+"equipo": "URUPAN",
+"tid": 84883
+},
+{
+"pid": 1924925,
+"nombre": "R. GOODWIN",
+"pj": 8,
+"ppg": 14.4,
+"pts": 115,
+"equipo": "URUPAN",
+"tid": 84883
+},
+{
+"pid": 2154068,
+"nombre": "J. PARODI",
+"pj": 2,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "URUPAN",
+"tid": 84883
+},
+{
+"pid": 2182421,
+"nombre": "A. LINARES",
+"pj": 1,
+"ppg": 2.0,
+"pts": 2,
+"equipo": "URUPAN",
+"tid": 84883
+},
+{
+"pid": 2321171,
+"nombre": "T. WROTEN",
+"pj": 6,
+"ppg": 6.7,
+"pts": 40,
+"equipo": "URUPAN",
+"tid": 84883
+},
+{
+"pid": 2346681,
+"nombre": "A. PEACOCK",
+"pj": 27,
+"ppg": 15.6,
+"pts": 422,
+"equipo": "URUPAN",
+"tid": 84883
+},
+{
+"pid": 2396456,
+"nombre": "M. LISSIDINI",
+"pj": 1,
+"ppg": 3.0,
+"pts": 3,
+"equipo": "URUPAN",
+"tid": 84883
+},
+{
+"pid": 2409203,
+"nombre": "J. COAKLEY",
+"pj": 3,
+"ppg": 2.0,
+"pts": 6,
+"equipo": "URUPAN",
+"tid": 84883
+},
+{
+"pid": 15251,
+"nombre": "L. PARODI",
+"pj": 26,
+"ppg": 12.2,
+"pts": 318,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 15259,
+"nombre": "S. ZANOTTA",
+"pj": 28,
+"ppg": 6.1,
+"pts": 171,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 17691,
+"nombre": "E. SERRES",
+"pj": 32,
+"ppg": 10.1,
+"pts": 322,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 258681,
+"nombre": "M. ROJAS",
+"pj": 32,
+"ppg": 7.1,
+"pts": 227,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 727814,
+"nombre": "I. XAVIER",
+"pj": 29,
+"ppg": 8.0,
+"pts": 233,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 1509909,
+"nombre": "S. CALIMARES",
+"pj": 25,
+"ppg": 3.3,
+"pts": 82,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 1639448,
+"nombre": "V. RUDD",
+"pj": 15,
+"ppg": 12.4,
+"pts": 186,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 2134181,
+"nombre": "L. QUIÑONES",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 2411720,
+"nombre": "J. DELGADO",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 1314626,
+"nombre": "L. SANTOS",
+"pj": 32,
+"ppg": 14.4,
+"pts": 461,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 1871481,
+"nombre": "I. WENER",
+"pj": 14,
+"ppg": 0.6,
+"pts": 9,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 1938103,
+"nombre": "E. MEDINA",
+"pj": 9,
+"ppg": 0.4,
+"pts": 4,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 2134180,
+"nombre": "R. OSORES",
+"pj": 6,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 2158087,
+"nombre": "J. HERNANDEZ",
+"pj": 5,
+"ppg": 0.6,
+"pts": 3,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 2321153,
+"nombre": "B. ROBINSON",
+"pj": 17,
+"ppg": 14.5,
+"pts": 246,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 2321158,
+"nombre": "J. ERAZO",
+"pj": 5,
+"ppg": 6.2,
+"pts": 31,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 2374105,
+"nombre": "K. HORTON",
+"pj": 12,
+"ppg": 15.8,
+"pts": 190,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 2401497,
+"nombre": "S. ARMAND",
+"pj": 15,
+"ppg": 12.5,
+"pts": 187,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 15251,
+"nombre": "L. PARODI",
+"pj": 26,
+"ppg": 12.2,
+"pts": 318,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 15259,
+"nombre": "S. ZANOTTA",
+"pj": 28,
+"ppg": 6.1,
+"pts": 171,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 17691,
+"nombre": "E. SERRES",
+"pj": 32,
+"ppg": 10.1,
+"pts": 322,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 258681,
+"nombre": "M. ROJAS",
+"pj": 32,
+"ppg": 7.1,
+"pts": 227,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 727814,
+"nombre": "I. XAVIER",
+"pj": 29,
+"ppg": 8.0,
+"pts": 233,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 1509909,
+"nombre": "S. CALIMARES",
+"pj": 25,
+"ppg": 3.3,
+"pts": 82,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 1639448,
+"nombre": "V. RUDD",
+"pj": 15,
+"ppg": 12.4,
+"pts": 186,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 2134181,
+"nombre": "L. QUIÑONES",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 2411720,
+"nombre": "J. DELGADO",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 1314626,
+"nombre": "L. SANTOS",
+"pj": 32,
+"ppg": 14.4,
+"pts": 461,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 1871481,
+"nombre": "I. WENER",
+"pj": 14,
+"ppg": 0.6,
+"pts": 9,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 1938103,
+"nombre": "E. MEDINA",
+"pj": 9,
+"ppg": 0.4,
+"pts": 4,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 2134180,
+"nombre": "R. OSORES",
+"pj": 6,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 2158087,
+"nombre": "J. HERNANDEZ",
+"pj": 5,
+"ppg": 0.6,
+"pts": 3,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 2321153,
+"nombre": "B. ROBINSON",
+"pj": 17,
+"ppg": 14.5,
+"pts": 246,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 2321158,
+"nombre": "J. ERAZO",
+"pj": 5,
+"ppg": 6.2,
+"pts": 31,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 2374105,
+"nombre": "K. HORTON",
+"pj": 12,
+"ppg": 15.8,
+"pts": 190,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 2401497,
+"nombre": "S. ARMAND",
+"pj": 15,
+"ppg": 12.5,
+"pts": 187,
+"equipo": "PEÑAROL",
+"tid": 96706
+}
+],
+"25/26": [
+{
+"pid": 1457105,
+"nombre": "F. SATUT HORNOS",
+"pj": 3,
+"ppg": 0.3,
+"pts": 1,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 1569431,
+"nombre": "N. BESSIO",
+"pj": 22,
+"ppg": 1.6,
+"pts": 36,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 1644398,
+"nombre": "J. SACCO",
+"pj": 24,
+"ppg": 3.8,
+"pts": 90,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 1765563,
+"nombre": "A. MOLLER",
+"pj": 25,
+"ppg": 8.7,
+"pts": 217,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 1937748,
+"nombre": "M. RODRIGUEZ",
+"pj": 15,
+"ppg": 2.1,
+"pts": 31,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 2060269,
+"nombre": "R. RICKARDS",
+"pj": 8,
+"ppg": 13.1,
+"pts": 105,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 43252,
+"nombre": "M. SARNI",
+"pj": 30,
+"ppg": 8.6,
+"pts": 259,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 62685,
+"nombre": "S. MASSA",
+"pj": 30,
+"ppg": 10.1,
+"pts": 303,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 1643387,
+"nombre": "N. AMICHETTI",
+"pj": 15,
+"ppg": 4.6,
+"pts": 69,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 1709203,
+"nombre": "E. HOLT",
+"pj": 15,
+"ppg": 12.2,
+"pts": 183,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 1714808,
+"nombre": "B. CURADOSSI",
+"pj": 30,
+"ppg": 7.8,
+"pts": 233,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 1791017,
+"nombre": "M. JOUNES",
+"pj": 9,
+"ppg": 3.4,
+"pts": 31,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 2074488,
+"nombre": "M. BENITEZ",
+"pj": 28,
+"ppg": 7.4,
+"pts": 207,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 2325518,
+"nombre": "F. MOLEDA",
+"pj": 4,
+"ppg": 2.3,
+"pts": 9,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 2534742,
+"nombre": "T. DANIELS",
+"pj": 27,
+"ppg": 11.9,
+"pts": 320,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 2534746,
+"nombre": "E. DEMERS",
+"pj": 24,
+"ppg": 17.2,
+"pts": 413,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 2549331,
+"nombre": "R. SCHELLEMBERG",
+"pj": 1,
+"ppg": 2.0,
+"pts": 2,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 2620319,
+"nombre": "E. BUCKNER",
+"pj": 5,
+"ppg": 12.6,
+"pts": 63,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 2699789,
+"nombre": "H. THOMPSON",
+"pj": 3,
+"ppg": 9.3,
+"pts": 28,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 2729763,
+"nombre": "M. MADSEN",
+"pj": 3,
+"ppg": 9.3,
+"pts": 28,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 1457105,
+"nombre": "F. SATUT HORNOS",
+"pj": 3,
+"ppg": 0.3,
+"pts": 1,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 1569431,
+"nombre": "N. BESSIO",
+"pj": 22,
+"ppg": 1.6,
+"pts": 36,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 1644398,
+"nombre": "J. SACCO",
+"pj": 24,
+"ppg": 3.8,
+"pts": 90,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 1765563,
+"nombre": "A. MOLLER",
+"pj": 25,
+"ppg": 8.7,
+"pts": 217,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 1937748,
+"nombre": "M. RODRIGUEZ",
+"pj": 15,
+"ppg": 2.1,
+"pts": 31,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 2060269,
+"nombre": "R. RICKARDS",
+"pj": 8,
+"ppg": 13.1,
+"pts": 105,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 43252,
+"nombre": "M. SARNI",
+"pj": 30,
+"ppg": 8.6,
+"pts": 259,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 62685,
+"nombre": "S. MASSA",
+"pj": 30,
+"ppg": 10.1,
+"pts": 303,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 1643387,
+"nombre": "N. AMICHETTI",
+"pj": 15,
+"ppg": 4.6,
+"pts": 69,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 1709203,
+"nombre": "E. HOLT",
+"pj": 15,
+"ppg": 12.2,
+"pts": 183,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 1714808,
+"nombre": "B. CURADOSSI",
+"pj": 30,
+"ppg": 7.8,
+"pts": 233,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 1791017,
+"nombre": "M. JOUNES",
+"pj": 9,
+"ppg": 3.4,
+"pts": 31,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 2074488,
+"nombre": "M. BENITEZ",
+"pj": 28,
+"ppg": 7.4,
+"pts": 207,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 2325518,
+"nombre": "F. MOLEDA",
+"pj": 4,
+"ppg": 2.3,
+"pts": 9,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 2534742,
+"nombre": "T. DANIELS",
+"pj": 27,
+"ppg": 11.9,
+"pts": 320,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 2534746,
+"nombre": "E. DEMERS",
+"pj": 24,
+"ppg": 17.2,
+"pts": 413,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 2549331,
+"nombre": "R. SCHELLEMBERG",
+"pj": 1,
+"ppg": 2.0,
+"pts": 2,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 2620319,
+"nombre": "E. BUCKNER",
+"pj": 5,
+"ppg": 12.6,
+"pts": 63,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 2699789,
+"nombre": "H. THOMPSON",
+"pj": 3,
+"ppg": 9.3,
+"pts": 28,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 2729763,
+"nombre": "M. MADSEN",
+"pj": 3,
+"ppg": 9.3,
+"pts": 28,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 16857,
+"nombre": "G. IGLESIAS",
+"pj": 31,
+"ppg": 10.1,
+"pts": 314,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 191795,
+"nombre": "S. OTTONELLO",
+"pj": 31,
+"ppg": 9.9,
+"pts": 306,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 1942261,
+"nombre": "M. ESPINOSA",
+"pj": 30,
+"ppg": 7.1,
+"pts": 212,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 1989296,
+"nombre": "T. RODRIGUEZ",
+"pj": 31,
+"ppg": 7.2,
+"pts": 222,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 2214818,
+"nombre": "A. PAYOVICH",
+"pj": 16,
+"ppg": 2.4,
+"pts": 39,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 16616,
+"nombre": "N. CATALA",
+"pj": 31,
+"ppg": 4.5,
+"pts": 138,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 16715,
+"nombre": "B. GARCIA",
+"pj": 29,
+"ppg": 4.3,
+"pts": 126,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 1924909,
+"nombre": "F. HASSELL",
+"pj": 13,
+"ppg": 13.1,
+"pts": 170,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 2134156,
+"nombre": "J. LAMAS",
+"pj": 5,
+"ppg": 2.6,
+"pts": 13,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 2199918,
+"nombre": "J. DURAN",
+"pj": 7,
+"ppg": 0.7,
+"pts": 5,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 2324181,
+"nombre": "D. HICKS",
+"pj": 30,
+"ppg": 16.5,
+"pts": 494,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 2344218,
+"nombre": "J. DIAZ",
+"pj": 6,
+"ppg": 0.7,
+"pts": 4,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 2534718,
+"nombre": "J. MATOS",
+"pj": 31,
+"ppg": 16.8,
+"pts": 520,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 2544022,
+"nombre": "A. SOSA",
+"pj": 5,
+"ppg": 3.2,
+"pts": 16,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 2617486,
+"nombre": "W. REED",
+"pj": 9,
+"ppg": 11.3,
+"pts": 102,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 2695203,
+"nombre": "J. GONZALEZ",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 2713573,
+"nombre": "A. HERNDON",
+"pj": 9,
+"ppg": 7.2,
+"pts": 65,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 16857,
+"nombre": "G. IGLESIAS",
+"pj": 31,
+"ppg": 10.1,
+"pts": 314,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 191795,
+"nombre": "S. OTTONELLO",
+"pj": 31,
+"ppg": 9.9,
+"pts": 306,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 1942261,
+"nombre": "M. ESPINOSA",
+"pj": 30,
+"ppg": 7.1,
+"pts": 212,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 1989296,
+"nombre": "T. RODRIGUEZ",
+"pj": 31,
+"ppg": 7.2,
+"pts": 222,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 2214818,
+"nombre": "A. PAYOVICH",
+"pj": 16,
+"ppg": 2.4,
+"pts": 39,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 16616,
+"nombre": "N. CATALA",
+"pj": 31,
+"ppg": 4.5,
+"pts": 138,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 16715,
+"nombre": "B. GARCIA",
+"pj": 29,
+"ppg": 4.3,
+"pts": 126,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 1924909,
+"nombre": "F. HASSELL",
+"pj": 13,
+"ppg": 13.1,
+"pts": 170,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 2134156,
+"nombre": "J. LAMAS",
+"pj": 5,
+"ppg": 2.6,
+"pts": 13,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 2199918,
+"nombre": "J. DURAN",
+"pj": 7,
+"ppg": 0.7,
+"pts": 5,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 2324181,
+"nombre": "D. HICKS",
+"pj": 30,
+"ppg": 16.5,
+"pts": 494,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 2344218,
+"nombre": "J. DIAZ",
+"pj": 6,
+"ppg": 0.7,
+"pts": 4,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 2534718,
+"nombre": "J. MATOS",
+"pj": 31,
+"ppg": 16.8,
+"pts": 520,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 2544022,
+"nombre": "A. SOSA",
+"pj": 5,
+"ppg": 3.2,
+"pts": 16,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 2617486,
+"nombre": "W. REED",
+"pj": 9,
+"ppg": 11.3,
+"pts": 102,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 2695203,
+"nombre": "J. GONZALEZ",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 2713573,
+"nombre": "A. HERNDON",
+"pj": 9,
+"ppg": 7.2,
+"pts": 65,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 14724,
+"nombre": "S. VIDAL",
+"pj": 37,
+"ppg": 10.1,
+"pts": 373,
+"equipo": "",
+"tid": 2442
+},
+{
+"pid": 15493,
+"nombre": "J. OSIMANI",
+"pj": 32,
+"ppg": 4.5,
+"pts": 144,
+"equipo": "",
+"tid": 2442
+},
+{
+"pid": 17101,
+"nombre": "J. SANTISO",
+"pj": 44,
+"ppg": 8.9,
+"pts": 391,
+"equipo": "",
+"tid": 2442
+},
+{
+"pid": 17554,
+"nombre": "A. ZUVICH",
+"pj": 45,
+"ppg": 7.9,
+"pts": 357,
+"equipo": "",
+"tid": 2442
+},
+{
+"pid": 1314626,
+"nombre": "L. SANTOS",
+"pj": 35,
+"ppg": 13.2,
+"pts": 461,
+"equipo": "",
+"tid": 2442
+},
+{
+"pid": 1717089,
+"nombre": "A. GENTILE",
+"pj": 37,
+"ppg": 2.4,
+"pts": 87,
+"equipo": "",
+"tid": 2442
+},
+{
+"pid": 2534712,
+"nombre": "E. MOCKEVICIUS",
+"pj": 7,
+"ppg": 7.1,
+"pts": 50,
+"equipo": "",
+"tid": 2442
+},
+{
+"pid": 2534717,
+"nombre": "E. CLARK",
+"pj": 35,
+"ppg": 18.3,
+"pts": 642,
+"equipo": "",
+"tid": 2442
+},
+{
+"pid": 17571,
+"nombre": "F. PEREIRAS",
+"pj": 45,
+"ppg": 6.6,
+"pts": 295,
+"equipo": "",
+"tid": 2442
+},
+{
+"pid": 701864,
+"nombre": "D. SIMS",
+"pj": 31,
+"ppg": 18.9,
+"pts": 586,
+"equipo": "",
+"tid": 2442
+},
+{
+"pid": 921915,
+"nombre": "D. ROBINSON",
+"pj": 4,
+"ppg": 3.3,
+"pts": 13,
+"equipo": "",
+"tid": 2442
+},
+{
+"pid": 1430994,
+"nombre": "J. RODRIGUEZ",
+"pj": 45,
+"ppg": 8.7,
+"pts": 393,
+"equipo": "",
+"tid": 2442
+},
+{
+"pid": 2117833,
+"nombre": "J. WILLIAMS",
+"pj": 10,
+"ppg": 15.4,
+"pts": 154,
+"equipo": "",
+"tid": 2442
+},
+{
+"pid": 2158090,
+"nombre": "M. FERNANDEZ",
+"pj": 26,
+"ppg": 1.7,
+"pts": 45,
+"equipo": "",
+"tid": 2442
+},
+{
+"pid": 2197574,
+"nombre": "M. SIMON",
+"pj": 2,
+"ppg": 4.5,
+"pts": 9,
+"equipo": "",
+"tid": 2442
+},
+{
+"pid": 2222567,
+"nombre": "V. ACUÑA",
+"pj": 5,
+"ppg": 1.2,
+"pts": 6,
+"equipo": "",
+"tid": 2442
+},
+{
+"pid": 2337281,
+"nombre": "T. BARRAGAN",
+"pj": 8,
+"ppg": 2.0,
+"pts": 16,
+"equipo": "",
+"tid": 2442
+},
+{
+"pid": 2549110,
+"nombre": "B. TRAVERSA",
+"pj": 5,
+"ppg": 1.0,
+"pts": 5,
+"equipo": "",
+"tid": 2442
+},
+{
+"pid": 2549320,
+"nombre": "I. RAMIREZ",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 2442
+},
+{
+"pid": 14724,
+"nombre": "S. VIDAL",
+"pj": 37,
+"ppg": 10.1,
+"pts": 373,
+"equipo": "AGUADA",
+"tid": 2442
+},
+{
+"pid": 15493,
+"nombre": "J. OSIMANI",
+"pj": 32,
+"ppg": 4.5,
+"pts": 144,
+"equipo": "AGUADA",
+"tid": 2442
+},
+{
+"pid": 17101,
+"nombre": "J. SANTISO",
+"pj": 44,
+"ppg": 8.9,
+"pts": 391,
+"equipo": "AGUADA",
+"tid": 2442
+},
+{
+"pid": 17554,
+"nombre": "A. ZUVICH",
+"pj": 45,
+"ppg": 7.9,
+"pts": 357,
+"equipo": "AGUADA",
+"tid": 2442
+},
+{
+"pid": 1314626,
+"nombre": "L. SANTOS",
+"pj": 35,
+"ppg": 13.2,
+"pts": 461,
+"equipo": "AGUADA",
+"tid": 2442
+},
+{
+"pid": 1717089,
+"nombre": "A. GENTILE",
+"pj": 37,
+"ppg": 2.4,
+"pts": 87,
+"equipo": "AGUADA",
+"tid": 2442
+},
+{
+"pid": 2534712,
+"nombre": "E. MOCKEVICIUS",
+"pj": 7,
+"ppg": 7.1,
+"pts": 50,
+"equipo": "AGUADA",
+"tid": 2442
+},
+{
+"pid": 2534717,
+"nombre": "E. CLARK",
+"pj": 35,
+"ppg": 18.3,
+"pts": 642,
+"equipo": "AGUADA",
+"tid": 2442
+},
+{
+"pid": 17571,
+"nombre": "F. PEREIRAS",
+"pj": 45,
+"ppg": 6.6,
+"pts": 295,
+"equipo": "AGUADA",
+"tid": 2442
+},
+{
+"pid": 701864,
+"nombre": "D. SIMS",
+"pj": 31,
+"ppg": 18.9,
+"pts": 586,
+"equipo": "AGUADA",
+"tid": 2442
+},
+{
+"pid": 921915,
+"nombre": "D. ROBINSON",
+"pj": 4,
+"ppg": 3.3,
+"pts": 13,
+"equipo": "AGUADA",
+"tid": 2442
+},
+{
+"pid": 1430994,
+"nombre": "J. RODRIGUEZ",
+"pj": 45,
+"ppg": 8.7,
+"pts": 393,
+"equipo": "AGUADA",
+"tid": 2442
+},
+{
+"pid": 2117833,
+"nombre": "J. WILLIAMS",
+"pj": 10,
+"ppg": 15.4,
+"pts": 154,
+"equipo": "AGUADA",
+"tid": 2442
+},
+{
+"pid": 2158090,
+"nombre": "M. FERNANDEZ",
+"pj": 26,
+"ppg": 1.7,
+"pts": 45,
+"equipo": "AGUADA",
+"tid": 2442
+},
+{
+"pid": 2197574,
+"nombre": "M. SIMON",
+"pj": 2,
+"ppg": 4.5,
+"pts": 9,
+"equipo": "AGUADA",
+"tid": 2442
+},
+{
+"pid": 2222567,
+"nombre": "V. ACUÑA",
+"pj": 5,
+"ppg": 1.2,
+"pts": 6,
+"equipo": "AGUADA",
+"tid": 2442
+},
+{
+"pid": 2337281,
+"nombre": "T. BARRAGAN",
+"pj": 8,
+"ppg": 2.0,
+"pts": 16,
+"equipo": "AGUADA",
+"tid": 2442
+},
+{
+"pid": 2549110,
+"nombre": "B. TRAVERSA",
+"pj": 5,
+"ppg": 1.0,
+"pts": 5,
+"equipo": "AGUADA",
+"tid": 2442
+},
+{
+"pid": 2549320,
+"nombre": "I. RAMIREZ",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "AGUADA",
+"tid": 2442
+},
+{
+"pid": 15196,
+"nombre": "M. CABOT",
+"pj": 35,
+"ppg": 3.8,
+"pts": 133,
+"equipo": "",
+"tid": 2443
+},
+{
+"pid": 15251,
+"nombre": "L. PARODI",
+"pj": 37,
+"ppg": 9.5,
+"pts": 352,
+"equipo": "",
+"tid": 2443
+},
+{
+"pid": 17628,
+"nombre": "E. OGLIVIE",
+"pj": 28,
+"ppg": 12.4,
+"pts": 348,
+"equipo": "",
+"tid": 2443
+},
+{
+"pid": 17677,
+"nombre": "B. BARRERA",
+"pj": 39,
+"ppg": 7.7,
+"pts": 300,
+"equipo": "",
+"tid": 2443
+},
+{
+"pid": 1661038,
+"nombre": "P. GOMEZ",
+"pj": 34,
+"ppg": 5.3,
+"pts": 179,
+"equipo": "",
+"tid": 2443
+},
+{
+"pid": 1760620,
+"nombre": "J. GALEANO",
+"pj": 18,
+"ppg": 1.2,
+"pts": 22,
+"equipo": "",
+"tid": 2443
+},
+{
+"pid": 1937775,
+"nombre": "L. BENNETT",
+"pj": 5,
+"ppg": 0.4,
+"pts": 2,
+"equipo": "",
+"tid": 2443
+},
+{
+"pid": 2150245,
+"nombre": "E. SUPERI",
+"pj": 15,
+"ppg": 1.5,
+"pts": 22,
+"equipo": "",
+"tid": 2443
+},
+{
+"pid": 2225720,
+"nombre": "F. PEREIRA",
+"pj": 6,
+"ppg": 1.0,
+"pts": 6,
+"equipo": "",
+"tid": 2443
+},
+{
+"pid": 2321121,
+"nombre": "J. FELDEINE",
+"pj": 37,
+"ppg": 17.8,
+"pts": 657,
+"equipo": "",
+"tid": 2443
+},
+{
+"pid": 2386709,
+"nombre": "C. ZINAICH",
+"pj": 28,
+"ppg": 16.0,
+"pts": 449,
+"equipo": "",
+"tid": 2443
+},
+{
+"pid": 2413907,
+"nombre": "E. BELL",
+"pj": 14,
+"ppg": 10.1,
+"pts": 142,
+"equipo": "",
+"tid": 2443
+},
+{
+"pid": 17669,
+"nombre": "G. ESPINDOLA",
+"pj": 32,
+"ppg": 7.5,
+"pts": 240,
+"equipo": "",
+"tid": 2443
+},
+{
+"pid": 1722930,
+"nombre": "P. PRIETO",
+"pj": 39,
+"ppg": 9.9,
+"pts": 385,
+"equipo": "",
+"tid": 2443
+},
+{
+"pid": 1894506,
+"nombre": "A. MENDEZ",
+"pj": 38,
+"ppg": 6.4,
+"pts": 242,
+"equipo": "",
+"tid": 2443
+},
+{
+"pid": 2225721,
+"nombre": "L. IMAS",
+"pj": 7,
+"ppg": 1.7,
+"pts": 12,
+"equipo": "",
+"tid": 2443
+},
+{
+"pid": 2400122,
+"nombre": "E. THOMAS",
+"pj": 5,
+"ppg": 17.4,
+"pts": 87,
+"equipo": "",
+"tid": 2443
+},
+{
+"pid": 15196,
+"nombre": "M. CABOT",
+"pj": 35,
+"ppg": 3.8,
+"pts": 133,
+"equipo": "NACIONAL",
+"tid": 2443
+},
+{
+"pid": 15251,
+"nombre": "L. PARODI",
+"pj": 37,
+"ppg": 9.5,
+"pts": 352,
+"equipo": "NACIONAL",
+"tid": 2443
+},
+{
+"pid": 17628,
+"nombre": "E. OGLIVIE",
+"pj": 28,
+"ppg": 12.4,
+"pts": 348,
+"equipo": "NACIONAL",
+"tid": 2443
+},
+{
+"pid": 17677,
+"nombre": "B. BARRERA",
+"pj": 39,
+"ppg": 7.7,
+"pts": 300,
+"equipo": "NACIONAL",
+"tid": 2443
+},
+{
+"pid": 1661038,
+"nombre": "P. GOMEZ",
+"pj": 34,
+"ppg": 5.3,
+"pts": 179,
+"equipo": "NACIONAL",
+"tid": 2443
+},
+{
+"pid": 1760620,
+"nombre": "J. GALEANO",
+"pj": 18,
+"ppg": 1.2,
+"pts": 22,
+"equipo": "NACIONAL",
+"tid": 2443
+},
+{
+"pid": 1937775,
+"nombre": "L. BENNETT",
+"pj": 5,
+"ppg": 0.4,
+"pts": 2,
+"equipo": "NACIONAL",
+"tid": 2443
+},
+{
+"pid": 2150245,
+"nombre": "E. SUPERI",
+"pj": 15,
+"ppg": 1.5,
+"pts": 22,
+"equipo": "NACIONAL",
+"tid": 2443
+},
+{
+"pid": 2225720,
+"nombre": "F. PEREIRA",
+"pj": 6,
+"ppg": 1.0,
+"pts": 6,
+"equipo": "NACIONAL",
+"tid": 2443
+},
+{
+"pid": 2321121,
+"nombre": "J. FELDEINE",
+"pj": 37,
+"ppg": 17.8,
+"pts": 657,
+"equipo": "NACIONAL",
+"tid": 2443
+},
+{
+"pid": 2386709,
+"nombre": "C. ZINAICH",
+"pj": 28,
+"ppg": 16.0,
+"pts": 449,
+"equipo": "NACIONAL",
+"tid": 2443
+},
+{
+"pid": 2413907,
+"nombre": "E. BELL",
+"pj": 14,
+"ppg": 10.1,
+"pts": 142,
+"equipo": "NACIONAL",
+"tid": 2443
+},
+{
+"pid": 17669,
+"nombre": "G. ESPINDOLA",
+"pj": 32,
+"ppg": 7.5,
+"pts": 240,
+"equipo": "NACIONAL",
+"tid": 2443
+},
+{
+"pid": 1722930,
+"nombre": "P. PRIETO",
+"pj": 39,
+"ppg": 9.9,
+"pts": 385,
+"equipo": "NACIONAL",
+"tid": 2443
+},
+{
+"pid": 1894506,
+"nombre": "A. MENDEZ",
+"pj": 38,
+"ppg": 6.4,
+"pts": 242,
+"equipo": "NACIONAL",
+"tid": 2443
+},
+{
+"pid": 2225721,
+"nombre": "L. IMAS",
+"pj": 7,
+"ppg": 1.7,
+"pts": 12,
+"equipo": "NACIONAL",
+"tid": 2443
+},
+{
+"pid": 2400122,
+"nombre": "E. THOMAS",
+"pj": 5,
+"ppg": 17.4,
+"pts": 87,
+"equipo": "NACIONAL",
+"tid": 2443
+},
+{
+"pid": 16508,
+"nombre": "A. ACOSTA",
+"pj": 22,
+"ppg": 7.3,
+"pts": 161,
+"equipo": "",
+"tid": 2445
+},
+{
+"pid": 1567203,
+"nombre": "M. OYENARD",
+"pj": 26,
+"ppg": 8.9,
+"pts": 230,
+"equipo": "",
+"tid": 2445
+},
+{
+"pid": 2334035,
+"nombre": "J. TERRA",
+"pj": 2,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 2445
+},
+{
+"pid": 2619167,
+"nombre": "T. CRACKNELL",
+"pj": 14,
+"ppg": 16.2,
+"pts": 227,
+"equipo": "",
+"tid": 2445
+},
+{
+"pid": 2686619,
+"nombre": "R. ROBAINA",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 2445
+},
+{
+"pid": 2785563,
+"nombre": "X. COUSTE",
+"pj": 21,
+"ppg": 9.6,
+"pts": 201,
+"equipo": "",
+"tid": 2445
+},
+{
+"pid": 17044,
+"nombre": "F. VERRONE",
+"pj": 24,
+"ppg": 6.2,
+"pts": 149,
+"equipo": "",
+"tid": 2445
+},
+{
+"pid": 348404,
+"nombre": "D. NESBITT",
+"pj": 7,
+"ppg": 14.4,
+"pts": 101,
+"equipo": "",
+"tid": 2445
+},
+{
+"pid": 825306,
+"nombre": "G. CURBELO",
+"pj": 4,
+"ppg": 0.5,
+"pts": 2,
+"equipo": "",
+"tid": 2445
+},
+{
+"pid": 961332,
+"nombre": "E. BONET",
+"pj": 27,
+"ppg": 9.8,
+"pts": 265,
+"equipo": "",
+"tid": 2445
+},
+{
+"pid": 1871466,
+"nombre": "A. PRUITT",
+"pj": 17,
+"ppg": 15.1,
+"pts": 256,
+"equipo": "",
+"tid": 2445
+},
+{
+"pid": 1977269,
+"nombre": "A. IRASTORZA",
+"pj": 24,
+"ppg": 2.3,
+"pts": 54,
+"equipo": "",
+"tid": 2445
+},
+{
+"pid": 1987397,
+"nombre": "J. JOSIAH",
+"pj": 8,
+"ppg": 15.0,
+"pts": 120,
+"equipo": "",
+"tid": 2445
+},
+{
+"pid": 2154756,
+"nombre": "I. DOS SANTOS",
+"pj": 21,
+"ppg": 3.5,
+"pts": 73,
+"equipo": "",
+"tid": 2445
+},
+{
+"pid": 2228946,
+"nombre": "F. CABALLERO",
+"pj": 5,
+"ppg": 0.4,
+"pts": 2,
+"equipo": "",
+"tid": 2445
+},
+{
+"pid": 2261706,
+"nombre": "S. CONCEICAO",
+"pj": 10,
+"ppg": 8.2,
+"pts": 82,
+"equipo": "",
+"tid": 2445
+},
+{
+"pid": 2288279,
+"nombre": "J. STRINGS",
+"pj": 17,
+"ppg": 15.7,
+"pts": 266,
+"equipo": "",
+"tid": 2445
+},
+{
+"pid": 2432773,
+"nombre": "J. HARTWELL",
+"pj": 4,
+"ppg": 13.3,
+"pts": 53,
+"equipo": "",
+"tid": 2445
+},
+{
+"pid": 2534732,
+"nombre": "A. RAND",
+"pj": 3,
+"ppg": 5.7,
+"pts": 17,
+"equipo": "",
+"tid": 2445
+},
+{
+"pid": 2549326,
+"nombre": "F. GASTALDI",
+"pj": 2,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 2445
+},
+{
+"pid": 2549327,
+"nombre": "F. RIVOIR",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 2445
+},
+{
+"pid": 16508,
+"nombre": "A. ACOSTA",
+"pj": 22,
+"ppg": 7.3,
+"pts": 161,
+"equipo": "GOES",
+"tid": 2445
+},
+{
+"pid": 1567203,
+"nombre": "M. OYENARD",
+"pj": 26,
+"ppg": 8.9,
+"pts": 230,
+"equipo": "GOES",
+"tid": 2445
+},
+{
+"pid": 2334035,
+"nombre": "J. TERRA",
+"pj": 2,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "GOES",
+"tid": 2445
+},
+{
+"pid": 2619167,
+"nombre": "T. CRACKNELL",
+"pj": 14,
+"ppg": 16.2,
+"pts": 227,
+"equipo": "GOES",
+"tid": 2445
+},
+{
+"pid": 2686619,
+"nombre": "R. ROBAINA",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "GOES",
+"tid": 2445
+},
+{
+"pid": 2785563,
+"nombre": "X. COUSTE",
+"pj": 21,
+"ppg": 9.6,
+"pts": 201,
+"equipo": "GOES",
+"tid": 2445
+},
+{
+"pid": 17044,
+"nombre": "F. VERRONE",
+"pj": 24,
+"ppg": 6.2,
+"pts": 149,
+"equipo": "GOES",
+"tid": 2445
+},
+{
+"pid": 348404,
+"nombre": "D. NESBITT",
+"pj": 7,
+"ppg": 14.4,
+"pts": 101,
+"equipo": "GOES",
+"tid": 2445
+},
+{
+"pid": 825306,
+"nombre": "G. CURBELO",
+"pj": 4,
+"ppg": 0.5,
+"pts": 2,
+"equipo": "GOES",
+"tid": 2445
+},
+{
+"pid": 961332,
+"nombre": "E. BONET",
+"pj": 27,
+"ppg": 9.8,
+"pts": 265,
+"equipo": "GOES",
+"tid": 2445
+},
+{
+"pid": 1871466,
+"nombre": "A. PRUITT",
+"pj": 17,
+"ppg": 15.1,
+"pts": 256,
+"equipo": "GOES",
+"tid": 2445
+},
+{
+"pid": 1977269,
+"nombre": "A. IRASTORZA",
+"pj": 24,
+"ppg": 2.3,
+"pts": 54,
+"equipo": "GOES",
+"tid": 2445
+},
+{
+"pid": 1987397,
+"nombre": "J. JOSIAH",
+"pj": 8,
+"ppg": 15.0,
+"pts": 120,
+"equipo": "GOES",
+"tid": 2445
+},
+{
+"pid": 2154756,
+"nombre": "I. DOS SANTOS",
+"pj": 21,
+"ppg": 3.5,
+"pts": 73,
+"equipo": "GOES",
+"tid": 2445
+},
+{
+"pid": 2228946,
+"nombre": "F. CABALLERO",
+"pj": 5,
+"ppg": 0.4,
+"pts": 2,
+"equipo": "GOES",
+"tid": 2445
+},
+{
+"pid": 2261706,
+"nombre": "S. CONCEICAO",
+"pj": 10,
+"ppg": 8.2,
+"pts": 82,
+"equipo": "GOES",
+"tid": 2445
+},
+{
+"pid": 2288279,
+"nombre": "J. STRINGS",
+"pj": 17,
+"ppg": 15.7,
+"pts": 266,
+"equipo": "GOES",
+"tid": 2445
+},
+{
+"pid": 2432773,
+"nombre": "J. HARTWELL",
+"pj": 4,
+"ppg": 13.3,
+"pts": 53,
+"equipo": "GOES",
+"tid": 2445
+},
+{
+"pid": 2534732,
+"nombre": "A. RAND",
+"pj": 3,
+"ppg": 5.7,
+"pts": 17,
+"equipo": "GOES",
+"tid": 2445
+},
+{
+"pid": 2549326,
+"nombre": "F. GASTALDI",
+"pj": 2,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "GOES",
+"tid": 2445
+},
+{
+"pid": 2549327,
+"nombre": "F. RIVOIR",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "GOES",
+"tid": 2445
+},
+{
+"pid": 17110,
+"nombre": "O. MEDINA",
+"pj": 36,
+"ppg": 4.2,
+"pts": 152,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 17148,
+"nombre": "M. SOUBERBIELLE",
+"pj": 7,
+"ppg": 0.3,
+"pts": 2,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 17488,
+"nombre": "K. WACHSMAN",
+"pj": 36,
+"ppg": 4.1,
+"pts": 146,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 1796527,
+"nombre": "N. RODRIGUEZ",
+"pj": 24,
+"ppg": 3.0,
+"pts": 73,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 1937721,
+"nombre": "F. BRUN",
+"pj": 12,
+"ppg": 1.0,
+"pts": 12,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 2321115,
+"nombre": "C. GUYTON",
+"pj": 16,
+"ppg": 13.2,
+"pts": 211,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 16177,
+"nombre": "M. ROMERO",
+"pj": 35,
+"ppg": 6.8,
+"pts": 237,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 1346396,
+"nombre": "S. FERNANDEZ",
+"pj": 36,
+"ppg": 8.0,
+"pts": 287,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 1645560,
+"nombre": "N. MARTINEZ",
+"pj": 36,
+"ppg": 11.3,
+"pts": 405,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 1983439,
+"nombre": "C. G ABRACINSKAS",
+"pj": 5,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 2091545,
+"nombre": "N. TESTA",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 2156021,
+"nombre": "E. ESPINOSA",
+"pj": 9,
+"ppg": 1.2,
+"pts": 11,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 2394559,
+"nombre": "D. ZEKOVIC",
+"pj": 36,
+"ppg": 12.4,
+"pts": 446,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 2397427,
+"nombre": "A. PEREZ",
+"pj": 2,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 2399946,
+"nombre": "J. WEBSTER",
+"pj": 22,
+"ppg": 16.0,
+"pts": 351,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 2534733,
+"nombre": "R. ABELL",
+"pj": 14,
+"ppg": 18.0,
+"pts": 252,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 2534734,
+"nombre": "J. CRUZ",
+"pj": 14,
+"ppg": 17.1,
+"pts": 240,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 2619160,
+"nombre": "D. DAVIS",
+"pj": 6,
+"ppg": 8.8,
+"pts": 53,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 17110,
+"nombre": "O. MEDINA",
+"pj": 36,
+"ppg": 4.2,
+"pts": 152,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 17148,
+"nombre": "M. SOUBERBIELLE",
+"pj": 7,
+"ppg": 0.3,
+"pts": 2,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 17488,
+"nombre": "K. WACHSMAN",
+"pj": 36,
+"ppg": 4.1,
+"pts": 146,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 1796527,
+"nombre": "N. RODRIGUEZ",
+"pj": 24,
+"ppg": 3.0,
+"pts": 73,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 1937721,
+"nombre": "F. BRUN",
+"pj": 12,
+"ppg": 1.0,
+"pts": 12,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 2321115,
+"nombre": "C. GUYTON",
+"pj": 16,
+"ppg": 13.2,
+"pts": 211,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 16177,
+"nombre": "M. ROMERO",
+"pj": 35,
+"ppg": 6.8,
+"pts": 237,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 1346396,
+"nombre": "S. FERNANDEZ",
+"pj": 36,
+"ppg": 8.0,
+"pts": 287,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 1645560,
+"nombre": "N. MARTINEZ",
+"pj": 36,
+"ppg": 11.3,
+"pts": 405,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 1983439,
+"nombre": "C. G ABRACINSKAS",
+"pj": 5,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 2091545,
+"nombre": "N. TESTA",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 2156021,
+"nombre": "E. ESPINOSA",
+"pj": 9,
+"ppg": 1.2,
+"pts": 11,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 2394559,
+"nombre": "D. ZEKOVIC",
+"pj": 36,
+"ppg": 12.4,
+"pts": 446,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 2397427,
+"nombre": "A. PEREZ",
+"pj": 2,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 2399946,
+"nombre": "J. WEBSTER",
+"pj": 22,
+"ppg": 16.0,
+"pts": 351,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 2534733,
+"nombre": "R. ABELL",
+"pj": 14,
+"ppg": 18.0,
+"pts": 252,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 2534734,
+"nombre": "J. CRUZ",
+"pj": 14,
+"ppg": 17.1,
+"pts": 240,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 2619160,
+"nombre": "D. DAVIS",
+"pj": 6,
+"ppg": 8.8,
+"pts": 53,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 15259,
+"nombre": "S. ZANOTTA",
+"pj": 34,
+"ppg": 6.3,
+"pts": 215,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 727814,
+"nombre": "I. XAVIER",
+"pj": 34,
+"ppg": 9.3,
+"pts": 317,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 1765561,
+"nombre": "F. MORALES",
+"pj": 31,
+"ppg": 2.7,
+"pts": 82,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 2212601,
+"nombre": "G. VOLCAN",
+"pj": 2,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 2345184,
+"nombre": "S. CHANES",
+"pj": 2,
+"ppg": 3.0,
+"pts": 6,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 2698439,
+"nombre": "M. HENRY",
+"pj": 9,
+"ppg": 15.3,
+"pts": 138,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 15217,
+"nombre": "F. HALLER",
+"pj": 34,
+"ppg": 10.1,
+"pts": 344,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 16717,
+"nombre": "G. SEMIGLIA",
+"pj": 29,
+"ppg": 9.3,
+"pts": 269,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 258698,
+"nombre": "M. MAYORA",
+"pj": 34,
+"ppg": 6.2,
+"pts": 209,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 425204,
+"nombre": "A. LOUIS",
+"pj": 28,
+"ppg": 13.7,
+"pts": 384,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 1607697,
+"nombre": "C. MITCHELL",
+"pj": 6,
+"ppg": 14.7,
+"pts": 88,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 1675384,
+"nombre": "L. VIATRI",
+"pj": 23,
+"ppg": 2.0,
+"pts": 45,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 1945674,
+"nombre": "T. BENTANCOUR",
+"pj": 4,
+"ppg": 1.3,
+"pts": 5,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 2345182,
+"nombre": "A. HAZAN",
+"pj": 6,
+"ppg": 0.7,
+"pts": 4,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 2486578,
+"nombre": "A. NATION",
+"pj": 18,
+"ppg": 12.3,
+"pts": 221,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 2486580,
+"nombre": "J. CANTY",
+"pj": 32,
+"ppg": 13.2,
+"pts": 421,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 2724685,
+"nombre": "B. WEATHERSPOON",
+"pj": 7,
+"ppg": 15.3,
+"pts": 107,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 15259,
+"nombre": "S. ZANOTTA",
+"pj": 34,
+"ppg": 6.3,
+"pts": 215,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 727814,
+"nombre": "I. XAVIER",
+"pj": 34,
+"ppg": 9.3,
+"pts": 317,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 1765561,
+"nombre": "F. MORALES",
+"pj": 31,
+"ppg": 2.7,
+"pts": 82,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 2212601,
+"nombre": "G. VOLCAN",
+"pj": 2,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 2345184,
+"nombre": "S. CHANES",
+"pj": 2,
+"ppg": 3.0,
+"pts": 6,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 2698439,
+"nombre": "M. HENRY",
+"pj": 9,
+"ppg": 15.3,
+"pts": 138,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 15217,
+"nombre": "F. HALLER",
+"pj": 34,
+"ppg": 10.1,
+"pts": 344,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 16717,
+"nombre": "G. SEMIGLIA",
+"pj": 29,
+"ppg": 9.3,
+"pts": 269,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 258698,
+"nombre": "M. MAYORA",
+"pj": 34,
+"ppg": 6.2,
+"pts": 209,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 425204,
+"nombre": "A. LOUIS",
+"pj": 28,
+"ppg": 13.7,
+"pts": 384,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 1607697,
+"nombre": "C. MITCHELL",
+"pj": 6,
+"ppg": 14.7,
+"pts": 88,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 1675384,
+"nombre": "L. VIATRI",
+"pj": 23,
+"ppg": 2.0,
+"pts": 45,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 1945674,
+"nombre": "T. BENTANCOUR",
+"pj": 4,
+"ppg": 1.3,
+"pts": 5,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 2345182,
+"nombre": "A. HAZAN",
+"pj": 6,
+"ppg": 0.7,
+"pts": 4,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 2486578,
+"nombre": "A. NATION",
+"pj": 18,
+"ppg": 12.3,
+"pts": 221,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 2486580,
+"nombre": "J. CANTY",
+"pj": 32,
+"ppg": 13.2,
+"pts": 421,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 2724685,
+"nombre": "B. WEATHERSPOON",
+"pj": 7,
+"ppg": 15.3,
+"pts": 107,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 16511,
+"nombre": "S. MOGLIA",
+"pj": 21,
+"ppg": 9.9,
+"pts": 207,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 16739,
+"nombre": "G. BARRERA",
+"pj": 26,
+"ppg": 4.5,
+"pts": 116,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 16985,
+"nombre": "R. CARDOZO",
+"pj": 3,
+"ppg": 4.0,
+"pts": 12,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 1314581,
+"nombre": "R. PREVIATTI",
+"pj": 27,
+"ppg": 4.9,
+"pts": 132,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 1642407,
+"nombre": "D. PENA GARCIA",
+"pj": 26,
+"ppg": 4.2,
+"pts": 110,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 1719070,
+"nombre": "J. ORTIZ",
+"pj": 16,
+"ppg": 8.4,
+"pts": 135,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 312957,
+"nombre": "R. HASSAN",
+"pj": 19,
+"ppg": 19.6,
+"pts": 373,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 771526,
+"nombre": "R. JACKSON",
+"pj": 3,
+"ppg": 9.0,
+"pts": 27,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 909792,
+"nombre": "A. AREVALO",
+"pj": 14,
+"ppg": 8.4,
+"pts": 118,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 1334179,
+"nombre": "F. GARCIA",
+"pj": 28,
+"ppg": 9.6,
+"pts": 270,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 1645559,
+"nombre": "J. STOLL",
+"pj": 28,
+"ppg": 4.0,
+"pts": 111,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 2077420,
+"nombre": "F. SOSA",
+"pj": 7,
+"ppg": 0.6,
+"pts": 4,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 2096885,
+"nombre": "A. PEÑA",
+"pj": 11,
+"ppg": 19.2,
+"pts": 211,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 2334029,
+"nombre": "F. GIOVANETTI",
+"pj": 3,
+"ppg": 1.0,
+"pts": 3,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 2334033,
+"nombre": "M. PROTA",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 2377994,
+"nombre": "S. MARTINEZ",
+"pj": 2,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 2386796,
+"nombre": "T. SEGUI",
+"pj": 7,
+"ppg": 0.4,
+"pts": 3,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 2451012,
+"nombre": "A. ZAPORTA",
+"pj": 7,
+"ppg": 12.4,
+"pts": 87,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 2486592,
+"nombre": "D. ESPARZA",
+"pj": 6,
+"ppg": 10.7,
+"pts": 64,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 2486593,
+"nombre": "M. MOORE",
+"pj": 9,
+"ppg": 11.3,
+"pts": 102,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 2549334,
+"nombre": "R. LAGOS",
+"pj": 2,
+"ppg": 1.0,
+"pts": 2,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 2585672,
+"nombre": "C. Mc EVANS",
+"pj": 5,
+"ppg": 10.2,
+"pts": 51,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 2620317,
+"nombre": "T. FERGUSON",
+"pj": 11,
+"ppg": 12.2,
+"pts": 134,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 2702537,
+"nombre": "C. PLATERO",
+"pj": 3,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 2483
+},
+{
+"pid": 16511,
+"nombre": "S. MOGLIA",
+"pj": 21,
+"ppg": 9.9,
+"pts": 207,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 16739,
+"nombre": "G. BARRERA",
+"pj": 26,
+"ppg": 4.5,
+"pts": 116,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 16985,
+"nombre": "R. CARDOZO",
+"pj": 3,
+"ppg": 4.0,
+"pts": 12,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 1314581,
+"nombre": "R. PREVIATTI",
+"pj": 27,
+"ppg": 4.9,
+"pts": 132,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 1642407,
+"nombre": "D. PENA GARCIA",
+"pj": 26,
+"ppg": 4.2,
+"pts": 110,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 1719070,
+"nombre": "J. ORTIZ",
+"pj": 16,
+"ppg": 8.4,
+"pts": 135,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 312957,
+"nombre": "R. HASSAN",
+"pj": 19,
+"ppg": 19.6,
+"pts": 373,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 771526,
+"nombre": "R. JACKSON",
+"pj": 3,
+"ppg": 9.0,
+"pts": 27,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 909792,
+"nombre": "A. AREVALO",
+"pj": 14,
+"ppg": 8.4,
+"pts": 118,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 1334179,
+"nombre": "F. GARCIA",
+"pj": 28,
+"ppg": 9.6,
+"pts": 270,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 1645559,
+"nombre": "J. STOLL",
+"pj": 28,
+"ppg": 4.0,
+"pts": 111,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 2077420,
+"nombre": "F. SOSA",
+"pj": 7,
+"ppg": 0.6,
+"pts": 4,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 2096885,
+"nombre": "A. PEÑA",
+"pj": 11,
+"ppg": 19.2,
+"pts": 211,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 2334029,
+"nombre": "F. GIOVANETTI",
+"pj": 3,
+"ppg": 1.0,
+"pts": 3,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 2334033,
+"nombre": "M. PROTA",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 2377994,
+"nombre": "S. MARTINEZ",
+"pj": 2,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 2386796,
+"nombre": "T. SEGUI",
+"pj": 7,
+"ppg": 0.4,
+"pts": 3,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 2451012,
+"nombre": "A. ZAPORTA",
+"pj": 7,
+"ppg": 12.4,
+"pts": 87,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 2486592,
+"nombre": "D. ESPARZA",
+"pj": 6,
+"ppg": 10.7,
+"pts": 64,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 2486593,
+"nombre": "M. MOORE",
+"pj": 9,
+"ppg": 11.3,
+"pts": 102,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 2549334,
+"nombre": "R. LAGOS",
+"pj": 2,
+"ppg": 1.0,
+"pts": 2,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 2585672,
+"nombre": "C. Mc EVANS",
+"pj": 5,
+"ppg": 10.2,
+"pts": 51,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 2620317,
+"nombre": "T. FERGUSON",
+"pj": 11,
+"ppg": 12.2,
+"pts": 134,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 2702537,
+"nombre": "C. PLATERO",
+"pj": 3,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "WELCOME",
+"tid": 2483
+},
+{
+"pid": 17379,
+"nombre": "P. RUSCH",
+"pj": 28,
+"ppg": 4.3,
+"pts": 120,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 1375364,
+"nombre": "T. ARAUJO",
+"pj": 18,
+"ppg": 3.6,
+"pts": 64,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 1873515,
+"nombre": "O. SENANDE",
+"pj": 14,
+"ppg": 1.4,
+"pts": 19,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 15216,
+"nombre": "E. GONZALEZ",
+"pj": 28,
+"ppg": 6.9,
+"pts": 193,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 15257,
+"nombre": "F. MEDINA",
+"pj": 26,
+"ppg": 9.5,
+"pts": 246,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 623893,
+"nombre": "L. PLANELLS",
+"pj": 14,
+"ppg": 2.8,
+"pts": 39,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 983931,
+"nombre": "T. LEITES",
+"pj": 28,
+"ppg": 6.4,
+"pts": 180,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 1595499,
+"nombre": "T. GLASS",
+"pj": 6,
+"ppg": 26.0,
+"pts": 156,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 1661037,
+"nombre": "M. ARREGUI",
+"pj": 15,
+"ppg": 2.9,
+"pts": 44,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 1807060,
+"nombre": "M. VIAZZO",
+"pj": 17,
+"ppg": 0.5,
+"pts": 9,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 2134158,
+"nombre": "M. SCHELL",
+"pj": 6,
+"ppg": 0.3,
+"pts": 2,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 2232160,
+"nombre": "S. GARCIA",
+"pj": 2,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 2255313,
+"nombre": "V. ANDRADE",
+"pj": 6,
+"ppg": 13.5,
+"pts": 81,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 2411715,
+"nombre": "T. CHARBONNIER",
+"pj": 7,
+"ppg": 0.6,
+"pts": 4,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 2534719,
+"nombre": "K. HIGGINS",
+"pj": 4,
+"ppg": 8.3,
+"pts": 33,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 2534720,
+"nombre": "B. BEAMER",
+"pj": 13,
+"ppg": 20.6,
+"pts": 268,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 2534726,
+"nombre": "V. CLEMENTE BAFFUTO",
+"pj": 8,
+"ppg": 9.0,
+"pts": 72,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 2549321,
+"nombre": "L. SAN SEBASTIAN",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 2549322,
+"nombre": "M. MACIAS",
+"pj": 1,
+"ppg": 2.0,
+"pts": 2,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 2549323,
+"nombre": "J. AGOSTINI",
+"pj": 1,
+"ppg": 1.0,
+"pts": 1,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 2577763,
+"nombre": "A. GILDER JR.",
+"pj": 7,
+"ppg": 23.6,
+"pts": 165,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 2619903,
+"nombre": "D. HIGGS",
+"pj": 7,
+"ppg": 13.7,
+"pts": 96,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 2620318,
+"nombre": "J. O&#039;NEAL",
+"pj": 8,
+"ppg": 16.6,
+"pts": 133,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 2620614,
+"nombre": "A. SPRUILL",
+"pj": 8,
+"ppg": 17.3,
+"pts": 138,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 2706600,
+"nombre": "R. PERRY",
+"pj": 7,
+"ppg": 16.7,
+"pts": 117,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 2707989,
+"nombre": "A. WILLIS",
+"pj": 6,
+"ppg": 13.3,
+"pts": 80,
+"equipo": "",
+"tid": 73584
+},
+{
+"pid": 17379,
+"nombre": "P. RUSCH",
+"pj": 28,
+"ppg": 4.3,
+"pts": 120,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 1375364,
+"nombre": "T. ARAUJO",
+"pj": 18,
+"ppg": 3.6,
+"pts": 64,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 1873515,
+"nombre": "O. SENANDE",
+"pj": 14,
+"ppg": 1.4,
+"pts": 19,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 15216,
+"nombre": "E. GONZALEZ",
+"pj": 28,
+"ppg": 6.9,
+"pts": 193,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 15257,
+"nombre": "F. MEDINA",
+"pj": 26,
+"ppg": 9.5,
+"pts": 246,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 623893,
+"nombre": "L. PLANELLS",
+"pj": 14,
+"ppg": 2.8,
+"pts": 39,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 983931,
+"nombre": "T. LEITES",
+"pj": 28,
+"ppg": 6.4,
+"pts": 180,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 1595499,
+"nombre": "T. GLASS",
+"pj": 6,
+"ppg": 26.0,
+"pts": 156,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 1661037,
+"nombre": "M. ARREGUI",
+"pj": 15,
+"ppg": 2.9,
+"pts": 44,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 1807060,
+"nombre": "M. VIAZZO",
+"pj": 17,
+"ppg": 0.5,
+"pts": 9,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 2134158,
+"nombre": "M. SCHELL",
+"pj": 6,
+"ppg": 0.3,
+"pts": 2,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 2232160,
+"nombre": "S. GARCIA",
+"pj": 2,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 2255313,
+"nombre": "V. ANDRADE",
+"pj": 6,
+"ppg": 13.5,
+"pts": 81,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 2411715,
+"nombre": "T. CHARBONNIER",
+"pj": 7,
+"ppg": 0.6,
+"pts": 4,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 2534719,
+"nombre": "K. HIGGINS",
+"pj": 4,
+"ppg": 8.3,
+"pts": 33,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 2534720,
+"nombre": "B. BEAMER",
+"pj": 13,
+"ppg": 20.6,
+"pts": 268,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 2534726,
+"nombre": "V. CLEMENTE BAFFUTO",
+"pj": 8,
+"ppg": 9.0,
+"pts": 72,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 2549321,
+"nombre": "L. SAN SEBASTIAN",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 2549322,
+"nombre": "M. MACIAS",
+"pj": 1,
+"ppg": 2.0,
+"pts": 2,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 2549323,
+"nombre": "J. AGOSTINI",
+"pj": 1,
+"ppg": 1.0,
+"pts": 1,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 2577763,
+"nombre": "A. GILDER JR.",
+"pj": 7,
+"ppg": 23.6,
+"pts": 165,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 2619903,
+"nombre": "D. HIGGS",
+"pj": 7,
+"ppg": 13.7,
+"pts": 96,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 2620318,
+"nombre": "J. O&#039;NEAL",
+"pj": 8,
+"ppg": 16.6,
+"pts": 133,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 2620614,
+"nombre": "A. SPRUILL",
+"pj": 8,
+"ppg": 17.3,
+"pts": 138,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 2706600,
+"nombre": "R. PERRY",
+"pj": 7,
+"ppg": 16.7,
+"pts": 117,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 2707989,
+"nombre": "A. WILLIS",
+"pj": 6,
+"ppg": 13.3,
+"pts": 80,
+"equipo": "CORDON",
+"tid": 73584
+},
+{
+"pid": 16807,
+"nombre": "A. LOPEZ",
+"pj": 28,
+"ppg": 8.4,
+"pts": 235,
+"equipo": "",
+"tid": 73590
+},
+{
+"pid": 1342734,
+"nombre": "M. ASTRAMSKAS",
+"pj": 13,
+"ppg": 2.4,
+"pts": 31,
+"equipo": "",
+"tid": 73590
+},
+{
+"pid": 2534738,
+"nombre": "I. ROSS",
+"pj": 10,
+"ppg": 15.1,
+"pts": 151,
+"equipo": "",
+"tid": 73590
+},
+{
+"pid": 14735,
+"nombre": "I. LORIENTE",
+"pj": 2,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 73590
+},
+{
+"pid": 208488,
+"nombre": "J. DUCASSE",
+"pj": 28,
+"ppg": 8.8,
+"pts": 247,
+"equipo": "",
+"tid": 73590
+},
+{
+"pid": 968070,
+"nombre": "G. SOUZA",
+"pj": 19,
+"ppg": 6.9,
+"pts": 131,
+"equipo": "",
+"tid": 73590
+},
+{
+"pid": 1338848,
+"nombre": "M. GIANO",
+"pj": 28,
+"ppg": 13.4,
+"pts": 375,
+"equipo": "",
+"tid": 73590
+},
+{
+"pid": 1651515,
+"nombre": "G. BRUN",
+"pj": 25,
+"ppg": 1.2,
+"pts": 30,
+"equipo": "",
+"tid": 73590
+},
+{
+"pid": 1675913,
+"nombre": "J. BRISSET",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 73590
+},
+{
+"pid": 2060972,
+"nombre": "T. ABDALA",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 73590
+},
+{
+"pid": 2081918,
+"nombre": "L. ECHEVERRIA",
+"pj": 8,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 73590
+},
+{
+"pid": 2486591,
+"nombre": "Q. WILSON",
+"pj": 25,
+"ppg": 18.0,
+"pts": 450,
+"equipo": "",
+"tid": 73590
+},
+{
+"pid": 2534741,
+"nombre": "T. PRINCE",
+"pj": 28,
+"ppg": 16.9,
+"pts": 474,
+"equipo": "",
+"tid": 73590
+},
+{
+"pid": 2549330,
+"nombre": "L. GOMEZ",
+"pj": 5,
+"ppg": 1.0,
+"pts": 5,
+"equipo": "",
+"tid": 73590
+},
+{
+"pid": 2603089,
+"nombre": "C. ALAEKWE",
+"pj": 15,
+"ppg": 13.8,
+"pts": 207,
+"equipo": "",
+"tid": 73590
+},
+{
+"pid": 2610301,
+"nombre": "F. TABORDA",
+"pj": 4,
+"ppg": 0.5,
+"pts": 2,
+"equipo": "",
+"tid": 73590
+},
+{
+"pid": 16807,
+"nombre": "A. LOPEZ",
+"pj": 28,
+"ppg": 8.4,
+"pts": 235,
+"equipo": "UNION ATLETICA",
+"tid": 73590
+},
+{
+"pid": 1342734,
+"nombre": "M. ASTRAMSKAS",
+"pj": 13,
+"ppg": 2.4,
+"pts": 31,
+"equipo": "UNION ATLETICA",
+"tid": 73590
+},
+{
+"pid": 2534738,
+"nombre": "I. ROSS",
+"pj": 10,
+"ppg": 15.1,
+"pts": 151,
+"equipo": "UNION ATLETICA",
+"tid": 73590
+},
+{
+"pid": 14735,
+"nombre": "I. LORIENTE",
+"pj": 2,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "UNION ATLETICA",
+"tid": 73590
+},
+{
+"pid": 208488,
+"nombre": "J. DUCASSE",
+"pj": 28,
+"ppg": 8.8,
+"pts": 247,
+"equipo": "UNION ATLETICA",
+"tid": 73590
+},
+{
+"pid": 968070,
+"nombre": "G. SOUZA",
+"pj": 19,
+"ppg": 6.9,
+"pts": 131,
+"equipo": "UNION ATLETICA",
+"tid": 73590
+},
+{
+"pid": 1338848,
+"nombre": "M. GIANO",
+"pj": 28,
+"ppg": 13.4,
+"pts": 375,
+"equipo": "UNION ATLETICA",
+"tid": 73590
+},
+{
+"pid": 1651515,
+"nombre": "G. BRUN",
+"pj": 25,
+"ppg": 1.2,
+"pts": 30,
+"equipo": "UNION ATLETICA",
+"tid": 73590
+},
+{
+"pid": 1675913,
+"nombre": "J. BRISSET",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "UNION ATLETICA",
+"tid": 73590
+},
+{
+"pid": 2060972,
+"nombre": "T. ABDALA",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "UNION ATLETICA",
+"tid": 73590
+},
+{
+"pid": 2081918,
+"nombre": "L. ECHEVERRIA",
+"pj": 8,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "UNION ATLETICA",
+"tid": 73590
+},
+{
+"pid": 2486591,
+"nombre": "Q. WILSON",
+"pj": 25,
+"ppg": 18.0,
+"pts": 450,
+"equipo": "UNION ATLETICA",
+"tid": 73590
+},
+{
+"pid": 2534741,
+"nombre": "T. PRINCE",
+"pj": 28,
+"ppg": 16.9,
+"pts": 474,
+"equipo": "UNION ATLETICA",
+"tid": 73590
+},
+{
+"pid": 2549330,
+"nombre": "L. GOMEZ",
+"pj": 5,
+"ppg": 1.0,
+"pts": 5,
+"equipo": "UNION ATLETICA",
+"tid": 73590
+},
+{
+"pid": 2603089,
+"nombre": "C. ALAEKWE",
+"pj": 15,
+"ppg": 13.8,
+"pts": 207,
+"equipo": "UNION ATLETICA",
+"tid": 73590
+},
+{
+"pid": 2610301,
+"nombre": "F. TABORDA",
+"pj": 4,
+"ppg": 0.5,
+"pts": 2,
+"equipo": "UNION ATLETICA",
+"tid": 73590
+},
+{
+"pid": 539387,
+"nombre": "F. SOTO",
+"pj": 33,
+"ppg": 6.3,
+"pts": 207,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 725720,
+"nombre": "T. METZGER",
+"pj": 39,
+"ppg": 10.1,
+"pts": 393,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 1723827,
+"nombre": "M. MAC MULLEN",
+"pj": 38,
+"ppg": 3.1,
+"pts": 118,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 1940452,
+"nombre": "M. ANTUNEZ",
+"pj": 28,
+"ppg": 3.0,
+"pts": 85,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 1981004,
+"nombre": "D. WRIGHT",
+"pj": 12,
+"ppg": 9.6,
+"pts": 115,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 2243963,
+"nombre": "B. GOMEZ",
+"pj": 10,
+"ppg": 0.8,
+"pts": 8,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 17046,
+"nombre": "M. ZUBIAURRE",
+"pj": 39,
+"ppg": 6.7,
+"pts": 262,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 43224,
+"nombre": "N. COLMENARES",
+"pj": 35,
+"ppg": 8.1,
+"pts": 283,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 191820,
+"nombre": "F. TERRA",
+"pj": 39,
+"ppg": 13.6,
+"pts": 530,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 999249,
+"nombre": "M. BIANCHI",
+"pj": 38,
+"ppg": 7.1,
+"pts": 270,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 1639448,
+"nombre": "V. RUDD",
+"pj": 20,
+"ppg": 14.4,
+"pts": 287,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 1940451,
+"nombre": "M. CUERVO",
+"pj": 5,
+"ppg": 1.4,
+"pts": 7,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 2250412,
+"nombre": "M. SOTO",
+"pj": 3,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 2383405,
+"nombre": "F. DE LEON",
+"pj": 7,
+"ppg": 0.7,
+"pts": 5,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 2405599,
+"nombre": "G. RODRIGUEZ",
+"pj": 2,
+"ppg": 2.5,
+"pts": 5,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 2486574,
+"nombre": "D. WILSON",
+"pj": 6,
+"ppg": 14.0,
+"pts": 84,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 2549324,
+"nombre": "S. TRICOT",
+"pj": 1,
+"ppg": 3.0,
+"pts": 3,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 2589974,
+"nombre": "E. WEAVER",
+"pj": 32,
+"ppg": 17.4,
+"pts": 558,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 2620613,
+"nombre": "E. EWING",
+"pj": 4,
+"ppg": 7.0,
+"pts": 28,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 2816434,
+"nombre": "A. ARON",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 539387,
+"nombre": "F. SOTO",
+"pj": 33,
+"ppg": 6.3,
+"pts": 207,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 725720,
+"nombre": "T. METZGER",
+"pj": 39,
+"ppg": 10.1,
+"pts": 393,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 1723827,
+"nombre": "M. MAC MULLEN",
+"pj": 38,
+"ppg": 3.1,
+"pts": 118,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 1940452,
+"nombre": "M. ANTUNEZ",
+"pj": 28,
+"ppg": 3.0,
+"pts": 85,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 1981004,
+"nombre": "D. WRIGHT",
+"pj": 12,
+"ppg": 9.6,
+"pts": 115,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 2243963,
+"nombre": "B. GOMEZ",
+"pj": 10,
+"ppg": 0.8,
+"pts": 8,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 17046,
+"nombre": "M. ZUBIAURRE",
+"pj": 39,
+"ppg": 6.7,
+"pts": 262,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 43224,
+"nombre": "N. COLMENARES",
+"pj": 35,
+"ppg": 8.1,
+"pts": 283,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 191820,
+"nombre": "F. TERRA",
+"pj": 39,
+"ppg": 13.6,
+"pts": 530,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 999249,
+"nombre": "M. BIANCHI",
+"pj": 38,
+"ppg": 7.1,
+"pts": 270,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 1639448,
+"nombre": "V. RUDD",
+"pj": 20,
+"ppg": 14.4,
+"pts": 287,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 1940451,
+"nombre": "M. CUERVO",
+"pj": 5,
+"ppg": 1.4,
+"pts": 7,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 2250412,
+"nombre": "M. SOTO",
+"pj": 3,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 2383405,
+"nombre": "F. DE LEON",
+"pj": 7,
+"ppg": 0.7,
+"pts": 5,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 2405599,
+"nombre": "G. RODRIGUEZ",
+"pj": 2,
+"ppg": 2.5,
+"pts": 5,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 2486574,
+"nombre": "D. WILSON",
+"pj": 6,
+"ppg": 14.0,
+"pts": 84,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 2549324,
+"nombre": "S. TRICOT",
+"pj": 1,
+"ppg": 3.0,
+"pts": 3,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 2589974,
+"nombre": "E. WEAVER",
+"pj": 32,
+"ppg": 17.4,
+"pts": 558,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 2620613,
+"nombre": "E. EWING",
+"pj": 4,
+"ppg": 7.0,
+"pts": 28,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 2816434,
+"nombre": "A. ARON",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 17071,
+"nombre": "F. BAVOSI",
+"pj": 35,
+"ppg": 1.9,
+"pts": 66,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 258681,
+"nombre": "M. ROJAS",
+"pj": 43,
+"ppg": 7.4,
+"pts": 318,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 1509909,
+"nombre": "S. CALIMARES",
+"pj": 37,
+"ppg": 3.5,
+"pts": 131,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 1676246,
+"nombre": "N. LEMA",
+"pj": 36,
+"ppg": 4.0,
+"pts": 145,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 17691,
+"nombre": "E. SERRES",
+"pj": 38,
+"ppg": 9.9,
+"pts": 376,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 617418,
+"nombre": "S. VESCOVI",
+"pj": 39,
+"ppg": 15.7,
+"pts": 612,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 811063,
+"nombre": "N. POMOLI",
+"pj": 40,
+"ppg": 13.8,
+"pts": 552,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 1642412,
+"nombre": "S. HOGAN",
+"pj": 38,
+"ppg": 15.4,
+"pts": 584,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 1651531,
+"nombre": "J. RODRIGUEZ",
+"pj": 2,
+"ppg": 13.5,
+"pts": 27,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 1975797,
+"nombre": "A. IBARGUEN",
+"pj": 32,
+"ppg": 12.9,
+"pts": 412,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 2134181,
+"nombre": "L. QUIÑONES",
+"pj": 4,
+"ppg": 0.8,
+"pts": 3,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 2178363,
+"nombre": "E. ROMERO",
+"pj": 12,
+"ppg": 9.2,
+"pts": 110,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 2199586,
+"nombre": "J. WASHINGTON",
+"pj": 8,
+"ppg": 10.4,
+"pts": 83,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 2411720,
+"nombre": "J. DELGADO",
+"pj": 10,
+"ppg": 0.4,
+"pts": 4,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 2486588,
+"nombre": "G. WHITTINGTON",
+"pj": 7,
+"ppg": 10.7,
+"pts": 75,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 2544008,
+"nombre": "C. HEILMANN",
+"pj": 23,
+"ppg": 2.4,
+"pts": 55,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 2549194,
+"nombre": "O. ROSADO",
+"pj": 12,
+"ppg": 1.1,
+"pts": 13,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 2727418,
+"nombre": "M. Mc KINNEY",
+"pj": 2,
+"ppg": 3.5,
+"pts": 7,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 2731668,
+"nombre": "N. COLE",
+"pj": 14,
+"ppg": 12.1,
+"pts": 169,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 2753231,
+"nombre": "G. GALVANINI",
+"pj": 9,
+"ppg": 11.9,
+"pts": 107,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 17071,
+"nombre": "F. BAVOSI",
+"pj": 35,
+"ppg": 1.9,
+"pts": 66,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 258681,
+"nombre": "M. ROJAS",
+"pj": 43,
+"ppg": 7.4,
+"pts": 318,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 1509909,
+"nombre": "S. CALIMARES",
+"pj": 37,
+"ppg": 3.5,
+"pts": 131,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 1676246,
+"nombre": "N. LEMA",
+"pj": 36,
+"ppg": 4.0,
+"pts": 145,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 17691,
+"nombre": "E. SERRES",
+"pj": 38,
+"ppg": 9.9,
+"pts": 376,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 617418,
+"nombre": "S. VESCOVI",
+"pj": 39,
+"ppg": 15.7,
+"pts": 612,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 811063,
+"nombre": "N. POMOLI",
+"pj": 40,
+"ppg": 13.8,
+"pts": 552,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 1642412,
+"nombre": "S. HOGAN",
+"pj": 38,
+"ppg": 15.4,
+"pts": 584,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 1651531,
+"nombre": "J. RODRIGUEZ",
+"pj": 2,
+"ppg": 13.5,
+"pts": 27,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 1975797,
+"nombre": "A. IBARGUEN",
+"pj": 32,
+"ppg": 12.9,
+"pts": 412,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 2134181,
+"nombre": "L. QUIÑONES",
+"pj": 4,
+"ppg": 0.8,
+"pts": 3,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 2178363,
+"nombre": "E. ROMERO",
+"pj": 12,
+"ppg": 9.2,
+"pts": 110,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 2199586,
+"nombre": "J. WASHINGTON",
+"pj": 8,
+"ppg": 10.4,
+"pts": 83,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 2411720,
+"nombre": "J. DELGADO",
+"pj": 10,
+"ppg": 0.4,
+"pts": 4,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 2486588,
+"nombre": "G. WHITTINGTON",
+"pj": 7,
+"ppg": 10.7,
+"pts": 75,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 2544008,
+"nombre": "C. HEILMANN",
+"pj": 23,
+"ppg": 2.4,
+"pts": 55,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 2549194,
+"nombre": "O. ROSADO",
+"pj": 12,
+"ppg": 1.1,
+"pts": 13,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 2727418,
+"nombre": "M. Mc KINNEY",
+"pj": 2,
+"ppg": 3.5,
+"pts": 7,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 2731668,
+"nombre": "N. COLE",
+"pj": 14,
+"ppg": 12.1,
+"pts": 169,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 2753231,
+"nombre": "G. GALVANINI",
+"pj": 9,
+"ppg": 11.9,
+"pts": 107,
+"equipo": "PEÑAROL",
+"tid": 96706
+}
+],
+"amistosos_2026": [
+{
+"pid": 2283138,
+"nombre": "A. NEGRETE",
+"pj": 2,
+"ppg": 12.5,
+"pts": 25,
+"equipo": "",
+"tid": 120016
+},
+{
+"pid": 2816485,
+"nombre": "Y. MATEUS",
+"pj": 2,
+"ppg": 24.0,
+"pts": 48,
+"equipo": "",
+"tid": 120016
+},
+{
+"pid": 2816486,
+"nombre": "F. BARALLE",
+"pj": 2,
+"ppg": 5.0,
+"pts": 10,
+"equipo": "",
+"tid": 120016
+},
+{
+"pid": 2816487,
+"nombre": "D. LOUZADA",
+"pj": 2,
+"ppg": 10.5,
+"pts": 21,
+"equipo": "",
+"tid": 120016
+},
+{
+"pid": 2816488,
+"nombre": "D. SANTOS",
+"pj": 2,
+"ppg": 8.5,
+"pts": 17,
+"equipo": "",
+"tid": 120016
+},
+{
+"pid": 2816489,
+"nombre": "L. MONTERO",
+"pj": 2,
+"ppg": 4.5,
+"pts": 9,
+"equipo": "",
+"tid": 120016
+},
+{
+"pid": 2819208,
+"nombre": "I. ANDRADE",
+"pj": 2,
+"ppg": 6.5,
+"pts": 13,
+"equipo": "",
+"tid": 120016
+},
+{
+"pid": 2819209,
+"nombre": "J. NASCIMENTO",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 120016
+},
+{
+"pid": 2819211,
+"nombre": "Y. DJALO",
+"pj": 2,
+"ppg": 4.5,
+"pts": 9,
+"equipo": "",
+"tid": 120016
+},
+{
+"pid": 2819219,
+"nombre": "E. FERNANDES",
+"pj": 2,
+"ppg": 7.5,
+"pts": 15,
+"equipo": "",
+"tid": 120016
+},
+{
+"pid": 2283138,
+"nombre": "A. NEGRETE",
+"pj": 2,
+"ppg": 12.5,
+"pts": 25,
+"equipo": "CR Flamengo",
+"tid": 120016
+},
+{
+"pid": 2816485,
+"nombre": "Y. MATEUS",
+"pj": 2,
+"ppg": 24.0,
+"pts": 48,
+"equipo": "CR Flamengo",
+"tid": 120016
+},
+{
+"pid": 2816486,
+"nombre": "F. BARALLE",
+"pj": 2,
+"ppg": 5.0,
+"pts": 10,
+"equipo": "CR Flamengo",
+"tid": 120016
+},
+{
+"pid": 2816487,
+"nombre": "D. LOUZADA",
+"pj": 2,
+"ppg": 10.5,
+"pts": 21,
+"equipo": "CR Flamengo",
+"tid": 120016
+},
+{
+"pid": 2816488,
+"nombre": "D. SANTOS",
+"pj": 2,
+"ppg": 8.5,
+"pts": 17,
+"equipo": "CR Flamengo",
+"tid": 120016
+},
+{
+"pid": 2816489,
+"nombre": "L. MONTERO",
+"pj": 2,
+"ppg": 4.5,
+"pts": 9,
+"equipo": "CR Flamengo",
+"tid": 120016
+},
+{
+"pid": 2819208,
+"nombre": "I. ANDRADE",
+"pj": 2,
+"ppg": 6.5,
+"pts": 13,
+"equipo": "CR Flamengo",
+"tid": 120016
+},
+{
+"pid": 2819209,
+"nombre": "J. NASCIMENTO",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "CR Flamengo",
+"tid": 120016
+},
+{
+"pid": 2819211,
+"nombre": "Y. DJALO",
+"pj": 2,
+"ppg": 4.5,
+"pts": 9,
+"equipo": "CR Flamengo",
+"tid": 120016
+},
+{
+"pid": 2819219,
+"nombre": "E. FERNANDES",
+"pj": 2,
+"ppg": 7.5,
+"pts": 15,
+"equipo": "CR Flamengo",
+"tid": 120016
+},
+{
+"pid": 17110,
+"nombre": "O. MEDINA",
+"pj": 2,
+"ppg": 6.5,
+"pts": 13,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 62685,
+"nombre": "S. MASSA",
+"pj": 2,
+"ppg": 6.0,
+"pts": 12,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 1643387,
+"nombre": "N. AMICHETTI",
+"pj": 2,
+"ppg": 9.0,
+"pts": 18,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 1714808,
+"nombre": "B. CURADOSSI",
+"pj": 2,
+"ppg": 12.5,
+"pts": 25,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 1717089,
+"nombre": "A. GENTILE",
+"pj": 1,
+"ppg": 1.0,
+"pts": 1,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 2178893,
+"nombre": "J. GRIOT",
+"pj": 2,
+"ppg": 6.0,
+"pts": 12,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 2325518,
+"nombre": "F. MOLEDA",
+"pj": 2,
+"ppg": 11.0,
+"pts": 22,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 2816481,
+"nombre": "K. ALLEN",
+"pj": 2,
+"ppg": 9.5,
+"pts": 19,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 2816482,
+"nombre": "A. CHIDOM",
+"pj": 2,
+"ppg": 11.0,
+"pts": 22,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 2816483,
+"nombre": "A. PACHER",
+"pj": 2,
+"ppg": 8.0,
+"pts": 16,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 2818761,
+"nombre": "W. ANILLO",
+"pj": 2,
+"ppg": 2.5,
+"pts": 5,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 2818762,
+"nombre": "G. VENET",
+"pj": 2,
+"ppg": 1.0,
+"pts": 2,
+"equipo": "",
+"tid": 21051
+},
+{
+"pid": 17110,
+"nombre": "O. MEDINA",
+"pj": 2,
+"ppg": 6.5,
+"pts": 13,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 62685,
+"nombre": "S. MASSA",
+"pj": 2,
+"ppg": 6.0,
+"pts": 12,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 1643387,
+"nombre": "N. AMICHETTI",
+"pj": 2,
+"ppg": 9.0,
+"pts": 18,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 1714808,
+"nombre": "B. CURADOSSI",
+"pj": 2,
+"ppg": 12.5,
+"pts": 25,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 1717089,
+"nombre": "A. GENTILE",
+"pj": 1,
+"ppg": 1.0,
+"pts": 1,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 2178893,
+"nombre": "J. GRIOT",
+"pj": 2,
+"ppg": 6.0,
+"pts": 12,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 2325518,
+"nombre": "F. MOLEDA",
+"pj": 2,
+"ppg": 11.0,
+"pts": 22,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 2816481,
+"nombre": "K. ALLEN",
+"pj": 2,
+"ppg": 9.5,
+"pts": 19,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 2816482,
+"nombre": "A. CHIDOM",
+"pj": 2,
+"ppg": 11.0,
+"pts": 22,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 2816483,
+"nombre": "A. PACHER",
+"pj": 2,
+"ppg": 8.0,
+"pts": 16,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 2818761,
+"nombre": "W. ANILLO",
+"pj": 2,
+"ppg": 2.5,
+"pts": 5,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 2818762,
+"nombre": "G. VENET",
+"pj": 2,
+"ppg": 1.0,
+"pts": 2,
+"equipo": "URUNDAY UNIVERSITARIO",
+"tid": 21051
+},
+{
+"pid": 17571,
+"nombre": "F. PEREIRAS",
+"pj": 1,
+"ppg": 2.0,
+"pts": 2,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 191795,
+"nombre": "S. OTTONELLO",
+"pj": 1,
+"ppg": 9.0,
+"pts": 9,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 191813,
+"nombre": "H. ALVAREZ",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 701864,
+"nombre": "D. SIMS",
+"pj": 1,
+"ppg": 23.0,
+"pts": 23,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 1989296,
+"nombre": "T. RODRIGUEZ",
+"pj": 1,
+"ppg": 9.0,
+"pts": 9,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 2148607,
+"nombre": "J. CUNNINGHAM",
+"pj": 1,
+"ppg": 14.0,
+"pts": 14,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 2214818,
+"nombre": "A. PAYOVICH",
+"pj": 1,
+"ppg": 9.0,
+"pts": 9,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 2344218,
+"nombre": "J. DIAZ",
+"pj": 1,
+"ppg": 11.0,
+"pts": 11,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 2544022,
+"nombre": "A. SOSA",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 2440
+},
+{
+"pid": 17571,
+"nombre": "F. PEREIRAS",
+"pj": 1,
+"ppg": 2.0,
+"pts": 2,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 191795,
+"nombre": "S. OTTONELLO",
+"pj": 1,
+"ppg": 9.0,
+"pts": 9,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 191813,
+"nombre": "H. ALVAREZ",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 701864,
+"nombre": "D. SIMS",
+"pj": 1,
+"ppg": 23.0,
+"pts": 23,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 1989296,
+"nombre": "T. RODRIGUEZ",
+"pj": 1,
+"ppg": 9.0,
+"pts": 9,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 2148607,
+"nombre": "J. CUNNINGHAM",
+"pj": 1,
+"ppg": 14.0,
+"pts": 14,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 2214818,
+"nombre": "A. PAYOVICH",
+"pj": 1,
+"ppg": 9.0,
+"pts": 9,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 2344218,
+"nombre": "J. DIAZ",
+"pj": 1,
+"ppg": 11.0,
+"pts": 11,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 2544022,
+"nombre": "A. SOSA",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "BIGUA",
+"tid": 2440
+},
+{
+"pid": 15259,
+"nombre": "S. ZANOTTA",
+"pj": 2,
+"ppg": 4.5,
+"pts": 9,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 17148,
+"nombre": "M. SOUBERBIELLE",
+"pj": 2,
+"ppg": 6.5,
+"pts": 13,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 1567203,
+"nombre": "M. OYENARD",
+"pj": 2,
+"ppg": 11.5,
+"pts": 23,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 1796527,
+"nombre": "N. RODRIGUEZ",
+"pj": 2,
+"ppg": 3.0,
+"pts": 6,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 1960946,
+"nombre": "I. ASKA",
+"pj": 2,
+"ppg": 14.5,
+"pts": 29,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 1983439,
+"nombre": "C. G ABRACINSKAS",
+"pj": 2,
+"ppg": 14.5,
+"pts": 29,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 2091545,
+"nombre": "N. TESTA",
+"pj": 2,
+"ppg": 6.5,
+"pts": 13,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 2156021,
+"nombre": "E. ESPINOSA",
+"pj": 2,
+"ppg": 10.5,
+"pts": 21,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 2397427,
+"nombre": "A. PEREZ",
+"pj": 1,
+"ppg": 2.0,
+"pts": 2,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 2816471,
+"nombre": "S. HANNAH",
+"pj": 1,
+"ppg": 9.0,
+"pts": 9,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 2818763,
+"nombre": "G. FERNANDEZ",
+"pj": 2,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 2449
+},
+{
+"pid": 15259,
+"nombre": "S. ZANOTTA",
+"pj": 2,
+"ppg": 4.5,
+"pts": 9,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 17148,
+"nombre": "M. SOUBERBIELLE",
+"pj": 2,
+"ppg": 6.5,
+"pts": 13,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 1567203,
+"nombre": "M. OYENARD",
+"pj": 2,
+"ppg": 11.5,
+"pts": 23,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 1796527,
+"nombre": "N. RODRIGUEZ",
+"pj": 2,
+"ppg": 3.0,
+"pts": 6,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 1960946,
+"nombre": "I. ASKA",
+"pj": 2,
+"ppg": 14.5,
+"pts": 29,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 1983439,
+"nombre": "C. G ABRACINSKAS",
+"pj": 2,
+"ppg": 14.5,
+"pts": 29,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 2091545,
+"nombre": "N. TESTA",
+"pj": 2,
+"ppg": 6.5,
+"pts": 13,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 2156021,
+"nombre": "E. ESPINOSA",
+"pj": 2,
+"ppg": 10.5,
+"pts": 21,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 2397427,
+"nombre": "A. PEREZ",
+"pj": 1,
+"ppg": 2.0,
+"pts": 2,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 2816471,
+"nombre": "S. HANNAH",
+"pj": 1,
+"ppg": 9.0,
+"pts": 9,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 2818763,
+"nombre": "G. FERNANDEZ",
+"pj": 2,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "MALVIN",
+"tid": 2449
+},
+{
+"pid": 15217,
+"nombre": "F. HALLER",
+"pj": 2,
+"ppg": 6.0,
+"pts": 12,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 16177,
+"nombre": "M. ROMERO",
+"pj": 2,
+"ppg": 5.5,
+"pts": 11,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 16616,
+"nombre": "N. CATALA",
+"pj": 2,
+"ppg": 11.0,
+"pts": 22,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 17147,
+"nombre": "M. TRELLES",
+"pj": 2,
+"ppg": 4.0,
+"pts": 8,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 1346396,
+"nombre": "S. FERNANDEZ",
+"pj": 2,
+"ppg": 3.0,
+"pts": 6,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 1675384,
+"nombre": "L. VIATRI",
+"pj": 2,
+"ppg": 7.5,
+"pts": 15,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 2236388,
+"nombre": "I. ALTMAN",
+"pj": 2,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 2249854,
+"nombre": "S. CASANOVA",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 2433097,
+"nombre": "G. FARTO",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 2486580,
+"nombre": "J. CANTY",
+"pj": 2,
+"ppg": 16.5,
+"pts": 33,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 2759388,
+"nombre": "M. KHOURY",
+"pj": 2,
+"ppg": 4.5,
+"pts": 9,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 2816437,
+"nombre": "A. MATIAS",
+"pj": 2,
+"ppg": 18.0,
+"pts": 36,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 2816438,
+"nombre": "J. SUERO",
+"pj": 2,
+"ppg": 12.0,
+"pts": 24,
+"equipo": "",
+"tid": 2454
+},
+{
+"pid": 15217,
+"nombre": "F. HALLER",
+"pj": 2,
+"ppg": 6.0,
+"pts": 12,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 16177,
+"nombre": "M. ROMERO",
+"pj": 2,
+"ppg": 5.5,
+"pts": 11,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 16616,
+"nombre": "N. CATALA",
+"pj": 2,
+"ppg": 11.0,
+"pts": 22,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 17147,
+"nombre": "M. TRELLES",
+"pj": 2,
+"ppg": 4.0,
+"pts": 8,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 1346396,
+"nombre": "S. FERNANDEZ",
+"pj": 2,
+"ppg": 3.0,
+"pts": 6,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 1675384,
+"nombre": "L. VIATRI",
+"pj": 2,
+"ppg": 7.5,
+"pts": 15,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 2236388,
+"nombre": "I. ALTMAN",
+"pj": 2,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 2249854,
+"nombre": "S. CASANOVA",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 2433097,
+"nombre": "G. FARTO",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 2486580,
+"nombre": "J. CANTY",
+"pj": 2,
+"ppg": 16.5,
+"pts": 33,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 2759388,
+"nombre": "M. KHOURY",
+"pj": 2,
+"ppg": 4.5,
+"pts": 9,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 2816437,
+"nombre": "A. MATIAS",
+"pj": 2,
+"ppg": 18.0,
+"pts": 36,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 2816438,
+"nombre": "J. SUERO",
+"pj": 2,
+"ppg": 12.0,
+"pts": 24,
+"equipo": "HEBRAICA Y MACABI",
+"tid": 2454
+},
+{
+"pid": 17101,
+"nombre": "J. SANTISO",
+"pj": 2,
+"ppg": 7.0,
+"pts": 14,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 17677,
+"nombre": "B. BARRERA",
+"pj": 2,
+"ppg": 11.0,
+"pts": 22,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 539387,
+"nombre": "F. SOTO",
+"pj": 2,
+"ppg": 7.5,
+"pts": 15,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 999249,
+"nombre": "M. BIANCHI",
+"pj": 2,
+"ppg": 2.5,
+"pts": 5,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 1338848,
+"nombre": "M. GIANO",
+"pj": 2,
+"ppg": 8.5,
+"pts": 17,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 1940452,
+"nombre": "M. ANTUNEZ",
+"pj": 2,
+"ppg": 2.0,
+"pts": 4,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 2197591,
+"nombre": "M. HERON",
+"pj": 2,
+"ppg": 9.0,
+"pts": 18,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 2243963,
+"nombre": "B. GOMEZ",
+"pj": 2,
+"ppg": 3.0,
+"pts": 6,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 2250412,
+"nombre": "M. SOTO",
+"pj": 2,
+"ppg": 3.0,
+"pts": 6,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 2383405,
+"nombre": "F. DE LEON",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 2816430,
+"nombre": "D. PURIFOY",
+"pj": 2,
+"ppg": 9.0,
+"pts": 18,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 2816432,
+"nombre": "N. DAVIS",
+"pj": 2,
+"ppg": 16.0,
+"pts": 32,
+"equipo": "",
+"tid": 83278
+},
+{
+"pid": 17101,
+"nombre": "J. SANTISO",
+"pj": 2,
+"ppg": 7.0,
+"pts": 14,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 17677,
+"nombre": "B. BARRERA",
+"pj": 2,
+"ppg": 11.0,
+"pts": 22,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 539387,
+"nombre": "F. SOTO",
+"pj": 2,
+"ppg": 7.5,
+"pts": 15,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 999249,
+"nombre": "M. BIANCHI",
+"pj": 2,
+"ppg": 2.5,
+"pts": 5,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 1338848,
+"nombre": "M. GIANO",
+"pj": 2,
+"ppg": 8.5,
+"pts": 17,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 1940452,
+"nombre": "M. ANTUNEZ",
+"pj": 2,
+"ppg": 2.0,
+"pts": 4,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 2197591,
+"nombre": "M. HERON",
+"pj": 2,
+"ppg": 9.0,
+"pts": 18,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 2243963,
+"nombre": "B. GOMEZ",
+"pj": 2,
+"ppg": 3.0,
+"pts": 6,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 2250412,
+"nombre": "M. SOTO",
+"pj": 2,
+"ppg": 3.0,
+"pts": 6,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 2383405,
+"nombre": "F. DE LEON",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 2816430,
+"nombre": "D. PURIFOY",
+"pj": 2,
+"ppg": 9.0,
+"pts": 18,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 2816432,
+"nombre": "N. DAVIS",
+"pj": 2,
+"ppg": 16.0,
+"pts": 32,
+"equipo": "D SPORTING",
+"tid": 83278
+},
+{
+"pid": 17691,
+"nombre": "E. SERRES",
+"pj": 1,
+"ppg": 5.0,
+"pts": 5,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 617418,
+"nombre": "S. VESCOVI",
+"pj": 1,
+"ppg": 13.0,
+"pts": 13,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 811063,
+"nombre": "N. POMOLI",
+"pj": 1,
+"ppg": 8.0,
+"pts": 8,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 1509909,
+"nombre": "S. CALIMARES",
+"pj": 1,
+"ppg": 2.0,
+"pts": 2,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 1642412,
+"nombre": "S. HOGAN",
+"pj": 1,
+"ppg": 16.0,
+"pts": 16,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 1676246,
+"nombre": "N. LEMA",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 2482116,
+"nombre": "C. PERRY",
+"pj": 1,
+"ppg": 17.0,
+"pts": 17,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 2816476,
+"nombre": "A. KAPPOS",
+"pj": 1,
+"ppg": 11.0,
+"pts": 11,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 2816477,
+"nombre": "L. RODRIGUEZ",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "",
+"tid": 96706
+},
+{
+"pid": 17691,
+"nombre": "E. SERRES",
+"pj": 1,
+"ppg": 5.0,
+"pts": 5,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 617418,
+"nombre": "S. VESCOVI",
+"pj": 1,
+"ppg": 13.0,
+"pts": 13,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 811063,
+"nombre": "N. POMOLI",
+"pj": 1,
+"ppg": 8.0,
+"pts": 8,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 1509909,
+"nombre": "S. CALIMARES",
+"pj": 1,
+"ppg": 2.0,
+"pts": 2,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 1642412,
+"nombre": "S. HOGAN",
+"pj": 1,
+"ppg": 16.0,
+"pts": 16,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 1676246,
+"nombre": "N. LEMA",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 2482116,
+"nombre": "C. PERRY",
+"pj": 1,
+"ppg": 17.0,
+"pts": 17,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 2816476,
+"nombre": "A. KAPPOS",
+"pj": 1,
+"ppg": 11.0,
+"pts": 11,
+"equipo": "PEÑAROL",
+"tid": 96706
+},
+{
+"pid": 2816477,
+"nombre": "L. RODRIGUEZ",
+"pj": 1,
+"ppg": 0.0,
+"pts": 0,
+"equipo": "PEÑAROL",
+"tid": 96706
+}
+]
+}

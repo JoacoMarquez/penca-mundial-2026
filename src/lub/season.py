@@ -125,6 +125,7 @@ class Sorteo:
     riv_fecha_cnt: np.ndarray = field(default=None)   # (S, F)
     riv_total_max: np.ndarray = field(default=None)   # (S,)
     riv_total_cnt: np.ndarray = field(default=None)   # (S,)
+    partidos: np.ndarray = field(default=None)        # (S, T) partidos jugados por equipo
 
 
 def simular(rt: Ratings, slots_regulares: list[Slot], cfg: Config,
@@ -146,6 +147,7 @@ def simular(rt: Ratings, slots_regulares: list[Slot], cfg: Config,
     clase_cols, probs_cols, jug_cols = [], [], []
     wins = np.zeros((S, T))
     dif = np.zeros((S, T))
+    partidos = np.zeros((S, T), np.int16)    # el goleador es por puntos TOTALES (src.lub.goleador)
 
     k_mu = rt.params.escala_mu
 
@@ -175,6 +177,8 @@ def simular(rt: Ratings, slots_regulares: list[Slot], cfg: Config,
         np.add.at(wins, (np.arange(S)[act], a[act]), (c[act] >= N_BANDAS))
         np.add.at(dif, (np.arange(S)[act], h[act]), m[act])
         np.add.at(dif, (np.arange(S)[act], a[act]), -m[act])
+        np.add.at(partidos, (np.arange(S)[act], h[act]), 1)
+        np.add.at(partidos, (np.arange(S)[act], a[act]), 1)
         slots.append(slot)
         clase_cols.append(c)
         probs_cols.append(p_ver)
@@ -261,7 +265,7 @@ def simular(rt: Ratings, slots_regulares: list[Slot], cfg: Config,
         fecha_de_slot=np.zeros(len(slots), int),
         jugado=np.stack(jug_cols, 1), clase=np.stack(clase_cols, 1),
         probs=np.stack(probs_cols, 1), pref=np.array([s.preferencial for s in slots]),
-        campeon=campeon, equipos=equipos,
+        campeon=campeon, equipos=equipos, partidos=partidos,
     ))
 
 

@@ -1,0 +1,1460 @@
+[
+ {
+  "nombre": "Santiago Vidal",
+  "equipo": "Aguada",
+  "tipo": "mayores",
+  "pid": 14724,
+  "25/26": {
+   "pj": 37,
+   "pts": 373,
+   "ppg": 10.08,
+   "club": "Aguada"
+  },
+  "24/25": {
+   "pj": 28,
+   "pts": 265,
+   "ppg": 9.46,
+   "club": "Aguada"
+  }
+ },
+ {
+  "nombre": "Alex López",
+  "equipo": "Aguada",
+  "tipo": "mayores",
+  "pid": 16807,
+  "25/26": {
+   "pj": 28,
+   "pts": 235,
+   "ppg": 8.39,
+   "club": "Unión Atlética"
+  },
+  "24/25": {
+   "pj": 32,
+   "pts": 154,
+   "ppg": 4.81,
+   "club": "Bigua"
+  }
+ },
+ {
+  "nombre": "Joaquín Rodríguez",
+  "equipo": "Aguada",
+  "tipo": "mayores",
+  "pid": 1430994,
+  "25/26": {
+   "pj": 45,
+   "pts": 393,
+   "ppg": 8.73,
+   "club": "Aguada"
+  }
+ },
+ {
+  "nombre": "Agustín Da Costa",
+  "equipo": "Aguada",
+  "tipo": "mayores",
+  "pid": 17643,
+  "24/25": {
+   "pj": 16,
+   "pts": 185,
+   "ppg": 11.56,
+   "club": "Hebraica Macabi"
+  }
+ },
+ {
+  "nombre": "Agustín Zuvich",
+  "equipo": "Aguada",
+  "tipo": "mayores",
+  "pid": 17554,
+  "25/26": {
+   "pj": 45,
+   "pts": 357,
+   "ppg": 7.93,
+   "club": "Aguada"
+  },
+  "24/25": {
+   "pj": 38,
+   "pts": 303,
+   "ppg": 7.97,
+   "club": "Aguada"
+  }
+ },
+ {
+  "nombre": "Matías Espinosa",
+  "equipo": "Aguada",
+  "tipo": "sub23",
+  "pid": 1942261,
+  "25/26": {
+   "pj": 30,
+   "pts": 212,
+   "ppg": 7.07,
+   "club": "Bigua"
+  },
+  "24/25": {
+   "pj": 30,
+   "pts": 150,
+   "ppg": 5.0,
+   "club": "Bigua"
+  }
+ },
+ {
+  "nombre": "Manuel Fernández",
+  "equipo": "Aguada",
+  "tipo": "sub23",
+  "pid": 2158090,
+  "25/26": {
+   "pj": 26,
+   "pts": 45,
+   "ppg": 1.73,
+   "club": "Aguada"
+  },
+  "24/25": {
+   "pj": 8,
+   "pts": 3,
+   "ppg": 0.38,
+   "club": "Aguada"
+  }
+ },
+ {
+  "nombre": "Facundo Morales",
+  "equipo": "Aguada",
+  "tipo": "sub23",
+  "pid": 1765561,
+  "25/26": {
+   "pj": 31,
+   "pts": 82,
+   "ppg": 2.65,
+   "club": "Hebraica Macabi"
+  },
+  "24/25": {
+   "pj": 23,
+   "pts": 107,
+   "ppg": 4.65,
+   "club": "Trouville"
+  }
+ },
+ {
+  "nombre": "Valentino Acuña",
+  "equipo": "Aguada",
+  "tipo": "sub23",
+  "pid": 2222567,
+  "25/26": {
+   "pj": 5,
+   "pts": 6,
+   "ppg": 1.2,
+   "club": "Aguada"
+  },
+  "24/25": {
+   "pj": 4,
+   "pts": 0,
+   "ppg": 0.0,
+   "club": "Aguada"
+  }
+ },
+ {
+  "nombre": "Luciano Planells",
+  "equipo": "Atenas",
+  "tipo": "mayores",
+  "pid": 623893,
+  "25/26": {
+   "pj": 14,
+   "pts": 39,
+   "ppg": 2.79,
+   "club": "Cordón"
+  }
+ },
+ {
+  "nombre": "Mateo Pose",
+  "equipo": "Atenas",
+  "tipo": "mayores",
+  "pid": null
+ },
+ {
+  "nombre": "Rafael Previatti",
+  "equipo": "Atenas",
+  "tipo": "mayores",
+  "pid": 1314581,
+  "25/26": {
+   "pj": 27,
+   "pts": 132,
+   "ppg": 4.89,
+   "club": "Welcome"
+  },
+  "24/25": {
+   "pj": 27,
+   "pts": 114,
+   "ppg": 4.22,
+   "club": "Urupan"
+  }
+ },
+ {
+  "nombre": "Rogelio De León",
+  "equipo": "Atenas",
+  "tipo": "mayores",
+  "pid": 16596,
+  "24/25": {
+   "pj": 2,
+   "pts": 10,
+   "ppg": 5.0,
+   "club": "Ferro Carril"
+  }
+ },
+ {
+  "nombre": "Eduardo Superi",
+  "equipo": "Atenas",
+  "tipo": "sub23",
+  "pid": 2150245,
+  "25/26": {
+   "pj": 15,
+   "pts": 22,
+   "ppg": 1.47,
+   "club": "Nacional"
+  },
+  "24/25": {
+   "pj": 21,
+   "pts": 36,
+   "ppg": 1.71,
+   "club": "Nacional"
+  }
+ },
+ {
+  "nombre": "Jerónimo Galeano",
+  "equipo": "Atenas",
+  "tipo": "sub23",
+  "pid": 1760620,
+  "25/26": {
+   "pj": 18,
+   "pts": 22,
+   "ppg": 1.22,
+   "club": "Nacional"
+  }
+ },
+ {
+  "nombre": "Mateo Gómez",
+  "equipo": "Atenas",
+  "tipo": "sub23",
+  "pid": null
+ },
+ {
+  "nombre": "Moises Adames",
+  "equipo": "Atenas",
+  "tipo": "sub23",
+  "pid": null
+ },
+ {
+  "nombre": "Hernán Álvarez",
+  "equipo": "Bigua",
+  "tipo": "mayores",
+  "pid": 191813
+ },
+ {
+  "nombre": "Federico Pereiras",
+  "equipo": "Bigua",
+  "tipo": "mayores",
+  "pid": 17571,
+  "25/26": {
+   "pj": 45,
+   "pts": 295,
+   "ppg": 6.56,
+   "club": "Aguada"
+  },
+  "24/25": {
+   "pj": 42,
+   "pts": 266,
+   "ppg": 6.33,
+   "club": "Aguada"
+  }
+ },
+ {
+  "nombre": "Theo Metzger",
+  "equipo": "Bigua",
+  "tipo": "mayores",
+  "pid": 725720,
+  "25/26": {
+   "pj": 39,
+   "pts": 393,
+   "ppg": 10.08,
+   "club": "Defensor Sporting"
+  },
+  "24/25": {
+   "pj": 25,
+   "pts": 235,
+   "ppg": 9.4,
+   "club": "Defensor Sporting"
+  }
+ },
+ {
+  "nombre": "Mathías Calfani",
+  "equipo": "Bigua",
+  "tipo": "mayores",
+  "pid": null
+ },
+ {
+  "nombre": "Sebastián Ottonello",
+  "equipo": "Bigua",
+  "tipo": "mayores",
+  "pid": 191795,
+  "25/26": {
+   "pj": 31,
+   "pts": 306,
+   "ppg": 9.87,
+   "club": "Bigua"
+  },
+  "24/25": {
+   "pj": 41,
+   "pts": 292,
+   "ppg": 7.12,
+   "club": "Nacional"
+  }
+ },
+ {
+  "nombre": "Thiago Rodríguez",
+  "equipo": "Bigua",
+  "tipo": "sub23",
+  "pid": 1989296,
+  "25/26": {
+   "pj": 31,
+   "pts": 222,
+   "ppg": 7.16,
+   "club": "Bigua"
+  },
+  "24/25": {
+   "pj": 23,
+   "pts": 108,
+   "ppg": 4.7,
+   "club": "Bigua"
+  }
+ },
+ {
+  "nombre": "Juan Ignacio Durán",
+  "equipo": "Bigua",
+  "tipo": "sub23",
+  "pid": null
+ },
+ {
+  "nombre": "Álvaro Payovich",
+  "equipo": "Bigua",
+  "tipo": "sub23",
+  "pid": 2214818,
+  "25/26": {
+   "pj": 16,
+   "pts": 39,
+   "ppg": 2.44,
+   "club": "Bigua"
+  },
+  "24/25": {
+   "pj": 27,
+   "pts": 70,
+   "ppg": 2.59,
+   "club": "Bigua"
+  }
+ },
+ {
+  "nombre": "Juan Santiso",
+  "equipo": "Defensor Sporting",
+  "tipo": "mayores",
+  "pid": 17101,
+  "25/26": {
+   "pj": 44,
+   "pts": 391,
+   "ppg": 8.89,
+   "club": "Aguada"
+  },
+  "24/25": {
+   "pj": 40,
+   "pts": 368,
+   "ppg": 9.2,
+   "club": "Aguada"
+  }
+ },
+ {
+  "nombre": "Mateo Giano",
+  "equipo": "Defensor Sporting",
+  "tipo": "mayores",
+  "pid": 1338848,
+  "25/26": {
+   "pj": 28,
+   "pts": 375,
+   "ppg": 13.39,
+   "club": "Unión Atlética"
+  },
+  "24/25": {
+   "pj": 25,
+   "pts": 197,
+   "ppg": 7.88,
+   "club": "Cordón"
+  }
+ },
+ {
+  "nombre": "Federico Soto",
+  "equipo": "Defensor Sporting",
+  "tipo": "mayores",
+  "pid": 539387,
+  "25/26": {
+   "pj": 33,
+   "pts": 207,
+   "ppg": 6.27,
+   "club": "Defensor Sporting"
+  },
+  "24/25": {
+   "pj": 23,
+   "pts": 206,
+   "ppg": 8.96,
+   "club": "Defensor Sporting"
+  }
+ },
+ {
+  "nombre": "Bernardo Barrera",
+  "equipo": "Defensor Sporting",
+  "tipo": "mayores",
+  "pid": 17677,
+  "25/26": {
+   "pj": 39,
+   "pts": 300,
+   "ppg": 7.69,
+   "club": "Nacional"
+  },
+  "24/25": {
+   "pj": 40,
+   "pts": 305,
+   "ppg": 7.62,
+   "club": "Nacional"
+  }
+ },
+ {
+  "nombre": "Mateo Bianchi",
+  "equipo": "Defensor Sporting",
+  "tipo": "mayores",
+  "pid": 999249,
+  "25/26": {
+   "pj": 38,
+   "pts": 270,
+   "ppg": 7.11,
+   "club": "Defensor Sporting"
+  },
+  "24/25": {
+   "pj": 33,
+   "pts": 232,
+   "ppg": 7.03,
+   "club": "Defensor Sporting"
+  }
+ },
+ {
+  "nombre": "Maximiliano Antúnez",
+  "equipo": "Defensor Sporting",
+  "tipo": "sub23",
+  "pid": 1940452,
+  "25/26": {
+   "pj": 28,
+   "pts": 85,
+   "ppg": 3.04,
+   "club": "Defensor Sporting"
+  },
+  "24/25": {
+   "pj": 1,
+   "pts": 0,
+   "ppg": 0.0,
+   "club": "Defensor Sporting"
+  }
+ },
+ {
+  "nombre": "Andrés Aron",
+  "equipo": "Defensor Sporting",
+  "tipo": "sub23",
+  "pid": 2816434,
+  "25/26": {
+   "pj": 1,
+   "pts": 0,
+   "ppg": 0.0,
+   "club": "Defensor Sporting"
+  }
+ },
+ {
+  "nombre": "Brahian Gomez",
+  "equipo": "Defensor Sporting",
+  "tipo": "sub23",
+  "pid": 2243963,
+  "25/26": {
+   "pj": 10,
+   "pts": 8,
+   "ppg": 0.8,
+   "club": "Defensor Sporting"
+  },
+  "24/25": {
+   "pj": 11,
+   "pts": 12,
+   "ppg": 1.09,
+   "club": "Defensor Sporting"
+  }
+ },
+ {
+  "nombre": "Melvin Soto",
+  "equipo": "Defensor Sporting",
+  "tipo": "sub23",
+  "pid": 2250412,
+  "25/26": {
+   "pj": 3,
+   "pts": 0,
+   "ppg": 0.0,
+   "club": "Defensor Sporting"
+  },
+  "24/25": {
+   "pj": 5,
+   "pts": 10,
+   "ppg": 2.0,
+   "club": "Defensor Sporting"
+  }
+ },
+ {
+  "nombre": "Manuel Mayora",
+  "equipo": "Goes",
+  "tipo": "mayores",
+  "pid": 258698,
+  "25/26": {
+   "pj": 34,
+   "pts": 209,
+   "ppg": 6.15,
+   "club": "Hebraica Macabi"
+  },
+  "24/25": {
+   "pj": 25,
+   "pts": 257,
+   "ppg": 10.28,
+   "club": "Hebraica Macabi"
+  }
+ },
+ {
+  "nombre": "Emiliano Bonet",
+  "equipo": "Goes",
+  "tipo": "mayores",
+  "pid": 961332,
+  "25/26": {
+   "pj": 27,
+   "pts": 265,
+   "ppg": 9.81,
+   "club": "Goes"
+  },
+  "24/25": {
+   "pj": 31,
+   "pts": 143,
+   "ppg": 4.61,
+   "club": "Cordón"
+  }
+ },
+ {
+  "nombre": "Agustín Méndez",
+  "equipo": "Goes",
+  "tipo": "mayores",
+  "pid": 1894506,
+  "25/26": {
+   "pj": 38,
+   "pts": 242,
+   "ppg": 6.37,
+   "club": "Nacional"
+  },
+  "24/25": {
+   "pj": 37,
+   "pts": 128,
+   "ppg": 3.46,
+   "club": "Nacional"
+  }
+ },
+ {
+  "nombre": "Xavier Cousté",
+  "equipo": "Goes",
+  "tipo": "mayores",
+  "pid": 2785563,
+  "25/26": {
+   "pj": 21,
+   "pts": 201,
+   "ppg": 9.57,
+   "club": "Goes"
+  },
+  "24/25": {
+   "pj": 30,
+   "pts": 262,
+   "ppg": 8.73,
+   "club": "Cordón"
+  }
+ },
+ {
+  "nombre": "Juan Ignacio Ducasse",
+  "equipo": "Goes",
+  "tipo": "mayores",
+  "pid": null
+ },
+ {
+  "nombre": "Lucas Bennett",
+  "equipo": "Goes",
+  "tipo": "sub23",
+  "pid": 1937775,
+  "25/26": {
+   "pj": 5,
+   "pts": 2,
+   "ppg": 0.4,
+   "club": "Nacional"
+  },
+  "24/25": {
+   "pj": 4,
+   "pts": 3,
+   "ppg": 0.75,
+   "club": "Nacional"
+  }
+ },
+ {
+  "nombre": "Ignacio Dos Santos",
+  "equipo": "Goes",
+  "tipo": "sub23",
+  "pid": 2154756,
+  "25/26": {
+   "pj": 21,
+   "pts": 73,
+   "ppg": 3.48,
+   "club": "Goes"
+  }
+ },
+ {
+  "nombre": "Santiago Fernández",
+  "equipo": "Hebraica Macabi",
+  "tipo": "mayores",
+  "pid": 1346396,
+  "25/26": {
+   "pj": 36,
+   "pts": 287,
+   "ppg": 7.97,
+   "club": "Malvín"
+  },
+  "24/25": {
+   "pj": 26,
+   "pts": 328,
+   "ppg": 12.62,
+   "club": "Trouville"
+  }
+ },
+ {
+  "nombre": "Manuel Romero",
+  "equipo": "Hebraica Macabi",
+  "tipo": "mayores",
+  "pid": 16177,
+  "25/26": {
+   "pj": 35,
+   "pts": 237,
+   "ppg": 6.77,
+   "club": "Malvín"
+  },
+  "24/25": {
+   "pj": 31,
+   "pts": 170,
+   "ppg": 5.48,
+   "club": "Malvín"
+  }
+ },
+ {
+  "nombre": "Martín Trelles",
+  "equipo": "Hebraica Macabi",
+  "tipo": "mayores",
+  "pid": 17147,
+  "24/25": {
+   "pj": 5,
+   "pts": 38,
+   "ppg": 7.6,
+   "club": "Cordón"
+  }
+ },
+ {
+  "nombre": "Nicolás Catalá",
+  "equipo": "Hebraica Macabi",
+  "tipo": "mayores",
+  "pid": 16616,
+  "25/26": {
+   "pj": 31,
+   "pts": 138,
+   "ppg": 4.45,
+   "club": "Bigua"
+  },
+  "24/25": {
+   "pj": 31,
+   "pts": 282,
+   "ppg": 9.1,
+   "club": "Bigua"
+  }
+ },
+ {
+  "nombre": "Federico Haller",
+  "equipo": "Hebraica Macabi",
+  "tipo": "mayores",
+  "pid": 15217,
+  "25/26": {
+   "pj": 34,
+   "pts": 344,
+   "ppg": 10.12,
+   "club": "Hebraica Macabi"
+  },
+  "24/25": {
+   "pj": 25,
+   "pts": 329,
+   "ppg": 13.16,
+   "club": "Hebraica Macabi"
+  }
+ },
+ {
+  "nombre": "Stefan Casanova",
+  "equipo": "Hebraica Macabi",
+  "tipo": "sub23",
+  "pid": 2249854
+ },
+ {
+  "nombre": "Matías Khoury",
+  "equipo": "Hebraica Macabi",
+  "tipo": "sub23",
+  "pid": 2759388
+ },
+ {
+  "nombre": "Lautaro Viatri",
+  "equipo": "Hebraica Macabi",
+  "tipo": "sub23",
+  "pid": 1675384,
+  "25/26": {
+   "pj": 23,
+   "pts": 45,
+   "ppg": 1.96,
+   "club": "Hebraica Macabi"
+  },
+  "24/25": {
+   "pj": 31,
+   "pts": 73,
+   "ppg": 2.35,
+   "club": "Hebraica Macabi"
+  }
+ },
+ {
+  "nombre": "Gustavo Barrera",
+  "equipo": "Larrañaga",
+  "tipo": "mayores",
+  "pid": 16739,
+  "25/26": {
+   "pj": 26,
+   "pts": 116,
+   "ppg": 4.46,
+   "club": "Welcome"
+  },
+  "24/25": {
+   "pj": 23,
+   "pts": 210,
+   "ppg": 9.13,
+   "club": "Welcome"
+  }
+ },
+ {
+  "nombre": "Nicolás Bessio",
+  "equipo": "Larrañaga",
+  "tipo": "mayores",
+  "pid": 1569431,
+  "25/26": {
+   "pj": 22,
+   "pts": 36,
+   "ppg": 1.64,
+   "club": "Urunday Universitario"
+  },
+  "24/25": {
+   "pj": 25,
+   "pts": 98,
+   "ppg": 3.92,
+   "club": "Trouville"
+  }
+ },
+ {
+  "nombre": "Joaquín Osimani",
+  "equipo": "Larrañaga",
+  "tipo": "mayores",
+  "pid": 15493,
+  "25/26": {
+   "pj": 32,
+   "pts": 144,
+   "ppg": 4.5,
+   "club": "Aguada"
+  },
+  "24/25": {
+   "pj": 39,
+   "pts": 237,
+   "ppg": 6.08,
+   "club": "Aguada"
+  }
+ },
+ {
+  "nombre": "Fernando Verrone",
+  "equipo": "Larrañaga",
+  "tipo": "mayores",
+  "pid": 17044,
+  "25/26": {
+   "pj": 24,
+   "pts": 149,
+   "ppg": 6.21,
+   "club": "Goes"
+  },
+  "24/25": {
+   "pj": 32,
+   "pts": 317,
+   "ppg": 9.91,
+   "club": "Cordón"
+  }
+ },
+ {
+  "nombre": "Mauricio Arregui",
+  "equipo": "Larrañaga",
+  "tipo": "mayores",
+  "pid": 1661037,
+  "25/26": {
+   "pj": 15,
+   "pts": 44,
+   "ppg": 2.93,
+   "club": "Cordón"
+  },
+  "24/25": {
+   "pj": 7,
+   "pts": 52,
+   "ppg": 7.43,
+   "club": "Malvín"
+  }
+ },
+ {
+  "nombre": "Martín Rodríguez",
+  "equipo": "Larrañaga",
+  "tipo": "sub23",
+  "pid": 1937748,
+  "25/26": {
+   "pj": 15,
+   "pts": 31,
+   "ppg": 2.07,
+   "club": "Urunday Universitario"
+  },
+  "24/25": {
+   "pj": 23,
+   "pts": 91,
+   "ppg": 3.96,
+   "club": "Urunday Universitario"
+  }
+ },
+ {
+  "nombre": "Guillermo Jones",
+  "equipo": "Larrañaga",
+  "tipo": "sub23",
+  "pid": null
+ },
+ {
+  "nombre": "Felipe Suárez",
+  "equipo": "Larrañaga",
+  "tipo": "sub23",
+  "pid": null
+ },
+ {
+  "nombre": "Salvador Zanotta",
+  "equipo": "Malvín",
+  "tipo": "mayores",
+  "pid": 15259,
+  "25/26": {
+   "pj": 34,
+   "pts": 215,
+   "ppg": 6.32,
+   "club": "Hebraica Macabi"
+  },
+  "24/25": {
+   "pj": 28,
+   "pts": 171,
+   "ppg": 6.11,
+   "club": "Peñarol"
+  }
+ },
+ {
+  "nombre": "Fernando Salsamendi",
+  "equipo": "Malvín",
+  "tipo": "mayores",
+  "pid": null
+ },
+ {
+  "nombre": "Marcel Souberbielle",
+  "equipo": "Malvín",
+  "tipo": "mayores",
+  "pid": 17148,
+  "25/26": {
+   "pj": 7,
+   "pts": 2,
+   "ppg": 0.29,
+   "club": "Malvín"
+  },
+  "24/25": {
+   "pj": 33,
+   "pts": 257,
+   "ppg": 7.79,
+   "club": "Malvín"
+  }
+ },
+ {
+  "nombre": "Manuel Oyenard",
+  "equipo": "Malvín",
+  "tipo": "mayores",
+  "pid": 1567203,
+  "25/26": {
+   "pj": 26,
+   "pts": 230,
+   "ppg": 8.85,
+   "club": "Goes"
+  }
+ },
+ {
+  "nombre": "Kiril Wachsmann",
+  "equipo": "Malvín",
+  "tipo": "mayores",
+  "pid": 17488,
+  "25/26": {
+   "pj": 36,
+   "pts": 146,
+   "ppg": 4.06,
+   "club": "Malvín"
+  },
+  "24/25": {
+   "pj": 37,
+   "pts": 192,
+   "ppg": 5.19,
+   "club": "Malvín"
+  }
+ },
+ {
+  "nombre": "Nahuel Rodríguez",
+  "equipo": "Malvín",
+  "tipo": "sub23",
+  "pid": 1796527,
+  "25/26": {
+   "pj": 24,
+   "pts": 73,
+   "ppg": 3.04,
+   "club": "Malvín"
+  },
+  "24/25": {
+   "pj": 14,
+   "pts": 50,
+   "ppg": 3.57,
+   "club": "Malvín"
+  }
+ },
+ {
+  "nombre": "Franco Brun",
+  "equipo": "Malvín",
+  "tipo": "sub23",
+  "pid": 1937721,
+  "25/26": {
+   "pj": 12,
+   "pts": 12,
+   "ppg": 1.0,
+   "club": "Malvín"
+  },
+  "24/25": {
+   "pj": 28,
+   "pts": 38,
+   "ppg": 1.36,
+   "club": "Malvín"
+  }
+ },
+ {
+  "nombre": "Nicolás Testa",
+  "equipo": "Malvín",
+  "tipo": "sub23",
+  "pid": 2091545,
+  "25/26": {
+   "pj": 1,
+   "pts": 0,
+   "ppg": 0.0,
+   "club": "Malvín"
+  },
+  "24/25": {
+   "pj": 12,
+   "pts": 17,
+   "ppg": 1.42,
+   "club": "Malvín"
+  }
+ },
+ {
+  "nombre": "Camilo Gagliano",
+  "equipo": "Malvín",
+  "tipo": "sub23",
+  "pid": null
+ },
+ {
+  "nombre": "Patricio Prieto",
+  "equipo": "Nacional",
+  "tipo": "mayores",
+  "pid": 1722930,
+  "25/26": {
+   "pj": 39,
+   "pts": 385,
+   "ppg": 9.87,
+   "club": "Nacional"
+  },
+  "24/25": {
+   "pj": 41,
+   "pts": 320,
+   "ppg": 7.8,
+   "club": "Nacional"
+  }
+ },
+ {
+  "nombre": "Gastón Semiglia",
+  "equipo": "Nacional",
+  "tipo": "mayores",
+  "pid": 16717,
+  "25/26": {
+   "pj": 29,
+   "pts": 269,
+   "ppg": 9.28,
+   "club": "Hebraica Macabi"
+  },
+  "24/25": {
+   "pj": 40,
+   "pts": 406,
+   "ppg": 10.15,
+   "club": "Nacional"
+  }
+ },
+ {
+  "nombre": "Ignacio Xavier",
+  "equipo": "Nacional",
+  "tipo": "mayores",
+  "pid": 727814,
+  "25/26": {
+   "pj": 34,
+   "pts": 317,
+   "ppg": 9.32,
+   "club": "Hebraica Macabi"
+  },
+  "24/25": {
+   "pj": 29,
+   "pts": 233,
+   "ppg": 8.03,
+   "club": "Peñarol"
+  }
+ },
+ {
+  "nombre": "Gianfranco Espíndola",
+  "equipo": "Nacional",
+  "tipo": "mayores",
+  "pid": 17669,
+  "25/26": {
+   "pj": 32,
+   "pts": 240,
+   "ppg": 7.5,
+   "club": "Nacional"
+  },
+  "24/25": {
+   "pj": 39,
+   "pts": 320,
+   "ppg": 8.21,
+   "club": "Nacional"
+  }
+ },
+ {
+  "nombre": "Pablo Gómez",
+  "equipo": "Nacional",
+  "tipo": "mayores",
+  "pid": 1661038,
+  "25/26": {
+   "pj": 34,
+   "pts": 179,
+   "ppg": 5.26,
+   "club": "Nacional"
+  },
+  "24/25": {
+   "pj": 25,
+   "pts": 126,
+   "ppg": 5.04,
+   "club": "Trouville"
+  }
+ },
+ {
+  "nombre": "Juan Ignacio Stoll",
+  "equipo": "Nacional",
+  "tipo": "sub23",
+  "pid": null
+ },
+ {
+  "nombre": "Thomas Araújo",
+  "equipo": "Nacional",
+  "tipo": "sub23",
+  "pid": 1375364,
+  "25/26": {
+   "pj": 18,
+   "pts": 64,
+   "ppg": 3.56,
+   "club": "Cordón"
+  }
+ },
+ {
+  "nombre": "Luis Pedro Imas",
+  "equipo": "Nacional",
+  "tipo": "sub23",
+  "pid": null
+ },
+ {
+  "nombre": "Santiago Vescovi",
+  "equipo": "Peñarol",
+  "tipo": "mayores",
+  "pid": 617418,
+  "25/26": {
+   "pj": 39,
+   "pts": 612,
+   "ppg": 15.69,
+   "club": "Peñarol"
+  }
+ },
+ {
+  "nombre": "Santiago Calimares",
+  "equipo": "Peñarol",
+  "tipo": "mayores",
+  "pid": 1509909,
+  "25/26": {
+   "pj": 37,
+   "pts": 131,
+   "ppg": 3.54,
+   "club": "Peñarol"
+  },
+  "24/25": {
+   "pj": 25,
+   "pts": 82,
+   "ppg": 3.28,
+   "club": "Peñarol"
+  }
+ },
+ {
+  "nombre": "Nicola Pomoli",
+  "equipo": "Peñarol",
+  "tipo": "mayores",
+  "pid": 811063,
+  "25/26": {
+   "pj": 40,
+   "pts": 552,
+   "ppg": 13.8,
+   "club": "Peñarol"
+  }
+ },
+ {
+  "nombre": "Emiliano Serres",
+  "equipo": "Peñarol",
+  "tipo": "mayores",
+  "pid": 17691,
+  "25/26": {
+   "pj": 38,
+   "pts": 376,
+   "ppg": 9.89,
+   "club": "Peñarol"
+  },
+  "24/25": {
+   "pj": 32,
+   "pts": 322,
+   "ppg": 10.06,
+   "club": "Peñarol"
+  }
+ },
+ {
+  "nombre": "Martín Rojas",
+  "equipo": "Peñarol",
+  "tipo": "mayores",
+  "pid": 258681,
+  "25/26": {
+   "pj": 43,
+   "pts": 318,
+   "ppg": 7.4,
+   "club": "Peñarol"
+  },
+  "24/25": {
+   "pj": 32,
+   "pts": 227,
+   "ppg": 7.09,
+   "club": "Peñarol"
+  }
+ },
+ {
+  "nombre": "Lucas Rodríguez",
+  "equipo": "Peñarol",
+  "tipo": "sub23",
+  "pid": 2816477
+ },
+ {
+  "nombre": "Nicolás Lema",
+  "equipo": "Peñarol",
+  "tipo": "sub23",
+  "pid": 1676246,
+  "25/26": {
+   "pj": 36,
+   "pts": 145,
+   "ppg": 4.03,
+   "club": "Peñarol"
+  },
+  "24/25": {
+   "pj": 20,
+   "pts": 119,
+   "ppg": 5.95,
+   "club": "Cordón"
+  }
+ },
+ {
+  "nombre": "Conrado Heilmann",
+  "equipo": "Peñarol",
+  "tipo": "sub23",
+  "pid": 2544008,
+  "25/26": {
+   "pj": 23,
+   "pts": 55,
+   "ppg": 2.39,
+   "club": "Peñarol"
+  }
+ },
+ {
+  "nombre": "Manuel Saavedra",
+  "equipo": "Unión Atlética",
+  "tipo": "mayores",
+  "pid": 1661035,
+  "24/25": {
+   "pj": 27,
+   "pts": 87,
+   "ppg": 3.22,
+   "club": "Hebraica Macabi"
+  }
+ },
+ {
+  "nombre": "Mauro Zubiaurre",
+  "equipo": "Unión Atlética",
+  "tipo": "mayores",
+  "pid": 17046,
+  "25/26": {
+   "pj": 39,
+   "pts": 262,
+   "ppg": 6.72,
+   "club": "Defensor Sporting"
+  },
+  "24/25": {
+   "pj": 35,
+   "pts": 238,
+   "ppg": 6.8,
+   "club": "Defensor Sporting"
+  }
+ },
+ {
+  "nombre": "Mateo Mac Mullen",
+  "equipo": "Unión Atlética",
+  "tipo": "mayores",
+  "pid": 1723827,
+  "25/26": {
+   "pj": 38,
+   "pts": 118,
+   "ppg": 3.11,
+   "club": "Defensor Sporting"
+  },
+  "24/25": {
+   "pj": 26,
+   "pts": 70,
+   "ppg": 2.69,
+   "club": "Defensor Sporting"
+  }
+ },
+ {
+  "nombre": "Guillermo Souza",
+  "equipo": "Unión Atlética",
+  "tipo": "mayores",
+  "pid": 968070,
+  "25/26": {
+   "pj": 19,
+   "pts": 131,
+   "ppg": 6.89,
+   "club": "Unión Atlética"
+  },
+  "24/25": {
+   "pj": 25,
+   "pts": 173,
+   "ppg": 6.92,
+   "club": "Trouville"
+  }
+ },
+ {
+  "nombre": "Rodrigo Brause",
+  "equipo": "Unión Atlética",
+  "tipo": "mayores",
+  "pid": 16914,
+  "24/25": {
+   "pj": 17,
+   "pts": 96,
+   "ppg": 5.65,
+   "club": "Urunday Universitario"
+  }
+ },
+ {
+  "nombre": "Agustín Irastorza",
+  "equipo": "Unión Atlética",
+  "tipo": "sub23",
+  "pid": 1977269,
+  "25/26": {
+   "pj": 24,
+   "pts": 54,
+   "ppg": 2.25,
+   "club": "Goes"
+  },
+  "24/25": {
+   "pj": 5,
+   "pts": 4,
+   "ppg": 0.8,
+   "club": "Trouville"
+  }
+ },
+ {
+  "nombre": "Mateo Sarni",
+  "equipo": "Urunday Universitario",
+  "tipo": "mayores",
+  "pid": 43252,
+  "25/26": {
+   "pj": 30,
+   "pts": 259,
+   "ppg": 8.63,
+   "club": "Urunday Universitario"
+  },
+  "24/25": {
+   "pj": 41,
+   "pts": 197,
+   "ppg": 4.8,
+   "club": "Nacional"
+  }
+ },
+ {
+  "nombre": "Santiago Massa",
+  "equipo": "Urunday Universitario",
+  "tipo": "mayores",
+  "pid": 62685,
+  "25/26": {
+   "pj": 30,
+   "pts": 303,
+   "ppg": 10.1,
+   "club": "Urunday Universitario"
+  },
+  "24/25": {
+   "pj": 29,
+   "pts": 276,
+   "ppg": 9.52,
+   "club": "Hebraica Macabi"
+  }
+ },
+ {
+  "nombre": "Octavio Medina",
+  "equipo": "Urunday Universitario",
+  "tipo": "mayores",
+  "pid": 17110,
+  "25/26": {
+   "pj": 36,
+   "pts": 152,
+   "ppg": 4.22,
+   "club": "Malvín"
+  },
+  "24/25": {
+   "pj": 27,
+   "pts": 326,
+   "ppg": 12.07,
+   "club": "Urupan"
+  }
+ },
+ {
+  "nombre": "Nahuel Amichetti",
+  "equipo": "Urunday Universitario",
+  "tipo": "mayores",
+  "pid": 1643387,
+  "25/26": {
+   "pj": 15,
+   "pts": 69,
+   "ppg": 4.6,
+   "club": "Urunday Universitario"
+  },
+  "24/25": {
+   "pj": 27,
+   "pts": 130,
+   "ppg": 4.81,
+   "club": "Urupan"
+  }
+ },
+ {
+  "nombre": "Agustín Gentile",
+  "equipo": "Urunday Universitario",
+  "tipo": "mayores",
+  "pid": 1717089,
+  "25/26": {
+   "pj": 37,
+   "pts": 87,
+   "ppg": 2.35,
+   "club": "Aguada"
+  },
+  "24/25": {
+   "pj": 40,
+   "pts": 41,
+   "ppg": 1.02,
+   "club": "Aguada"
+  }
+ },
+ {
+  "nombre": "Bruno Curadossi",
+  "equipo": "Urunday Universitario",
+  "tipo": "sub23",
+  "pid": 1714808,
+  "25/26": {
+   "pj": 30,
+   "pts": 233,
+   "ppg": 7.77,
+   "club": "Urunday Universitario"
+  },
+  "24/25": {
+   "pj": 14,
+   "pts": 27,
+   "ppg": 1.93,
+   "club": "Urunday Universitario"
+  }
+ },
+ {
+  "nombre": "Agustín Moller",
+  "equipo": "Urunday Universitario",
+  "tipo": "sub23",
+  "pid": 1765563,
+  "25/26": {
+   "pj": 25,
+   "pts": 217,
+   "ppg": 8.68,
+   "club": "Urunday Universitario"
+  },
+  "24/25": {
+   "pj": 12,
+   "pts": 67,
+   "ppg": 5.58,
+   "club": "Urunday Universitario"
+  }
+ },
+ {
+  "nombre": "Matías Benítez",
+  "equipo": "Urunday Universitario",
+  "tipo": "sub23",
+  "pid": 2074488,
+  "25/26": {
+   "pj": 28,
+   "pts": 207,
+   "ppg": 7.39,
+   "club": "Urunday Universitario"
+  },
+  "24/25": {
+   "pj": 26,
+   "pts": 53,
+   "ppg": 2.04,
+   "club": "Aguada"
+  }
+ },
+ {
+  "nombre": "Francisco Moleda",
+  "equipo": "Urunday Universitario",
+  "tipo": "sub23",
+  "pid": 2325518,
+  "25/26": {
+   "pj": 4,
+   "pts": 9,
+   "ppg": 2.25,
+   "club": "Urunday Universitario"
+  }
+ }
+]
