@@ -1,0 +1,742 @@
+{
+ "cargado": [
+  {
+   "e_real": 313.05952380952385,
+   "se_real": 11.67083981212798,
+   "e_modelo": 191.25,
+   "realizado": 0.0,
+   "max": 26,
+   "max_rival": 43,
+   "fecha": 1
+  },
+  {
+   "e_real": 394.6367354867355,
+   "se_real": 13.219243261456535,
+   "e_modelo": 354.8833333333333,
+   "realizado": 0.0,
+   "max": 26,
+   "max_rival": 39,
+   "fecha": 2
+  },
+  {
+   "e_real": 246.55592185592187,
+   "se_real": 10.316038585729432,
+   "e_modelo": 344.35,
+   "realizado": 0.0,
+   "max": 35,
+   "max_rival": 45,
+   "fecha": 3
+  },
+  {
+   "e_real": 305.9541666666667,
+   "se_real": 11.56521522019412,
+   "e_modelo": 374.6666666666667,
+   "realizado": 0.0,
+   "max": 26,
+   "max_rival": 49,
+   "fecha": 4
+  },
+  {
+   "e_real": 248.9191197691198,
+   "se_real": 10.34375129259256,
+   "e_modelo": 398.9666666666667,
+   "realizado": 0.0,
+   "max": 37,
+   "max_rival": 49,
+   "fecha": 5
+  },
+  {
+   "e_real": 351.37142857142857,
+   "se_real": 12.379757545642358,
+   "e_modelo": 300.95,
+   "realizado": 0.0,
+   "max": 33,
+   "max_rival": 42,
+   "fecha": 6
+  },
+  {
+   "e_real": 264.5238095238095,
+   "se_real": 10.784443844025677,
+   "e_modelo": 268.225,
+   "realizado": 0.0,
+   "max": 23,
+   "max_rival": 47,
+   "fecha": 7
+  },
+  {
+   "e_real": 237.8207473082473,
+   "se_real": 10.183428403829605,
+   "e_modelo": 269.5416666666667,
+   "realizado": 10000.0,
+   "max": 44,
+   "max_rival": 43,
+   "fecha": 8
+  }
+ ],
+ "ascenso K_EV=5 n=12": [
+  {
+   "e_real": 354.49642857142857,
+   "se_real": 12.533011167516735,
+   "e_modelo": 347.98809523809524,
+   "realizado": 0.0,
+   "max": 34,
+   "max_rival": 43,
+   "fecha": 1
+  },
+  {
+   "e_real": 427.1405233655234,
+   "se_real": 13.838236514671918,
+   "e_modelo": 423.5416666666667,
+   "realizado": 0.0,
+   "max": 26,
+   "max_rival": 39,
+   "fecha": 2
+  },
+  {
+   "e_real": 288.0184523809524,
+   "se_real": 11.279228467219815,
+   "e_modelo": 373.8,
+   "realizado": 0.0,
+   "max": 33,
+   "max_rival": 45,
+   "fecha": 3
+  },
+  {
+   "e_real": 390.95892857142854,
+   "se_real": 13.095932158473117,
+   "e_modelo": 420.5,
+   "realizado": 0.0,
+   "max": 39,
+   "max_rival": 49,
+   "fecha": 4
+  },
+  {
+   "e_real": 332.91567460317464,
+   "se_real": 12.082048168827138,
+   "e_modelo": 467.0333333333334,
+   "realizado": 0.0,
+   "max": 25,
+   "max_rival": 49,
+   "fecha": 5
+  },
+  {
+   "e_real": 422.7833333333334,
+   "se_real": 13.674842732693085,
+   "e_modelo": 360.29166666666663,
+   "realizado": 0.0,
+   "max": 39,
+   "max_rival": 42,
+   "fecha": 6
+  },
+  {
+   "e_real": 287.3178571428572,
+   "se_real": 11.295699839465806,
+   "e_modelo": 308.5130952380952,
+   "realizado": 0.0,
+   "max": 25,
+   "max_rival": 47,
+   "fecha": 7
+  },
+  {
+   "e_real": 268.2944444444444,
+   "se_real": 10.845561048512455,
+   "e_modelo": 339.83809523809526,
+   "realizado": 0.0,
+   "max": 38,
+   "max_rival": 43,
+   "fecha": 8
+  }
+ ],
+ "k8": [
+  {
+   "e_real": 514.161507936508,
+   "se_real": 15.116563698915112,
+   "e_modelo": 445.2833333333334,
+   "realizado": 0.0,
+   "max": 29,
+   "max_rival": 43,
+   "fecha": 1
+  },
+  {
+   "e_real": 366.97208902208905,
+   "se_real": 12.763700575943501,
+   "e_modelo": 430.9916666666667,
+   "realizado": 10000.0,
+   "max": 43,
+   "max_rival": 39,
+   "fecha": 2
+  },
+  {
+   "e_real": 425.7485805860806,
+   "se_real": 13.66310783224312,
+   "e_modelo": 407.575,
+   "realizado": 0.0,
+   "max": 34,
+   "max_rival": 45,
+   "fecha": 3
+  },
+  {
+   "e_real": 349.20833333333337,
+   "se_real": 12.438022877758302,
+   "e_modelo": 409.0416666666667,
+   "realizado": 0.0,
+   "max": 28,
+   "max_rival": 49,
+   "fecha": 4
+  },
+  {
+   "e_real": 402.1490079365079,
+   "se_real": 13.367319399691043,
+   "e_modelo": 449.325,
+   "realizado": 0.0,
+   "max": 36,
+   "max_rival": 49,
+   "fecha": 5
+  },
+  {
+   "e_real": 500.725,
+   "se_real": 14.857509842458459,
+   "e_modelo": 379.90833333333336,
+   "realizado": 0.0,
+   "max": 23,
+   "max_rival": 42,
+   "fecha": 6
+  },
+  {
+   "e_real": 447.5059523809524,
+   "se_real": 14.0859885870269,
+   "e_modelo": 392.475,
+   "realizado": 0.0,
+   "max": 21,
+   "max_rival": 47,
+   "fecha": 7
+  },
+  {
+   "e_real": 324.1097222222222,
+   "se_real": 11.982310629431444,
+   "e_modelo": 310.0125,
+   "realizado": 0.0,
+   "max": 29,
+   "max_rival": 43,
+   "fecha": 8
+  }
+ ],
+ "esc0.5": [
+  {
+   "e_real": 89.71944444444443,
+   "se_real": 6.284986821424702,
+   "e_modelo": 82.83928571428572,
+   "realizado": 0.0,
+   "max": 29,
+   "max_rival": 43,
+   "fecha": 1
+  },
+  {
+   "e_real": 40.58149073149073,
+   "se_real": 4.194070214967247,
+   "e_modelo": 80.048556998557,
+   "realizado": 0.0,
+   "max": 10,
+   "max_rival": 39,
+   "fecha": 2
+  },
+  {
+   "e_real": 58.29543650793651,
+   "se_real": 4.967742540236981,
+   "e_modelo": 105.29583333333335,
+   "realizado": 0.0,
+   "max": 28,
+   "max_rival": 45,
+   "fecha": 3
+  },
+  {
+   "e_real": 47.729166666666664,
+   "se_real": 4.460815289531487,
+   "e_modelo": 102.88333333333333,
+   "realizado": 0.0,
+   "max": 17,
+   "max_rival": 49,
+   "fecha": 4
+  },
+  {
+   "e_real": 36.20670995670996,
+   "se_real": 3.825164880849724,
+   "e_modelo": 98.29305555555555,
+   "realizado": 0.0,
+   "max": 20,
+   "max_rival": 49,
+   "fecha": 5
+  },
+  {
+   "e_real": 93.74047619047619,
+   "se_real": 6.466676843542556,
+   "e_modelo": 98.74880952380954,
+   "realizado": 0.0,
+   "max": 19,
+   "max_rival": 42,
+   "fecha": 6
+  },
+  {
+   "e_real": 42.73896103896104,
+   "se_real": 4.180695257435494,
+   "e_modelo": 76.71785714285714,
+   "realizado": 0.0,
+   "max": 22,
+   "max_rival": 47,
+   "fecha": 7
+  },
+  {
+   "e_real": 18.86260822510822,
+   "se_real": 2.697566384362865,
+   "e_modelo": 42.391666666666666,
+   "realizado": 0.0,
+   "max": 25,
+   "max_rival": 43,
+   "fecha": 8
+  }
+ ],
+ "esc1.0": [
+  {
+   "e_real": 85.9325396825397,
+   "se_real": 6.274811740063309,
+   "e_modelo": 75.4,
+   "realizado": 0.0,
+   "max": 29,
+   "max_rival": 43,
+   "fecha": 1
+  },
+  {
+   "e_real": 28.190667665667668,
+   "se_real": 3.519929948646591,
+   "e_modelo": 59.11416083916083,
+   "realizado": 0.0,
+   "max": 10,
+   "max_rival": 39,
+   "fecha": 2
+  },
+  {
+   "e_real": 42.58214285714286,
+   "se_real": 4.189331119246424,
+   "e_modelo": 85.24404761904762,
+   "realizado": 0.0,
+   "max": 27,
+   "max_rival": 45,
+   "fecha": 3
+  },
+  {
+   "e_real": 31.535912698412698,
+   "se_real": 3.5337053204363897,
+   "e_modelo": 79.95535714285715,
+   "realizado": 0.0,
+   "max": 15,
+   "max_rival": 49,
+   "fecha": 4
+  },
+  {
+   "e_real": 26.342929292929295,
+   "se_real": 3.3950409362459397,
+   "e_modelo": 77.7702380952381,
+   "realizado": 0.0,
+   "max": 18,
+   "max_rival": 49,
+   "fecha": 5
+  },
+  {
+   "e_real": 71.125,
+   "se_real": 5.624885251744537,
+   "e_modelo": 71.08333333333333,
+   "realizado": 0.0,
+   "max": 19,
+   "max_rival": 42,
+   "fecha": 6
+  },
+  {
+   "e_real": 22.275992063492065,
+   "se_real": 2.969238428863655,
+   "e_modelo": 63.40833333333334,
+   "realizado": 0.0,
+   "max": 22,
+   "max_rival": 47,
+   "fecha": 7
+  },
+  {
+   "e_real": 11.622785547785549,
+   "se_real": 2.0120196660834284,
+   "e_modelo": 36.81666666666668,
+   "realizado": 0.0,
+   "max": 25,
+   "max_rival": 43,
+   "fecha": 8
+  }
+ ],
+ "esc1.5": [
+  {
+   "e_real": 69.83228715728715,
+   "se_real": 5.664127550279683,
+   "e_modelo": 62.155050505050504,
+   "realizado": 0.0,
+   "max": 29,
+   "max_rival": 43,
+   "fecha": 1
+  },
+  {
+   "e_real": 19.463503163503162,
+   "se_real": 2.9091590805161025,
+   "e_modelo": 55.41491841491842,
+   "realizado": 0.0,
+   "max": 10,
+   "max_rival": 39,
+   "fecha": 2
+  },
+  {
+   "e_real": 40.304761904761904,
+   "se_real": 4.165388817067923,
+   "e_modelo": 75.14166666666668,
+   "realizado": 0.0,
+   "max": 28,
+   "max_rival": 45,
+   "fecha": 3
+  },
+  {
+   "e_real": 36.20075757575758,
+   "se_real": 3.767914257473239,
+   "e_modelo": 91.40833333333333,
+   "realizado": 0.0,
+   "max": 17,
+   "max_rival": 49,
+   "fecha": 4
+  },
+  {
+   "e_real": 34.25674603174603,
+   "se_real": 3.706513094026875,
+   "e_modelo": 99.95357142857142,
+   "realizado": 0.0,
+   "max": 20,
+   "max_rival": 49,
+   "fecha": 5
+  },
+  {
+   "e_real": 54.78964646464647,
+   "se_real": 4.870520979329378,
+   "e_modelo": 71.40075757575758,
+   "realizado": 0.0,
+   "max": 18,
+   "max_rival": 42,
+   "fecha": 6
+  },
+  {
+   "e_real": 38.18313492063492,
+   "se_real": 4.179307834627905,
+   "e_modelo": 59.2047619047619,
+   "realizado": 0.0,
+   "max": 22,
+   "max_rival": 47,
+   "fecha": 7
+  },
+  {
+   "e_real": 15.52020202020202,
+   "se_real": 2.536355937434979,
+   "e_modelo": 39.0,
+   "realizado": 0.0,
+   "max": 25,
+   "max_rival": 43,
+   "fecha": 8
+  }
+ ],
+ "n4": [
+  {
+   "e_real": 123.97976190476189,
+   "se_real": 7.491983506495935,
+   "e_modelo": 114.89166666666668,
+   "realizado": 0.0,
+   "max": 37,
+   "max_rival": 43,
+   "fecha": 1
+  },
+  {
+   "e_real": 151.95441225441223,
+   "se_real": 8.369602796798505,
+   "e_modelo": 162.73333333333335,
+   "realizado": 0.0,
+   "max": 22,
+   "max_rival": 39,
+   "fecha": 2
+  },
+  {
+   "e_real": 76.19702380952381,
+   "se_real": 5.78885350468036,
+   "e_modelo": 131.14166666666665,
+   "realizado": 0.0,
+   "max": 30,
+   "max_rival": 45,
+   "fecha": 3
+  },
+  {
+   "e_real": 141.40833333333336,
+   "se_real": 7.964834395075158,
+   "e_modelo": 139.76666666666668,
+   "realizado": 0.0,
+   "max": 39,
+   "max_rival": 49,
+   "fecha": 4
+  },
+  {
+   "e_real": 96.15734126984128,
+   "se_real": 6.536160885048259,
+   "e_modelo": 163.75833333333335,
+   "realizado": 0.0,
+   "max": 25,
+   "max_rival": 49,
+   "fecha": 5
+  },
+  {
+   "e_real": 175.75,
+   "se_real": 8.913553175268174,
+   "e_modelo": 144.55,
+   "realizado": 0.0,
+   "max": 19,
+   "max_rival": 42,
+   "fecha": 6
+  },
+  {
+   "e_real": 78.62619047619049,
+   "se_real": 5.983610965812596,
+   "e_modelo": 106.79166666666667,
+   "realizado": 0.0,
+   "max": 21,
+   "max_rival": 47,
+   "fecha": 7
+  },
+  {
+   "e_real": 73.04087301587302,
+   "se_real": 5.638492867832844,
+   "e_modelo": 126.475,
+   "realizado": 0.0,
+   "max": 25,
+   "max_rival": 43,
+   "fecha": 8
+  }
+ ],
+ "n8": [
+  {
+   "e_real": 293.06309523809523,
+   "se_real": 11.492293811079604,
+   "e_modelo": 265.625,
+   "realizado": 0.0,
+   "max": 29,
+   "max_rival": 43,
+   "fecha": 1
+  },
+  {
+   "e_real": 302.8794122544123,
+   "se_real": 11.668766601734538,
+   "e_modelo": 294.64166666666665,
+   "realizado": 0.0,
+   "max": 23,
+   "max_rival": 39,
+   "fecha": 2
+  },
+  {
+   "e_real": 176.5839285714286,
+   "se_real": 8.8554627013435,
+   "e_modelo": 264.1833333333333,
+   "realizado": 0.0,
+   "max": 34,
+   "max_rival": 45,
+   "fecha": 3
+  },
+  {
+   "e_real": 270.65833333333336,
+   "se_real": 11.04070350500441,
+   "e_modelo": 272.5,
+   "realizado": 0.0,
+   "max": 39,
+   "max_rival": 49,
+   "fecha": 4
+  },
+  {
+   "e_real": 226.67400793650793,
+   "se_real": 10.073842088519553,
+   "e_modelo": 352.7416666666667,
+   "realizado": 0.0,
+   "max": 33,
+   "max_rival": 49,
+   "fecha": 5
+  },
+  {
+   "e_real": 327.58809523809526,
+   "se_real": 12.130881786688839,
+   "e_modelo": 254.425,
+   "realizado": 0.0,
+   "max": 29,
+   "max_rival": 42,
+   "fecha": 6
+  },
+  {
+   "e_real": 184.57619047619048,
+   "se_real": 9.090141608687205,
+   "e_modelo": 199.2214285714286,
+   "realizado": 0.0,
+   "max": 21,
+   "max_rival": 47,
+   "fecha": 7
+  },
+  {
+   "e_real": 177.9527777777778,
+   "se_real": 8.858630431665757,
+   "e_modelo": 248.3916666666667,
+   "realizado": 0.0,
+   "max": 31,
+   "max_rival": 43,
+   "fecha": 8
+  }
+ ],
+ "n16": [
+  {
+   "e_real": 524.2214285714285,
+   "se_real": 15.163625228337587,
+   "e_modelo": 437.35,
+   "realizado": 0.0,
+   "max": 40,
+   "max_rival": 43,
+   "fecha": 1
+  },
+  {
+   "e_real": 518.4655233655234,
+   "se_real": 15.140291612581391,
+   "e_modelo": 527.1880952380953,
+   "realizado": 0.0,
+   "max": 28,
+   "max_rival": 39,
+   "fecha": 2
+  },
+  {
+   "e_real": 421.13571428571436,
+   "se_real": 13.543862818996923,
+   "e_modelo": 498.53452380952376,
+   "realizado": 0.0,
+   "max": 28,
+   "max_rival": 45,
+   "fecha": 3
+  },
+  {
+   "e_real": 499.2666666666667,
+   "se_real": 14.794024724717596,
+   "e_modelo": 515.075,
+   "realizado": 0.0,
+   "max": 39,
+   "max_rival": 49,
+   "fecha": 4
+  },
+  {
+   "e_real": 417.60734126984124,
+   "se_real": 13.514900198160065,
+   "e_modelo": 587.9083333333334,
+   "realizado": 0.0,
+   "max": 24,
+   "max_rival": 49,
+   "fecha": 5
+  },
+  {
+   "e_real": 553.6388888888889,
+   "se_real": 15.505135597591247,
+   "e_modelo": 446.4333333333333,
+   "realizado": 0.0,
+   "max": 41,
+   "max_rival": 42,
+   "fecha": 6
+  },
+  {
+   "e_real": 368.49880952380954,
+   "se_real": 12.762171470979812,
+   "e_modelo": 392.2666666666667,
+   "realizado": 0.0,
+   "max": 27,
+   "max_rival": 47,
+   "fecha": 7
+  },
+  {
+   "e_real": 361.9513888888889,
+   "se_real": 12.63619728546984,
+   "e_modelo": 439.8666666666667,
+   "realizado": 0.0,
+   "max": 38,
+   "max_rival": 43,
+   "fecha": 8
+  }
+ ],
+ "n20": [
+  {
+   "e_real": 639.079761904762,
+   "se_real": 16.665112325630837,
+   "e_modelo": 537.9214285714286,
+   "realizado": 0.0,
+   "max": 34,
+   "max_rival": 43,
+   "fecha": 1
+  },
+  {
+   "e_real": 620.2873307248308,
+   "se_real": 16.430221670985432,
+   "e_modelo": 639.0333333333334,
+   "realizado": 0.0,
+   "max": 28,
+   "max_rival": 39,
+   "fecha": 2
+  },
+  {
+   "e_real": 462.3053571428572,
+   "se_real": 14.133825398373421,
+   "e_modelo": 612.5,
+   "realizado": 0.0,
+   "max": 35,
+   "max_rival": 45,
+   "fecha": 3
+  },
+  {
+   "e_real": 614.625,
+   "se_real": 16.2795948428248,
+   "e_modelo": 652.85,
+   "realizado": 0.0,
+   "max": 35,
+   "max_rival": 49,
+   "fecha": 4
+  },
+  {
+   "e_real": 512.1787698412697,
+   "se_real": 14.87480018280823,
+   "e_modelo": 690.0083333333334,
+   "realizado": 0.0,
+   "max": 27,
+   "max_rival": 49,
+   "fecha": 5
+  },
+  {
+   "e_real": 664.5305555555556,
+   "se_real": 16.926587455859163,
+   "e_modelo": 538.05,
+   "realizado": 0.0,
+   "max": 39,
+   "max_rival": 42,
+   "fecha": 6
+  },
+  {
+   "e_real": 480.90238095238095,
+   "se_real": 14.495268634977762,
+   "e_modelo": 478.64642857142854,
+   "realizado": 0.0,
+   "max": 25,
+   "max_rival": 47,
+   "fecha": 7
+  },
+  {
+   "e_real": 466.4180555555556,
+   "se_real": 14.140529134533804,
+   "e_modelo": 545.8666666666667,
+   "realizado": 0.0,
+   "max": 38,
+   "max_rival": 43,
+   "fecha": 8
+  }
+ ]
+}
