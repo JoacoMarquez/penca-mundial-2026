@@ -40,6 +40,7 @@ from src.lub import odds as lub_odds
 from src.lub.data import (CAMPEONATO_ID, DATA_DIR, TZ_UY, Partido, fetch_especiales_propios,
                           fetch_opciones_goleador, fetch_temporadas, load_temporadas,
                           mis_numeros_env, save_temporadas)
+from src.lub.goleador import cargar_candidatos, simular_goleador
 from src.lub.model import PARAMS_PROD, fit
 from src.lub.pool import PoolModel, perfiles_de_json
 from src.lub.portfolio import Evaluador, evaluar, optimizar
@@ -53,9 +54,10 @@ PRECIO = 200.0
 MARKET_WEIGHT = 0.7          # igual que el Clausura: 70% mercado / 30% ratings
 TOTAL_DEFAULT = 152.0        # total medio de la LUB (24/25–25/26) si no hay línea de total
 CAMPEON_EXP = 2.5            # shares del pool por campeón ∝ P(campeón)^2,5: el top-3 junta ~90% como en 25/26
-# Goleador uruguayo (25 pts): el penca-api no tiene estadísticas de jugadores, así que
-# P(goleador) es un prior ARMADO A MANO sobre el menú real: {nombre: prob}. Sin ese
-# archivo (o sin menú) no se asigna goleador. Shares del pool ∝ prior^1: de la 25/26
+# Goleador uruguayo (25 pts): con data/lub/goleador_candidatos.json (src.lub.goleador,
+# estadísticas de Genius) se simula CONJUNTO con la temporada y no hace falta el menú
+# del API (que da 500 sin sesión). Sin ese archivo, P(goleador) es un prior ARMADO A
+# MANO sobre el menú real: {nombre: prob}; sin ese archivo o sin menú, no se asigna. Shares del pool ∝ prior^1: de la 25/26
 # solo sabemos que el 28% de los que cargaron fue al que ganó (Vescovi), sin dato de
 # qué tan concentrado estaba el resto — no inventar un exponente.
 GOLEADOR_PRIOR = DATA_DIR / "goleador_prior.json"
@@ -182,12 +184,21 @@ def correr(k: int, n_sims: int, n_rivales: int, refrescar: bool = True, now: dat
     pm = PoolModel.from_json(pm_json)
     shares = np.power(p_camp + 1e-4, CAMPEON_EXP)
     shares /= shares.sum()
-    # goleador: independiente de la temporada simulada (no hay estadísticas de jugadores)
+    # goleador: CONJUNTO con la temporada si hay candidatos con estadísticas
+    # (src.lub.goleador: puntos totales = ppg × partidos que juega su equipo en ESTE
+    # sorteo); si no, el prior a mano sobre el menú, independiente de la temporada.
     gol_nombres, gol_real, gol_real2, gol_shares = None, None, None, None
-    if goleador is not None:
+    cands = cargar_candidatos() if goleador is None else None
+    if cands:
+        gol_nombres = [c.nombre for c in cands]
+        gol_real, _ = simular_goleador(so.partidos, so.equipos, cands, seed=cfg.seed + 77)
+        p_gol = np.bincount(gol_real, minlength=len(cands)) / n_sims + 1e-5
+        p_gol /= p_gol.sum()
+    elif goleador is not None:
         gol_nombres, p_gol = goleador
         gol_real = np.random.default_rng(cfg.seed + 77).choice(len(p_gol), size=n_sims, p=p_gol)
         gol_real2 = np.random.default_rng(cfg.seed + 1077).choice(len(p_gol), size=n_sims, p=p_gol)
+    if gol_nombres is not None:
         gol_shares = np.power(p_gol, GOLEADOR_EXP)
         gol_shares /= gol_shares.sum()
     simular_rivales(so, cfg, pm.q, shares, gol_real, gol_shares,
@@ -212,6 +223,8 @@ def correr(k: int, n_sims: int, n_rivales: int, refrescar: bool = True, now: dat
     # fuera de muestra: mismo portfolio, sorteos nuevos (temporada + rivales + política)
     cfg2 = Config(n_sims=n_sims, n_rivales=n_rivales, seed=cfg.seed + 1000)
     so2 = simular(rt, slots_temporada(partidos), cfg2, dict(jugados), mu_override)
+    if cands:
+        gol_real2, _ = simular_goleador(so2.partidos, so2.equipos, cands, seed=cfg2.seed + 77)
     simular_rivales(so2, cfg2, pm.q, shares, gol_real2, gol_shares,
                     perfiles=perfiles_de_json(pm_json), kappa=KAPPA_POOL)
     idx2 = [j for j, s in enumerate(so2.slots) if s.evento_id in ids_actual]
