@@ -31,6 +31,7 @@ UNITS=(clausura-dashboard.service clausura-picks.service clausura-picks.timer
        clausura-heartbeat.service clausura-heartbeat.timer
        clausura-cold-check.service clausura-cold-check.timer
        clausura-pencas-watch.service clausura-pencas-watch.timer
+       clausura-sharp-compare.service clausura-sharp-compare.timer
        penca-failure-notify@.service)
 
 echo "==> Pull del repo"
@@ -60,6 +61,7 @@ systemctl enable --now clausura-gate-watch.timer
 systemctl enable --now clausura-heartbeat.timer
 systemctl enable --now clausura-cold-check.timer
 systemctl enable --now clausura-pencas-watch.timer
+systemctl enable --now clausura-sharp-compare.timer
 
 echo "==> Estado"
 systemctl --no-pager status clausura-dashboard.service | head -5

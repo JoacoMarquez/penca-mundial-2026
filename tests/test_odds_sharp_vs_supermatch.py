@@ -244,3 +244,13 @@ def test_evaluador_con_grids_conserva_todo_menos_la_verdad():
     assert gemelo._args[1:] == ev._args[1:]      # …y NADA más
     assert gemelo._cfg is ev._cfg
     assert gemelo._rivals is ev._rivals and gemelo._especiales is ev._especiales
+
+
+def test_el_par_guarda_las_cuotas_crudas_de_los_dos_books():
+    """Para rearmar las grillas al cierre: el raw de valuebet se borra a los 30 días."""
+    sm = _ev("A", "B", x1x2={"home": 2.1, "draw": 3.3, "away": 3.6})
+    sm["totals"] = {"2.5": {"over": 2.0, "under": 1.8}}
+    par = comparar_par(sm, _ev("A", "B"))
+    assert par.crudo["supermatch"]["x1x2"] == sm["x1x2"]
+    assert par.crudo["supermatch"]["totals"]["2.5"]["over"] == 2.0
+    assert set(par.crudo["pinnacle"]["x1x2"]) == {"home", "draw", "away"}
