@@ -147,7 +147,7 @@ if .venv/bin/python -c "
 import sys
 try:
     from src.clausura import (api, carga_alert, dashboard_loader, drift_audit,
-                              gate_watch, heartbeat, picks, pool, pool_snapshot,
+                              gate_watch, heartbeat, pencas_watch, picks, pool, pool_snapshot,
                               postmortem, rerun_cierre, rivals, scoring, strategy,
                               sync, verificar_carga, webapp)
     from src.lub import carga_alert as lub_carga_alert, cuotas_watch, dashboard as lub_dashboard, goleador_watch, picks as lub_picks

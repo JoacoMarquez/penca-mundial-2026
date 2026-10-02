@@ -1,0 +1,15 @@
+[Unit]
+Description=Timer del comparador Pinnacle/Supermatch — cada hora a los :50
+
+# Cada corrida pisa la medición anterior del mismo partido y, pasado el kickoff, el
+# partido sale de los dos feeds: queda guardada la última línea antes del cierre.
+# El raw de valuebet se borra a los 30 días; data/odds_compare/ no, y es lo que se
+# usa al cierre del Clausura para medir si conviene mezclar Pinnacle en λ.
+# :50 para no pisarse con el scan de valuebet (:05), que también le pega a Pinnacle.
+
+[Timer]
+OnCalendar=*-*-* *:50:00 UTC
+Persistent=false
+
+[Install]
+WantedBy=timers.target

@@ -8,6 +8,7 @@
 #   - clausura-rerun-cierre.timer  (T-2h del primer cierre → diff vs planilla de la mañana)
 #   - clausura-goleador-watch.timer (cada hora → aviso cuando aparezcan los menús de especiales)
 #   - clausura-cold-check.timer    (martes 04:30 UTC → ¿la cadena de warm starts se atascó?)
+#   - clausura-pencas-watch.timer  (13:15 y 22:15 UTC → aviso si Supermatch publica una penca nueva)
 #   - penca-failure-notify@        (OnFailure de los services → Telegram)
 #
 # Prerequisito: haber corrido setup_droplet.sh (clona /opt/penca, crea .venv con
@@ -29,6 +30,8 @@ UNITS=(clausura-dashboard.service clausura-picks.service clausura-picks.timer
        clausura-gate-watch.service clausura-gate-watch.timer
        clausura-heartbeat.service clausura-heartbeat.timer
        clausura-cold-check.service clausura-cold-check.timer
+       clausura-pencas-watch.service clausura-pencas-watch.timer
+       clausura-sharp-compare.service clausura-sharp-compare.timer
        penca-failure-notify@.service)
 
 echo "==> Pull del repo"
@@ -57,6 +60,8 @@ systemctl enable --now clausura-goleador-watch.timer
 systemctl enable --now clausura-gate-watch.timer
 systemctl enable --now clausura-heartbeat.timer
 systemctl enable --now clausura-cold-check.timer
+systemctl enable --now clausura-pencas-watch.timer
+systemctl enable --now clausura-sharp-compare.timer
 
 echo "==> Estado"
 systemctl --no-pager status clausura-dashboard.service | head -5

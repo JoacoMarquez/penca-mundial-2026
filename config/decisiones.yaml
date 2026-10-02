@@ -63,6 +63,10 @@ decisiones:
       frío, 3 reps, scripts/ab_menu_produccion.py): 5→8 = +$483 ± 379, bajo el umbral.
       El arnés por fecha sin standings (scripts/ab_cap_diversidad_vivo.py) daba
       +$3.613 ± 507: sobreestima porque su objetivo es "ganar un bloque". Sigue 5.
+      Re-medido 2026-10-02 contra los picks REALES de los rivales (replay F1-F8,
+      scripts/replay_clausura.py, unidad premio de fecha): 5→8 = +$559 ± 48 en 8
+      fechas (mejor en 6/8), ~$70 por fecha. El valor del menú no es un artefacto del
+      modelo de rivales, pero sigue chico. Sigue 5.
 
   - nombre: rama de hueco del menú
     donde: src.clausura.strategy.K_HUECO
@@ -101,6 +105,12 @@ decisiones:
       como PERILLA DE DIFERENCIACIÓN, no como creencia: gana también cuando la verdad
       del pool es la Q vieja. Meseta ancha entre 1,5 y 3,0. La concentración efectiva
       es chalk/temperature — ver el guardrail en picks.py.
+      Re-medido 2026-10-02 con la temporada (42.044 picks, 64 partidos,
+      scripts/pool_prior.py): MLE 1,5 estable en las 8 fechas (LOFO 2,253 vs 2,310).
+      La temperatura online ya dejó la concentración EFECTIVA en 1,1-1,8 desde la F2,
+      y en plata con rivales reales (premio de fecha) 1,5 vs 2,2 a T=1 da +$253 (7/8).
+      No se toca a mitad de torneo; para la próxima penca arrancar en 1,5 efectivo
+      (data/pool_prior/clausura2026.json).
 
   - nombre: sorteos del Monte Carlo
     donde: deploy/clausura-picks.service --sims
@@ -606,3 +616,27 @@ decisiones:
       eso agrega una 4ª "temporada" degenerada de ~0 partidos (mejor planilla 3 pts,
       idéntica en los 3 brazos) que contamina el promedio del RESUMEN. Los números de
       acá excluyen esa temporada. Correr `python -m src.clausura.intermedio` primero.
+
+  - nombre: escalera de objetivos (mezclar objetivos por fila, estilo Mundial)
+    donde: (nada — se midió y no se cambió)
+    valor: null
+    medida_con: {sims: 19200, participaciones: 12}
+    resultado: "−$2.344 ± 37 en premio de fecha F1-F8 vs el ascenso (0/8 fechas); variantes justas −$1.851 a −$2.012"
+    delta: -2344
+    se: 37
+    unidad: pesos
+    fecha: 2026-10-02
+    inerte: >-
+      Era la única hipótesis de la cola que quedaba sin probar
+      (cap_diversidad_rechazado): que perturbar alrededor de UN óptimo no genera la
+      cola que da mezclar objetivos distintos por fila. Medido con el replay del
+      Clausura contra los picks REALES de los 765 rivales (resultados sorteados de la
+      grilla de mercado pre-cierre, políticas con la información de producción:
+      grilla de producción + Q modelada, sin ver los picks de esa fecha). Fila i =
+      argmax E[pts]·Q^(−α_i) por partido; con α hasta 0,5/1/1,5 y menú de 8 colapsa
+      a marcadores raros (6 filas únicas de 12); con menú de 5 y α≤0,2, o rotando
+      candidatos entre filas, igual pierde ~70% del premio de fecha. Lo que hace la
+      cola es la COORDINACIÓN entre partidos del ascenso (filas armadas por
+      escenario), no la diversidad partido a partido. Unidad: premio de fecha (el
+      objetivo de un bloque), no el premio grande. Reproducir con
+      scripts/replay_clausura.py --exp escalera.

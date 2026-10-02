@@ -1,0 +1,84 @@
+{
+ "generado_utc": "2026-10-02T15:35:02.386819+00:00",
+ "sims": 20000,
+ "temporada": "LUB 25/26",
+ "campeon_real": "Peñarol",
+ "filas": [
+  {
+   "checkpoint": "pretemporada",
+   "corte_utc": "2025-10-09T23:30:00+00:00",
+   "regulares_jugados": 0,
+   "p_campeon": {
+    "Nacional": 0.3772,
+    "Aguada": 0.23,
+    "Peñarol": 0.1406,
+    "Malvín": 0.0922,
+    "Defensor Sporting": 0.0823,
+    "Bigua": 0.0322,
+    "Cordón": 0.021,
+    "Hebraica Macabi": 0.0113,
+    "Urunday Universitario": 0.0103,
+    "Welcome": 0.0015,
+    "Goes": 0.0008,
+    "Unión Atlética": 0.0006
+   },
+   "campeon_real": "Peñarol",
+   "p_real": 0.14055,
+   "rank": 3,
+   "logloss": 1.962191981629596,
+   "logloss_uniforme": 2.4849066497880004,
+   "esperado_si_calibrado": 0.23195472500000003
+  },
+  {
+   "checkpoint": "mitad_regular (tras F11)",
+   "corte_utc": "2025-12-09T00:15:00+00:00",
+   "regulares_jugados": 62,
+   "p_campeon": {
+    "Peñarol": 0.4398,
+    "Nacional": 0.4034,
+    "Aguada": 0.1215,
+    "Malvín": 0.0137,
+    "Defensor Sporting": 0.0112,
+    "Hebraica Macabi": 0.0063,
+    "Urunday Universitario": 0.0021,
+    "Bigua": 0.0019,
+    "Unión Atlética": 0.0001,
+    "Cordón": 0.0001,
+    "Goes": 0.0,
+    "Welcome": 0.0
+   },
+   "campeon_real": "Peñarol",
+   "p_real": 0.4398,
+   "rank": 1,
+   "logloss": 0.8214352008614761,
+   "logloss_uniforme": 2.4849066497880004,
+   "esperado_si_calibrado": 0.37127900999999996
+  },
+  {
+   "checkpoint": "fin_regular (antes de liguilla)",
+   "corte_utc": "2026-03-06T23:15:00+00:00",
+   "regulares_jugados": 130,
+   "p_campeon": {
+    "Peñarol": 0.6103,
+    "Nacional": 0.295,
+    "Aguada": 0.0684,
+    "Defensor Sporting": 0.0091,
+    "Malvín": 0.0082,
+    "Hebraica Macabi": 0.0043,
+    "Unión Atlética": 0.0024,
+    "Urunday Universitario": 0.0015,
+    "Bigua": 0.0007,
+    "Cordón": 0.0,
+    "Goes": 0.0,
+    "Welcome": 0.0
+   },
+   "campeon_real": "Peñarol",
+   "p_real": 0.61035,
+   "rank": 1,
+   "logloss": 0.4937227158663285,
+   "logloss_uniforme": 2.4849066497880004,
+   "esperado_si_calibrado": 0.46441408999999995
+  }
+ ],
+ "nota": "n = 1 temporada: descriptivo, no evidencia de calibración"
+}
