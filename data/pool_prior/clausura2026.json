@@ -1,0 +1,157 @@
+{
+ "fuente": "Clausura 2026, picks reales F1-F8 (replay_dataset), grilla de producción pre-cierre",
+ "picks": 42044,
+ "chalk_mle": 1.5,
+ "chalk_por_fecha": {
+  "1": 1.5,
+  "2": 1.5,
+  "3": 1.5,
+  "4": 1.4,
+  "5": 1.5,
+  "6": 1.4,
+  "7": 1.4,
+  "8": 1.4
+ },
+ "logloss_lofo": {
+  "ajustado": 2.2532,
+  "2.2": 2.3096
+ },
+ "comportamiento": [
+  {
+   "fecha": 1,
+   "rivales": 765,
+   "cargaron": 0.936,
+   "exactos": 0.1135,
+   "al_favorito": 0.591,
+   "goles_pick": 2.21
+  },
+  {
+   "fecha": 2,
+   "rivales": 765,
+   "cargaron": 0.928,
+   "exactos": 0.0745,
+   "al_favorito": 0.553,
+   "goles_pick": 2.18
+  },
+  {
+   "fecha": 3,
+   "rivales": 765,
+   "cargaron": 0.92,
+   "exactos": 0.0701,
+   "al_favorito": 0.554,
+   "goles_pick": 2.21
+  },
+  {
+   "fecha": 4,
+   "rivales": 765,
+   "cargaron": 0.892,
+   "exactos": 0.1029,
+   "al_favorito": 0.571,
+   "goles_pick": 2.18
+  },
+  {
+   "fecha": 5,
+   "rivales": 765,
+   "cargaron": 0.871,
+   "exactos": 0.1189,
+   "al_favorito": 0.658,
+   "goles_pick": 2.18
+  },
+  {
+   "fecha": 6,
+   "rivales": 765,
+   "cargaron": 0.851,
+   "exactos": 0.0822,
+   "al_favorito": 0.548,
+   "goles_pick": 2.19
+  },
+  {
+   "fecha": 7,
+   "rivales": 765,
+   "cargaron": 0.831,
+   "exactos": 0.1121,
+   "al_favorito": 0.595,
+   "goles_pick": 2.24
+  },
+  {
+   "fecha": 8,
+   "rivales": 765,
+   "cargaron": 0.812,
+   "exactos": 0.137,
+   "al_favorito": 0.654,
+   "goles_pick": 2.3
+  }
+ ],
+ "especiales": {
+  "rivales": 765,
+  "sin_campeon": 0.397,
+  "sin_goleador": 0.396,
+  "campeon": {
+   "Peñarol": 0.685,
+   "Nacional": 0.273,
+   "Liverpool": 0.009,
+   "Deportivo Maldonado": 0.007,
+   "Montevideo City Torque": 0.007,
+   "Juventud": 0.007,
+   "Racing": 0.004,
+   "Wanderers": 0.002
+  },
+  "goleador": {
+   "Matías Arezo": 0.338,
+   "Maximiliano Gómez": 0.331,
+   "Abel Hernández": 0.173,
+   "Otros": 0.061,
+   "Salomón Rodriguez": 0.032,
+   "Álvaro López": 0.019,
+   "Maximiliano Silvera": 0.009,
+   "Fernando Mimbacas": 0.006
+  }
+ },
+ "chalk_en_plata": {
+  "1.5": {
+   "e_premio_fechas": 2781,
+   "por_fecha": [
+    467,
+    402,
+    231,
+    382,
+    359,
+    459,
+    247,
+    235
+   ],
+   "delta_vs_2.2": 253,
+   "mejor_en": 7
+  },
+  "2.2": {
+   "e_premio_fechas": 2528,
+   "por_fecha": [
+    397,
+    392,
+    181,
+    397,
+    294,
+    401,
+    234,
+    233
+   ],
+   "delta_vs_2.2": 0,
+   "mejor_en": 0
+  },
+  "3.0": {
+   "e_premio_fechas": 2525,
+   "por_fecha": [
+    403,
+    356,
+    204,
+    378,
+    317,
+    428,
+    214,
+    225
+   ],
+   "delta_vs_2.2": -4,
+   "mejor_en": 4
+  }
+ }
+}

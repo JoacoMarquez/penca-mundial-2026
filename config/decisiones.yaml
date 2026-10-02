@@ -105,6 +105,12 @@ decisiones:
       como PERILLA DE DIFERENCIACIÓN, no como creencia: gana también cuando la verdad
       del pool es la Q vieja. Meseta ancha entre 1,5 y 3,0. La concentración efectiva
       es chalk/temperature — ver el guardrail en picks.py.
+      Re-medido 2026-10-02 con la temporada (42.044 picks, 64 partidos,
+      scripts/pool_prior.py): MLE 1,5 estable en las 8 fechas (LOFO 2,253 vs 2,310).
+      La temperatura online ya dejó la concentración EFECTIVA en 1,1-1,8 desde la F2,
+      y en plata con rivales reales (premio de fecha) 1,5 vs 2,2 a T=1 da +$253 (7/8).
+      No se toca a mitad de torneo; para la próxima penca arrancar en 1,5 efectivo
+      (data/pool_prior/clausura2026.json).
 
   - nombre: sorteos del Monte Carlo
     donde: deploy/clausura-picks.service --sims
