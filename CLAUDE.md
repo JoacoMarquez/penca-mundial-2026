@@ -57,7 +57,8 @@ maximizar E[premio], no puntaje esperado), otro torneo y otra plataforma.
 **VPS:** DigitalOcean 159.203.66.24, 2 GB. Timers systemd (UTC):
 `picks` 11:00 diario · `rerun-cierre` 11..23:35 · `carga-alert` 11..23:10 ·
 `drift-audit` 13:20/18:20/23:50 · `postmortem` 03:20 · `heartbeat` 12:30 ·
-`gate-watch` cada 10 min · `cold-check` martes 04:30 (semanal).
+`gate-watch` cada 10 min · `cold-check` martes 04:30 (semanal) ·
+`sharp-compare` :50 cada hora (cuotas Pinnacle vs Supermatch → `data/odds_compare/`).
 
 **Deploy:** `bash deploy/safe_pull.sh` en el VPS — NUNCA `git pull` a secas: los
 units de systemd son copias en `/etc` y el pull no las aplica ni avisa.

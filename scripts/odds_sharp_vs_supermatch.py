@@ -40,6 +40,13 @@ Supermatch − Pinnacle en la probabilidad del favorito:
 Acumula en data/odds_compare/ para que la conclusión no dependa de una fecha: con
 8 partidos por fecha, hacen falta 3-4 fechas para separar sesgo de ruido.
 
+Desde el 2/10 corre CADA HORA (deploy/clausura-sharp-compare.timer, :50 UTC) y guarda
+también las cuotas crudas. Cada corrida pisa la anterior del mismo partido y después
+del kickoff el partido sale de los dos feeds, así que lo que queda es la última línea
+antes del cierre. Hace falta porque el raw de valuebet (data/valuebet/raw) se borra a
+los 30 días: sin esto, al cerrar el Clausura (20/11) ya no estarían las cuotas de
+Pinnacle de las primeras fechas para re-medir el blend.
+
 ## OJO — dónde corre
 
 **Pinnacle bloquea las redes uruguayas**: desde la Mac esto NO anda. Corre en el
@@ -128,6 +135,10 @@ class ParMatcheado:
     sm_dog: float
     pin_dog: float
     favorito: str                      # "home" | "away"
+    # Cuotas CRUDAS de los dos books (1X2 + over/under 2,5). Sin esto el historial solo
+    # sirve para el sesgo por rol: no alcanza para rearmar las grillas y medir un
+    # blend de λ Pinnacle/Supermatch contra resultados al cierre del Clausura.
+    crudo: dict | None = None
 
     @property
     def dif_fav(self) -> float:
@@ -250,6 +261,8 @@ def comparar_par(sm: dict, pin: dict, metodo_sm: str = "proportional") -> ParMat
         sm_empate=p_sm["draw"], pin_empate=p_pin["draw"],
         sm_dog=p_sm[dog], pin_dog=p_pin[dog],
         favorito=favorito,
+        crudo={"supermatch": {"x1x2": sm["x1x2"], "totals": sm.get("totals") or {}},
+               "pinnacle": {"x1x2": pin["x1x2"], "totals": pin.get("totals") or {}}},
     )
 
 
