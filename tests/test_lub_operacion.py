@@ -146,6 +146,9 @@ def test_optimizar_respeta_goleador_fijo():
         def valor(self, fp, esp):
             return 0.0, np.zeros(1), np.zeros(1)
 
+        def total(self, fp, esp):
+            return np.zeros((1, 2))
+
         @staticmethod
         def _premio(ours, rmax, rcnt, monto):
             return np.zeros(1)
@@ -153,3 +156,56 @@ def test_optimizar_respeta_goleador_fijo():
     port = optimizar(EvFalso(), [0, 1], campeon_init=np.array([1, -1]), especiales_libres=False,
                      goleador_opts=[0, 1], goleador_init=np.array([-1, 1]))
     assert list(port.campeon) == [1, -1] and list(port.goleador) == [-1, 1]
+
+
+# ---- 3: cuotas ----
+
+def test_mismo_equipo_tolera_abreviaturas_y_conectores():
+    from src.lub.odds import mismo_equipo
+    assert mismo_equipo("Hebraica Macabi", "Hebraica y Macabi")
+    assert mismo_equipo("Urunday Universitario", "Urunday Univ.")
+    assert mismo_equipo("Bigua", "Biguá")
+    assert mismo_equipo("Defensor Sporting", "Defensor Sp.")
+    assert not mismo_equipo("Peñarol", "Nacional")
+    assert not mismo_equipo("Defensor Sporting", "Sporting Cristal")
+
+
+def test_cuotas_watch_separa_matcheados_sueltos_y_otras_ligas():
+    from src.lub import cuotas_watch as W
+    from src.lub.odds import LineasPartido
+    t = T0 + timedelta(hours=8)
+    fixture = [_p(1, "Fecha 1", t)]
+    fixture[0].local, fixture[0].visitante = "Hebraica Macabi", "Nacional"
+    ms = int((t + timedelta(minutes=15)).timestamp() * 1000)
+    ok = LineasPartido("Hebraica y Macabi", "Nacional", ms)
+    suelto = LineasPartido("Club Tabaré", "Nacional", ms)            # nombre que no matchea
+    lejos = LineasPartido("Hebraica y Macabi", "Nacional", ms + 3 * 86400 * 1000)  # otra liga/fecha
+    m, s = W.clasificar([ok, suelto, lejos], fixture)
+    assert [lp.local for _, lp in m] == ["Hebraica y Macabi"] and [lp.local for lp in s] == ["Club Tabaré"]
+
+
+def test_parse_outright_devig():
+    from src.lub.odds import parse_outright
+    hit = {"_source": {"description": "LUB 26/27", "betLines": [{"options": [
+        {"result": "Peñarol", "dividend": 2.0}, {"result": "Nacional", "dividend": 3.0},
+        {"result": "Aguada", "dividend": 5.0}, {"result": "Malvín", "dividend": 10.0}]}]}}
+    p = parse_outright(hit)
+    assert list(p)[0] == "Peñarol" and sum(p.values()) == pytest.approx(1.0)
+    assert parse_outright({"_source": {"description": "A vs B", "betLines": []}}) is None
+
+
+# ---- 4: parciales de fechas abiertas ----
+
+def test_puntos_parciales_solo_fechas_abiertas_con_el_kernel_propio():
+    from src.lub.data import puntos_parciales
+    from src.lub.scoring import puntos
+    f1 = [_p(10, "Fecha 1", T0, jugado=True), _p(11, "Fecha 1", T0, jugado=True)]      # cerrada
+    f2 = [_p(20, "Fecha 2", T0, jugado=True, pref=True), _p(21, "Fecha 2", T0 + timedelta(days=1))]
+    ps = f1 + f2
+    picks = [[{"encuentroId": 10, "golesEquipoLocal": 80, "golesEquipoVisitante": 70},
+              {"encuentroId": 20, "golesEquipoLocal": 80, "golesEquipoVisitante": 70},   # exacto x2
+              {"encuentroId": 21, "golesEquipoLocal": 70, "golesEquipoVisitante": 80}],  # sin jugar
+             [{"encuentroId": 20, "golesEquipoLocal": 60, "golesEquipoVisitante": 90}]]  # pierde
+    out = puntos_parciales(picks, ps)
+    assert set(out) == {"Fecha 2"}                          # la F1 cerrada no entra
+    assert out["Fecha 2"] == [puntos((80, 70), (80, 70), True), 0]

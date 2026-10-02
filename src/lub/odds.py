@@ -114,14 +114,16 @@ def parse_hit(hit: dict) -> LineasPartido | None:
     return lp
 
 
-def fetch_lub(lookahead_dias: int = LOOKAHEAD_DIAS) -> list[LineasPartido]:
-    """Partidos de básquet de la liga 'Uruguay' en la ventana (la LUB y cualquier otra
-    liga uruguaya: el matcheo contra el fixture de la penca filtra)."""
+def fetch_uruguay_hits(lookahead_dias: int = LOOKAHEAD_DIAS, outrights: bool = False) -> list[dict]:
+    """Hits crudos de básquet de la liga 'Uruguay' (en el índice leagueName es el PAÍS
+    y championshipName la competencia; verificado 2026-09-30 con las otras ligas).
+    Con outrights=True no filtra por fecha: los mercados de campeón van con la fecha
+    del final de la temporada."""
     now = int(time.time() * 1000)
-    q = {"size": 200, "query": {"bool": {"must": [
-            {"term": {"sportName.keyword": "Baloncesto"}},
-            {"term": {"leagueName.keyword": "Uruguay"}},
-            {"range": {"dateTime": {"gte": now, "lte": now + lookahead_dias * 86400 * 1000}}}]}},
+    must = [{"term": {"sportName.keyword": "Baloncesto"}}, {"term": {"leagueName.keyword": "Uruguay"}}]
+    if not outrights:
+        must.append({"range": {"dateTime": {"gte": now, "lte": now + lookahead_dias * 86400 * 1000}}})
+    q = {"size": 200, "query": {"bool": {"must": must}},
          "_source": ["description", "leagueName", "championshipName", "dateTime", "betLines"]}
     try:
         r = httpx.post(ES, json=q, headers=HEADERS, timeout=30.0)
@@ -129,19 +131,55 @@ def fetch_lub(lookahead_dias: int = LOOKAHEAD_DIAS) -> list[LineasPartido]:
     except httpx.HTTPError as e:
         log.warning("supermatch ES falló: %s", e)
         return []
-    return [lp for lp in (parse_hit(h) for h in r.json()["hits"]["hits"]) if lp]
+    return r.json()["hits"]["hits"]
+
+
+def fetch_lub(lookahead_dias: int = LOOKAHEAD_DIAS) -> list[LineasPartido]:
+    """Partidos de básquet uruguayo en la ventana (la LUB y cualquier otra liga
+    uruguaya: el matcheo contra el fixture de la penca filtra)."""
+    return [lp for lp in (parse_hit(h) for h in fetch_uruguay_hits(lookahead_dias)) if lp]
+
+
+_VACIAS = {"y", "de", "del", "la", "el", "los", "sp", "bc", "cb"}
+
+
+def mismo_equipo(a: str, b: str) -> bool:
+    """¿Mismo equipo con nombres de fuentes distintas?
+
+    Por tokens y no por substring: "Hebraica y Macabi" vs "Hebraica Macabi" o
+    "Urunday Univ." vs "Urunday Universitario" no son substring uno del otro. Cada
+    token del nombre más corto tiene que ser prefijo de alguno del otro (o al revés)."""
+    ta = [t for t in norm_team(a).split() if t not in _VACIAS]
+    tb = [t for t in norm_team(b).split() if t not in _VACIAS]
+    if not ta or not tb:
+        return False
+    corto, largo = (ta, tb) if len(ta) <= len(tb) else (tb, ta)
+    return all(any(x.startswith(y) or y.startswith(x) for y in largo) for x in corto)
 
 
 def match_fixture(lineas: list[LineasPartido], local: str, visitante: str, inicio_ms: int,
                   ventana_h: float = 6.0) -> LineasPartido | None:
     """La línea de Supermatch del partido del fixture (mismo local y visitante, ±6 h)."""
-    nl, nv = norm_team(local), norm_team(visitante)
     for lp in lineas:
         if abs(lp.inicio_ms - inicio_ms) > ventana_h * 3600 * 1000:
             continue
-        a, b = norm_team(lp.local), norm_team(lp.visitante)
-        if (nl in a or a in nl) and (nv in b or b in nv):
+        if mismo_equipo(local, lp.local) and mismo_equipo(visitante, lp.visitante):
             return lp
+    return None
+
+
+def parse_outright(hit: dict) -> dict[str, float] | None:
+    """Mercado de campeón (hit sin " vs "): {equipo: P de-vigueada} o None."""
+    s = hit["_source"]
+    if " vs " in (s.get("description") or ""):
+        return None
+    for bl in s.get("betLines") or []:
+        opts = {o.get("result", "").strip(): o.get("dividend") for o in bl.get("options") or []
+                if o.get("result") and o.get("dividend") and o["dividend"] > 1.0}
+        if len(opts) >= 4:
+            inv = {k: 1.0 / v for k, v in opts.items()}
+            tot = sum(inv.values())
+            return {k: v / tot for k, v in sorted(inv.items(), key=lambda kv: -kv[1])}
     return None
 
 

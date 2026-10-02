@@ -21,7 +21,7 @@ import numpy as np
 
 from src.lub.scoring import KERNEL, N_CLASES, expected_points
 from src.lub.season import (PREMIO_FECHA, PREMIO_PENCA, PTS_ESPECIAL, PTS_EXACTO,
-                            RHO_EXACTO, Sorteo)
+                            RHO_EXACTO, Previos, Sorteo, fechas_abiertas)
 
 
 @dataclass
@@ -38,7 +38,11 @@ class Evaluador:
 
     def __init__(self, so: Sorteo, K: int, slots_actual: list[int], seed: int = 7,
                  ruido_politica: float = 0.35, goleador_real: np.ndarray | None = None,
-                 n_goleadores: int = 0):
+                 n_goleadores: int = 0, previos: Previos | None = None):
+        """previos: temporada arrancada. Los partidos jugados no se valúan con la política
+        (sus puntos reales entran como constantes: total vía tot_prop, fecha abierta vía
+        parcial_prop) y las fechas ya cerradas no suman premio: E[premio] pasa a ser lo
+        que TODAVÍA se puede ganar."""
         self.so, self.K = so, K
         S, J = so.clase.shape
         self.S = S
@@ -51,7 +55,9 @@ class Evaluador:
         # puntos de la política futura (todo slot que no es de la fecha actual)
         mult = np.where(so.pref, 2, 1).astype(np.int16)
         self.fecha_pts = np.zeros((S, F, K), np.int16)
-        futuros = [j for j in range(J) if j not in set(self.actual)]
+        jugados = ({j for j, sl in enumerate(so.slots) if sl.resultado is not None}
+                   if previos is not None else set())
+        futuros = [j for j in range(J) if j not in set(self.actual) and j not in jugados]
         K_f = KERNEL.astype(np.float32)
         for j in futuros:
             ev = so.probs[:, j] @ K_f.T                                   # (S, 10) E[pts] por clase
@@ -61,6 +67,18 @@ class Evaluador:
             pts += ((pk == so.clase[:, j][:, None]) & self.u_exacto[:, j]).astype(np.int16) * PTS_EXACTO
             pts *= so.jugado[:, j][:, None] * mult[j]
             self.fecha_pts[:, so.fecha_de_slot[j]] += pts
+        self.total_offset = np.zeros(K, np.int16)
+        self.fecha_mask = np.ones(F, bool)
+        if previos is not None:
+            fidx = {f: i for i, f in enumerate(so.fechas)}
+            for f, pts in previos.parcial_prop.items():
+                if f in fidx:
+                    self.fecha_pts[:, fidx[f]] += np.asarray(pts, np.int16)[None, :]
+            parciales = sum((np.asarray(v, np.int16) for f, v in previos.parcial_prop.items() if f in fidx),
+                            np.zeros(K, np.int16))
+            # el total real ya incluye los parciales, que también viven en fecha_pts
+            self.total_offset = (np.asarray(previos.tot_prop, np.int16) - parciales).astype(np.int16)
+            self.fecha_mask = fechas_abiertas(so)
         self.base_fecha_actual = self.fecha_pts[:, self.fecha_actual].copy() if self.actual else None
         self.mult = mult
         self.goleador_real = goleador_real
@@ -101,11 +119,20 @@ class Evaluador:
         n_riv = np.where(rmax == top, rcnt, 0)
         return monto * n_ours / np.maximum(n_ours + n_riv, 1)
 
+    def premios_fecha(self, fecha_pts: np.ndarray) -> np.ndarray:
+        """(S, F) premio de fecha por sorteo; cero en las fechas ya cerradas."""
+        so = self.so
+        return self._premio(fecha_pts, so.riv_fecha_max, so.riv_fecha_cnt, PREMIO_FECHA) * self.fecha_mask
+
+    def total(self, fecha_pts: np.ndarray, esp: np.ndarray) -> np.ndarray:
+        """(S, K) puntos de temporada: lo real ya hecho + lo simulado + especiales."""
+        return fecha_pts.sum(1) + esp + self.total_offset
+
     def valor(self, fecha_pts: np.ndarray, esp: np.ndarray) -> tuple[float, np.ndarray, np.ndarray]:
         """(E[premio], premio por sorteo (S,), premio por fecha medio (F,))."""
         so = self.so
-        pf = self._premio(fecha_pts, so.riv_fecha_max, so.riv_fecha_cnt, PREMIO_FECHA)
-        total = fecha_pts.sum(1) + esp
+        pf = self.premios_fecha(fecha_pts)
+        total = self.total(fecha_pts, esp)
         pp = self._premio(total, so.riv_total_max, so.riv_total_cnt, PREMIO_PENCA)
         tot = pf.sum(1) + pp
         return float(tot.mean()), tot, pf.mean(0)
@@ -123,9 +150,8 @@ def evaluar(ev: Evaluador, picks: np.ndarray, campeon: np.ndarray,
         fecha_pts[:, ev.fecha_actual] = ev.base_fecha_actual + ev.pts_actual(picks)
     esp = ev.especiales(campeon, goleador)
     v, tot, _ = ev.valor(fecha_pts, esp)
-    total = fecha_pts.sum(1) + esp
-    pp = ev._premio(total, ev.so.riv_total_max, ev.so.riv_total_cnt, PREMIO_PENCA)
-    pf = ev._premio(fecha_pts, ev.so.riv_fecha_max, ev.so.riv_fecha_cnt, PREMIO_FECHA)   # (S, F)
+    pp = ev._premio(ev.total(fecha_pts, esp), ev.so.riv_total_max, ev.so.riv_total_cnt, PREMIO_PENCA)
+    pf = ev.premios_fecha(fecha_pts)   # (S, F)
     return {"e_premio": v, "se": float(tot.std() / np.sqrt(len(tot))), "e_penca": float(pp.mean()),
             "p_penca": float((pp > 0).mean()), "p_penca_entero": float((pp >= PREMIO_PENCA - 1e-6).mean()),
             "e_fechas": float(v - pp.mean()), "e_n_fechas": float((pf > 0).sum(1).mean()),
@@ -196,8 +222,7 @@ def optimizar(ev: Evaluador, campeon_opts: list[int], campeon_init: np.ndarray |
         if not cambio:
             break
     v, tot, por_fecha = ev.valor(fecha_pts, esp)
-    total = fecha_pts.sum(1) + esp
-    pp = ev._premio(total, so.riv_total_max, so.riv_total_cnt, PREMIO_PENCA)
+    pp = ev._premio(ev.total(fecha_pts, esp), so.riv_total_max, so.riv_total_cnt, PREMIO_PENCA)
     return Portfolio(picks_actual=picks, campeon=campeon, goleador=goleador, e_premio=v, detalle={
         "e_premio_inicial": inicial, "se": float(tot.std() / np.sqrt(len(tot))),
         "e_penca": float(pp.mean()), "p_penca": float((pp > 0).mean()),
