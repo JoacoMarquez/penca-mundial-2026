@@ -1,0 +1,12 @@
+[Unit]
+Description=Timer del vigía de pencas nuevas — 2 veces por día
+
+# Un GET a /front/pencas/visibles (+2 si hay una nueva). Las pencas se publican
+# semanas antes del primer partido: dos lecturas por día sobran.
+
+[Timer]
+OnCalendar=*-*-* 13,22:15:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target
