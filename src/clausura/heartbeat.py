@@ -46,8 +46,8 @@ SERVICIOS = ("clausura-dashboard",)
 UY = timezone(timedelta(hours=-3))
 
 
-def _timers_estado() -> tuple[list[str], list[str]]:
-    """(ok, problemas) según systemctl list-timers."""
+def _timers_estado(excluir: tuple[str, ...] = ()) -> tuple[list[str], list[str]]:
+    """(ok, problemas) según systemctl list-timers. `excluir`: pausados a propósito."""
     try:
         out = subprocess.run(
             ["systemctl", "list-timers", "--all", "--no-pager", "--no-legend"],
@@ -57,6 +57,8 @@ def _timers_estado() -> tuple[list[str], list[str]]:
         return [], []
     ok, mal = [], []
     for t in TIMERS:
+        if t in excluir:
+            continue
         linea = next((ln for ln in out.splitlines() if f"{t}.timer" in ln), None)
         if linea is None:
             mal.append(f"{t}: NO LISTADO (¿deshabilitado?)")
@@ -115,18 +117,30 @@ def construir_mensaje(now: datetime | None = None) -> str:
     lineas = [f"<b>💓 Clausura vivo</b> · {now.astimezone(UY).strftime('%a %d/%m %H:%M')} UY"]
     problemas: list[str] = []
 
-    ok, mal = _timers_estado()
+    from src.clausura.offline import TIMERS_PAUSADOS, offline_activo, probe_api
+    offline = offline_activo()
+    pausados = tuple(t for t in TIMERS if t in TIMERS_PAUSADOS) if offline else ()
+    if offline:
+        codigo = probe_api()
+        if codigo == 200:
+            lineas.append("🟢 <b>penca-api RESPONDE 200</b> — se puede volver a online: "
+                          "bash deploy/offline_timers.sh reanudar")
+        else:
+            lineas.append(f"🚧 MODO OFFLINE · penca-api: {codigo or 'sin respuesta'} · "
+                          f"{len(pausados)} timers pausados")
+
+    ok, mal = _timers_estado(excluir=pausados)
     if mal:
         problemas += mal
     elif ok:
-        lineas.append(f"timers: {len(ok)}/{len(TIMERS)} activos")
+        lineas.append(f"timers: {len(ok)}/{len(TIMERS) - len(pausados)} activos")
 
     problemas += _servicios_estado()
 
     try:
         cfg = load_config()
         edad_cfg = _edad_h(CONFIG_PATH)
-        if edad_cfg is not None and edad_cfg > 30:
+        if edad_cfg is not None and edad_cfg > 30 and not offline:
             problemas.append(f"config sin sync hace {edad_cfg:.0f}h")
 
         f = fecha_actual(cfg)

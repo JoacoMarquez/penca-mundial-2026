@@ -763,6 +763,7 @@ def run(
     contexto: dict | None = None,
     usar_warm_start: bool = True,
     guardar: bool = True,
+    offline: bool = False,
 ) -> Path | None:
     """Corre el pipeline de una fecha y versiona la planilla.
 
@@ -781,6 +782,10 @@ def run(
     `guardar=False` no versiona ni notifica y devuelve None: la corrida fría es un
     CONTROL, y guardarla la convertiría en el warm start de la próxima corrida —
     justo la cadena que viene a auditar.
+
+    `offline=True` no toca el penca-api ni el ES (Cloudflare los bloquea desde el
+    5/10): resultados, cuotas, ranking y pool salen de lo guardado + el archivo
+    manual de src.clausura.offline, y la planilla lo GRITA.
     """
     if n_sims < SIMS_MIN_SEGURO:
         log.warning(
@@ -817,7 +822,16 @@ def run(
     # tiene 2h+ de margen) y, si igual no hay API, la planilla y el Telegram lo
     # GRITAN — y el tamaño del pool cae al snapshot si hay uno fresco.
     api_ok = False
-    for intento in range(1, 4):
+    off: dict = {}
+    if offline:
+        from src.clausura.offline import load_offline, ranking_manual, resultados_offline
+        off = load_offline()
+        resultados = resultados_offline(off)
+        puntos_vivos = ranking_manual(off)
+        liquidados = eventos_liquidados(cfg, resultados)
+        log.warning("MODO OFFLINE: %d resultados (postmortems + manuales), ranking "
+                    "manual de %d participaciones", len(resultados), len(puntos_vivos))
+    for intento in range(1, 0 if offline else 4):
         try:
             with PencaApiClient() as api:
                 # resultados de partidos finalizados
@@ -841,7 +855,7 @@ def run(
             if intento < 3:
                 import time
                 time.sleep(60)
-    if not api_ok:
+    if not api_ok and not offline:
         log.error("penca-api CAÍDO tras 3 intentos — sin puntos vivos ni calibración; "
                   "el tamaño del pool cae al snapshot si hay uno fresco")
 
@@ -856,6 +870,8 @@ def run(
     from src.clausura.odds import load_cached_odds, mercados_perdidos, save_odds_snapshot
     odds_edad_h = 0.0
     try:
+        if offline:
+            raise RuntimeError("modo offline")
         odds = fetch_primera_odds()
         cache_previo = load_cached_odds()
         if cache_previo is not None:
@@ -866,7 +882,15 @@ def run(
                             ", ".join(perdidos))
         save_odds_snapshot(odds)
     except Exception as e:
-        cache = load_cached_odds()
+        cache = load_cached_odds(max_age_h=float("inf") if offline else 24.0)
+        if offline:
+            from src.clausura.offline import cuotas_manuales, merge_cuotas
+            manuales = cuotas_manuales(off)
+            if manuales:
+                log.warning("cuotas manuales para %d partido(s): %s", len(manuales),
+                            ", ".join(f"{m.home}-{m.away}" for m in manuales))
+                cache = (merge_cuotas(cache[0] if cache else [], manuales),
+                         cache[1] if cache else 0.0)
         if cache is not None:
             odds, odds_edad_h = cache
             log.warning("ES de Supermatch caído (%s) — uso las cuotas versionadas "
@@ -890,7 +914,7 @@ def run(
     from src.clausura.pool_snapshot import (
         exact_rate_desde_snapshot, load_latest_snapshot,
     )
-    snapshot = load_latest_snapshot(max_age_hours=48)
+    snapshot = load_latest_snapshot(max_age_hours=None if offline else 48)
     if not api_ok and snapshot:
         # Fallback del tamaño del pool: la foto de ayer (~700 rivales) le gana por
         # 4-5× al default de 151 con el que se repartiría el premio simulado.
@@ -1238,7 +1262,16 @@ def run(
                         # que no tienen mercado.
                         grids=grids, odds_by_evento=odds_by_evento)
 
-    if not api_ok:
+    if offline:
+        snap_ts = snapshot.get("generado_utc", "?")[:16] if snapshot else "SIN snapshot"
+        detalle = (f"pool del snapshot {snap_ts} UTC ({n_rivales} rivales), "
+                   f"{len(puntos_vivos)} puntos del ranking copiados a mano, "
+                   f"{len(off.get('cuotas') or [])} partidos con cuota manual")
+        payload["advertencias"] = [f"modo offline: {detalle}"]
+        planilla = ("🚧 <b>MODO OFFLINE</b> (Supermatch bloquea el API) — " + detalle +
+                    ". Sin rerun ni verificación: lo que cargues es lo que queda.\n\n"
+                    + planilla)
+    elif not api_ok:
         detalle = (f"pool {'del snapshot' if snapshot else 'DEFAULT'} "
                    f"({n_rivales} rivales), sin puntos vivos ni calibración")
         payload["advertencias"] = [f"penca-api caído durante la corrida: {detalle}"]
@@ -1250,6 +1283,8 @@ def run(
     if odds_edad_h > 0:
         aviso = (f"ES de Supermatch caído: se usaron las cuotas versionadas de hace "
                  f"{odds_edad_h:.1f}h")
+        if offline and off.get("cuotas"):
+            aviso += f" (salvo {len(off['cuotas'])} partidos con cuota copiada a mano)"
         payload.setdefault("advertencias", []).append(aviso)
         planilla = ("⚠️ <b>CUOTAS DE CACHE</b> — " + aviso + ". Mejor cuota vieja "
                     "que ratings puros, pero si el mercado se movió con noticias, "
@@ -1300,6 +1335,9 @@ def main() -> None:
                          "planilla previa. Es un CONTROL: no versiona ni notifica "
                          "(guardarlo lo volvería el warm start de la próxima corrida). "
                          "Para el chequeo automático usá src.clausura.cold_check")
+    ap.add_argument("--offline", action="store_true",
+                    help="sin penca-api ni ES: resultados/cuotas/ranking de lo guardado "
+                         "+ data/state/clausura_offline.yaml (ver src.clausura.offline)")
     args = ap.parse_args()
     n_part = args.participaciones
     if n_part is None:
@@ -1307,7 +1345,7 @@ def main() -> None:
         n_part = len(mis_numeros_env()) or 5
     run(resolve_fecha(args.fecha), n_part, args.telegram, args.sims,
         liberar_especiales=args.liberar_especiales,
-        usar_warm_start=not args.cold, guardar=not args.cold)
+        usar_warm_start=not args.cold, guardar=not args.cold, offline=args.offline)
 
 
 if __name__ == "__main__":
