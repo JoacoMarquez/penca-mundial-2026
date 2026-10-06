@@ -41,3 +41,20 @@ def test_cuotas_manuales_pisan_al_cache_por_nombre():
              EventOdds("sm:2", "Nacional", "Cerro", "", "", x1x2={"home": 1.5})]
     merged = merge_cuotas(cache, man)
     assert [e.event_id for e in merged] == ["sm:2", man[0].event_id]
+
+
+def test_liquidar_en_snapshot_suma_los_puntos_del_partido():
+    from src.clausura.offline import liquidar_en_snapshot
+    from src.clausura.scoring import supermatch_points
+    snap = {"participaciones": [
+        {"numero": 1, "puntos": 100, "picks": {"2147": [0, 2], "2149": [2, 1]}},
+        {"numero": 2, "puntos": 90, "picks": {"2147": [1, 1]}},
+        {"numero": 3, "puntos": 80, "picks": {}},
+    ]}
+    n = liquidar_en_snapshot(snap, [2147, 2149], {2147: (0, 2), 2149: (2, 1)}, {2149})
+    p = snap["participaciones"]
+    assert p[0]["puntos"] == 100 + supermatch_points((0, 2), (0, 2)) \
+        + supermatch_points((2, 1), (2, 1), True)
+    assert p[1]["puntos"] == 90 + supermatch_points((1, 1), (0, 2))
+    assert p[2]["puntos"] == 80
+    assert n == (2 if supermatch_points((1, 1), (0, 2)) else 1)
