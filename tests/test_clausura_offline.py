@@ -58,3 +58,14 @@ def test_liquidar_en_snapshot_suma_los_puntos_del_partido():
     assert p[1]["puntos"] == 90 + supermatch_points((1, 1), (0, 2))
     assert p[2]["puntos"] == 80
     assert n == (2 if supermatch_points((1, 1), (0, 2)) else 1)
+
+
+def test_aviso_cuotas_cache_offline_no_promete_rerun():
+    from src.clausura.picks import aviso_cuotas_cache
+    aviso, consejo = aviso_cuotas_cache(27.4, offline=True, n_manuales=0)
+    assert "27.4h" in aviso and "rerun que corrija" in consejo
+    assert "va a proponer" not in consejo
+    aviso, _ = aviso_cuotas_cache(80.0, offline=True, n_manuales=3)
+    assert "3 partidos con cuota copiada a mano" in aviso
+    _, consejo = aviso_cuotas_cache(5.0, offline=False, n_manuales=0)
+    assert "rerun con ES vivo" in consejo

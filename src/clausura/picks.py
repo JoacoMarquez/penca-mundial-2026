@@ -1288,15 +1288,10 @@ def run(
                     + planilla)
 
     if odds_edad_h > 0:
-        aviso = (f"ES de Supermatch caído: se usaron las cuotas versionadas de hace "
-                 f"{odds_edad_h:.1f}h")
-        if offline and off.get("cuotas"):
-            aviso += f" (salvo {len(off['cuotas'])} partidos con cuota copiada a mano)"
+        aviso, consejo = aviso_cuotas_cache(
+            odds_edad_h, offline, len(off.get("cuotas") or []))
         payload.setdefault("advertencias", []).append(aviso)
-        planilla = ("⚠️ <b>CUOTAS DE CACHE</b> — " + aviso + ". Mejor cuota vieja "
-                    "que ratings puros, pero si el mercado se movió con noticias, "
-                    "el rerun con ES vivo va a proponer la corrección.\n\n"
-                    + planilla)
+        planilla = "⚠️ <b>CUOTAS DE CACHE</b> — " + aviso + ". " + consejo + "\n\n" + planilla
 
     print(planilla.replace("<b>", "").replace("</b>", "").replace("<i>", "").replace("</i>", ""))
 
@@ -1315,6 +1310,26 @@ def run(
         print("enviado por Telegram ✓")
 
     return path
+
+
+def aviso_cuotas_cache(edad_h: float, offline: bool, n_manuales: int) -> tuple[str, str]:
+    """(aviso para el registro, consejo para la planilla) cuando las cuotas salen del cache.
+
+    Online el rerun T-2h con el ES vivo corrige solo. Offline no hay rerun (el API
+    está bloqueado): decirle al operador que "el rerun va a corregir" era falso.
+    """
+    if not offline:
+        return (f"ES de Supermatch caído: se usaron las cuotas versionadas de hace "
+                f"{edad_h:.1f}h",
+                "Mejor cuota vieja que ratings puros, pero si el mercado se movió con "
+                "noticias, el rerun con ES vivo va a proponer la corrección.")
+    aviso = f"ES de Supermatch bloqueado: cuotas del cache de hace {edad_h:.1f}h"
+    if n_manuales:
+        aviso += f" (salvo {n_manuales} partidos con cuota copiada a mano)"
+    return (aviso,
+            "Offline no hay rerun que corrija: si una cuota se movió con noticias, "
+            "copiala de la web a data/state/clausura_offline.yaml (cuotas:) y volvé "
+            "a generar la planilla.")
 
 
 def resolve_fecha(arg: str) -> int:
