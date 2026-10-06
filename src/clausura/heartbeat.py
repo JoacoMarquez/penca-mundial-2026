@@ -46,8 +46,8 @@ SERVICIOS = ("clausura-dashboard",)
 UY = timezone(timedelta(hours=-3))
 
 
-def _timers_estado(excluir: tuple[str, ...] = ()) -> tuple[list[str], list[str]]:
-    """(ok, problemas) según systemctl list-timers. `excluir`: pausados a propósito."""
+def _timers_estado() -> tuple[list[str], list[str]]:
+    """(ok, problemas) según systemctl list-timers."""
     try:
         out = subprocess.run(
             ["systemctl", "list-timers", "--all", "--no-pager", "--no-legend"],
@@ -57,8 +57,6 @@ def _timers_estado(excluir: tuple[str, ...] = ()) -> tuple[list[str], list[str]]
         return [], []
     ok, mal = [], []
     for t in TIMERS:
-        if t in excluir:
-            continue
         linea = next((ln for ln in out.splitlines() if f"{t}.timer" in ln), None)
         if linea is None:
             mal.append(f"{t}: NO LISTADO (¿deshabilitado?)")
@@ -129,7 +127,9 @@ def construir_mensaje(now: datetime | None = None) -> str:
             lineas.append(f"🚧 MODO OFFLINE · penca-api: {codigo or 'sin respuesta'} · "
                           f"{len(pausados)} timers pausados")
 
-    ok, mal = _timers_estado(excluir=pausados)
+    ok, mal = _timers_estado()
+    ok = [t for t in ok if t not in pausados]
+    mal = [m for m in mal if m.split(":")[0] not in pausados]
     if mal:
         problemas += mal
     elif ok:

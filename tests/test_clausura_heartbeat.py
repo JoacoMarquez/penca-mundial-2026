@@ -2,7 +2,18 @@
 
 from datetime import datetime, timezone
 
+import pytest
+
 import src.clausura.heartbeat as hb
+import src.clausura.offline as off
+
+
+@pytest.fixture(autouse=True)
+def _online(monkeypatch):
+    """Hermético: sin esto, en el VPS con el archivo offline activo el test le
+    pegaría al API de verdad."""
+    monkeypatch.setattr(off, "offline_activo", lambda *a, **k: False)
+    monkeypatch.setattr(off, "probe_api", lambda *a, **k: 403)
 
 
 def test_mensaje_reporta_planilla_y_proximo_cierre(monkeypatch, tmp_path):
@@ -70,3 +81,24 @@ def test_timer_con_servicio_corriendo_no_es_falsa_alarma(monkeypatch):
     corriendo.clear()
     ok2, mal2 = hb._timers_estado()
     assert any("gate-watch" in m for m in mal2)
+
+
+def test_offline_no_cuenta_los_pausados_y_avisa_si_el_api_vuelve(monkeypatch, tmp_path):
+    pausados = [f"{t}: NO LISTADO (¿deshabilitado?)" for t in off.TIMERS_PAUSADOS
+                if t in hb.TIMERS]
+    vivos = [t for t in hb.TIMERS if t not in off.TIMERS_PAUSADOS]
+    monkeypatch.setattr(hb, "_timers_estado", lambda: (vivos, pausados))
+    monkeypatch.setattr(off, "offline_activo", lambda *a, **k: True)
+    intermedio = tmp_path / "intermedio_2026.json"
+    intermedio.write_text("[]")
+    import src.clausura.intermedio as im
+    monkeypatch.setattr(im, "OUT_PATH", intermedio)
+    now = datetime(2026, 8, 6, 11, 0, tzinfo=timezone.utc)
+
+    msg = hb.construir_mensaje(now=now)
+    assert "MODO OFFLINE" in msg and "403" in msg
+    assert "NO LISTADO" not in msg
+    assert f"timers: {len(vivos)}/{len(vivos)}" in msg
+
+    monkeypatch.setattr(off, "probe_api", lambda *a, **k: 200)
+    assert "RESPONDE 200" in hb.construir_mensaje(now=now)
