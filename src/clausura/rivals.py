@@ -95,6 +95,12 @@ class RivalModel:
     goleador_idx: np.ndarray | None = None
     sin_campeon: np.ndarray | None = None
     sin_goleador: np.ndarray | None = None
+    # puntos_del_snapshot[r] = True si los puntos del rival r salen del snapshot y
+    # NO de un ranking posterior. Entonces los partidos jugados después del escaneo
+    # no están en su total ni en el residuo, y el simulador tiene que imputárselos
+    # también al TOTAL (no solo al premio de fecha). Pasa con el API caído (5/10:
+    # Cloudflare) y el ranking manual cubriendo solo el top. None = todos vivos.
+    puntos_del_snapshot: np.ndarray | None = None
 
     @property
     def n_rivales(self) -> int:
@@ -441,6 +447,8 @@ def build_rival_model(
         actual, puntos, numeros, campeon, goleador, sin_camp, sin_gol,
         observable_mask=observable,
     )
+    model.puntos_del_snapshot = np.array(
+        [int(n) not in (puntos_vivos or {}) for n in numeros], dtype=bool)
     if puntos_vivos is None:
         log.warning("modelo de rivales SIN puntos del ranking vivo: uso los del "
                     "snapshot, que puede tener horas. Si en el medio se liquidó un "

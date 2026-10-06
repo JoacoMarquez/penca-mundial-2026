@@ -1,0 +1,22 @@
+# Modo offline del Clausura (src/clausura/offline.py). Se copia a
+# data/state/clausura_offline.yaml en el VPS (fuera de git) y se edita ahí.
+activo: true
+
+# Resultados que el sistema no pudo leer del API (los demás salen de los
+# postmortems guardados). evento_id: [goles_local, goles_visitante]
+resultados: {}
+
+# Puntos del ranking copiados de la web: numero_participacion: puntos.
+# Alcanza con el top (~40) y nuestras 12; el resto queda con el snapshot.
+ranking_copiado: ""     # cuándo se copió, para el registro
+ranking: {}
+
+# Cuotas copiadas de la web para partidos sin cache (nombres como en el config).
+cuotas: []
+#  - local: Peñarol
+#    visitante: Progreso
+#    "1": 1.45
+#    "X": 4.20
+#    "2": 7.00
+#    over_2_5: 1.90     # opcional
+#    under_2_5: 1.85

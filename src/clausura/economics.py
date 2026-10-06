@@ -238,6 +238,12 @@ class SeasonSimulator:
                         fecha=fecha_de(m), show_cache=show_cache)
                     pts = self.pm[m][rp, self.actual[m][None, :]] * show
                     _acumular(m, pts, en_total=False)
+                    # ...salvo para los rivales cuyos puntos vienen del snapshot:
+                    # ese total NO incluye el partido, y sin imputarlo acá el pool
+                    # perdía ~3 pts por partido post-snapshot (offline del 5/10).
+                    viejos = getattr(rivals, "puntos_del_snapshot", None)
+                    if viejos is not None and viejos.any():
+                        self._rivals_total += pts * viejos[:, None]
                     continue
                 rp, show = rivals.sample_picks_match(
                     m, pool_q[m], rng, S, fecha=fecha_de(m), show_cache=show_cache)

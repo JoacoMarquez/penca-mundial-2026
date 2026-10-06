@@ -115,18 +115,32 @@ def construir_mensaje(now: datetime | None = None) -> str:
     lineas = [f"<b>💓 Clausura vivo</b> · {now.astimezone(UY).strftime('%a %d/%m %H:%M')} UY"]
     problemas: list[str] = []
 
+    from src.clausura.offline import TIMERS_PAUSADOS, offline_activo, probe_api
+    offline = offline_activo()
+    pausados = tuple(t for t in TIMERS if t in TIMERS_PAUSADOS) if offline else ()
+    if offline:
+        codigo = probe_api()
+        if codigo == 200:
+            lineas.append("🟢 <b>penca-api RESPONDE 200</b> — se puede volver a online: "
+                          "bash deploy/offline_timers.sh reanudar")
+        else:
+            lineas.append(f"🚧 MODO OFFLINE · penca-api: {codigo or 'sin respuesta'} · "
+                          f"{len(pausados)} timers pausados")
+
     ok, mal = _timers_estado()
+    ok = [t for t in ok if t not in pausados]
+    mal = [m for m in mal if m.split(":")[0] not in pausados]
     if mal:
         problemas += mal
     elif ok:
-        lineas.append(f"timers: {len(ok)}/{len(TIMERS)} activos")
+        lineas.append(f"timers: {len(ok)}/{len(TIMERS) - len(pausados)} activos")
 
     problemas += _servicios_estado()
 
     try:
         cfg = load_config()
         edad_cfg = _edad_h(CONFIG_PATH)
-        if edad_cfg is not None and edad_cfg > 30:
+        if edad_cfg is not None and edad_cfg > 30 and not offline:
             problemas.append(f"config sin sync hace {edad_cfg:.0f}h")
 
         f = fecha_actual(cfg)

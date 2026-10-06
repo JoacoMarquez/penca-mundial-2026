@@ -545,3 +545,40 @@ def test_sin_observable_mask_todo_jugado_es_observable():
     model, _ = _modelo_2x2()
     assert model.observable_mask is None
     assert not model.jugado_sin_observar(0) and not model.jugado_sin_observar(1)
+
+
+def test_puntos_vivos_marcan_quien_quedo_con_puntos_del_snapshot():
+    model = build_rival_model(
+        _snap_2_rivales([8, 5]), [{"evento_id": 10, "preferencial": False}],
+        [_q()], resultados={10: (1, 0)}, mis_numeros={999},
+        puntos_vivos={555: 20},
+    )
+    assert model.puntos_del_snapshot.tolist() == [False, True]
+
+
+def test_fantasma_va_al_total_de_quien_tiene_puntos_del_snapshot():
+    """Modo offline (5/10): sin ranking vivo, el total del snapshot NO trae el
+    partido jugado después del escaneo. Para esos rivales se imputa también al
+    total; para los que tienen puntos vivos, el residuo ya lo trae."""
+    q = _q()
+    known = np.array([[score_index(1, 0), -1], [score_index(1, 0), -1]], dtype=np.int64)
+    actual = np.array([score_index(1, 0), score_index(1, 1)], dtype=np.int64)
+    implied = np.array([supermatch_points((1, 0), (1, 0))] * 2)
+    model = build_rival_model_from_arrays(
+        known, np.array([True, True]), [q, q], [False, False], actual,
+        puntos_ranking=implied + np.array([0, 4]),   # el 0 sin el fantasma, el 1 con
+        numeros=np.array([11, 22]), observable_mask=np.array([True, False]),
+    )
+    model.puntos_del_snapshot = np.array([True, False])
+    d1 = np.zeros((MAX_GOALS + 1, MAX_GOALS + 1)); d1[1, 0] = 1.0
+    d2 = np.zeros((MAX_GOALS + 1, MAX_GOALS + 1)); d2[1, 1] = 1.0
+    sim = SeasonSimulator(
+        [d1, d2], [280, 280], [False, False], [q, q],
+        PrizeConfig(), SimConfig(n_sims=400, seed=9), rivals=model,
+        compactar_fechas=False,
+    )
+    # rival 0: total = su fecha (observable + fantasma imputado), varía entre sims
+    assert np.array_equal(sim.rivals_total[0], sim.rivals_fecha[0, 0])
+    assert (sim.rivals_total[0] > implied[0]).mean() > 0.15
+    # rival 1: anclado a los puntos vivos, constante
+    assert np.all(sim.rivals_total[1] == implied[1] + 4)
