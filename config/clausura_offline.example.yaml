@@ -6,6 +6,11 @@ activo: true
 # postmortems guardados). evento_id: [goles_local, goles_visitante]
 resultados: {}
 
+# Partidos cuyo resultado el ranking del snapshot todavía no había liquidado
+# (residuo ≈ −puntos del partido en casi todos los rivales). Sus puntos se suman
+# a los del snapshot desde los picks. Ej.: [2147]
+sin_liquidar_en_snapshot: []
+
 # Puntos del ranking copiados de la web: numero_participacion: puntos.
 # Alcanza con el top (~40) y nuestras 12; el resto queda con el snapshot.
 ranking_copiado: ""     # cuándo se copió, para el registro

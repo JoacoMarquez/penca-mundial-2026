@@ -106,3 +106,29 @@ def probe_api(timeout: float = 15.0) -> int | None:
     except Exception as e:                                       # noqa: BLE001
         log.warning("probe del penca-api sin respuesta: %s", e)
         return None
+
+
+def liquidar_en_snapshot(snapshot: dict, eventos_ids: list[int],
+                         resultados: dict[int, tuple[int, int]],
+                         preferenciales: set[int]) -> int:
+    """Suma a los `puntos` del snapshot los partidos que su ranking todavía no había
+    liquidado. Devuelve cuántas participaciones cambiaron.
+
+    Caso del 5/10: el snapshot de las 11:16 UTC ya traía los picks de Cerro-Wanderers,
+    pero Supermatch no había cargado el resultado, así que el ranking no lo sumaba
+    (residuo = −puntos del partido en el 93% de los rivales). Online lo corrige el
+    ranking vivo; offline el total del rival queda anclado a esa foto incompleta.
+    """
+    from src.clausura.scoring import supermatch_points
+
+    cambiados = 0
+    for p in snapshot.get("participaciones", []):
+        extra = 0
+        for eid in eventos_ids:
+            pick, res = p.get("picks", {}).get(str(eid)), resultados.get(int(eid))
+            if pick and res:
+                extra += supermatch_points(tuple(pick), res, int(eid) in preferenciales)
+        if extra:
+            p["puntos"] = int(p.get("puntos", 0)) + extra
+            cambiados += 1
+    return cambiados

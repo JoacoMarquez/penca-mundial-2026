@@ -915,6 +915,13 @@ def run(
         exact_rate_desde_snapshot, load_latest_snapshot,
     )
     snapshot = load_latest_snapshot(max_age_hours=None if offline else 48)
+    if offline and snapshot and off.get("sin_liquidar_en_snapshot"):
+        from src.clausura.offline import liquidar_en_snapshot
+        sin_liq = [int(e) for e in off["sin_liquidar_en_snapshot"]]
+        n = liquidar_en_snapshot(snapshot, sin_liq, resultados,
+                                 {ev["evento_id"] for ev in eventos if ev["preferencial"]})
+        log.warning("offline: %d participaciones con %s sumados a los puntos del "
+                    "snapshot (su ranking no los había liquidado)", n, sin_liq)
     if not api_ok and snapshot:
         # Fallback del tamaño del pool: la foto de ayer (~700 rivales) le gana por
         # 4-5× al default de 151 con el que se repartiría el premio simulado.
