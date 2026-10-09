@@ -209,3 +209,26 @@ def test_puntos_parciales_solo_fechas_abiertas_con_el_kernel_propio():
     out = puntos_parciales(picks, ps)
     assert set(out) == {"Fecha 2"}                          # la F1 cerrada no entra
     assert out["Fecha 2"] == [puntos((80, 70), (80, 70), True), 0]
+
+
+def test_menus_de_especiales_se_piden_con_el_id_del_campeonato(monkeypatch):
+    # La web llama /front/pencas/45/opcionesGoleador (45 = campeonato LUB 26/27); con el
+    # id de la penca (48) el API da 500 y se leía como "menú no publicado".
+    import httpx
+    from src.lub import data, goleador_watch
+    pedidas = []
+
+    class FakeClient:
+        def __init__(self, *a, **k): pass
+        def __enter__(self): return self
+        def __exit__(self, *a): pass
+        def get(self, path):
+            pedidas.append(path)
+            return httpx.Response(200, json={"opcionesGoleador": {"data": [{"goleador": "X "}]},
+                                             "opcionesEquiposCampeon": {"data": [{"nombre": "Y"}]}})
+
+    monkeypatch.setattr(httpx, "Client", FakeClient)
+    assert data.fetch_opciones_goleador() == ["X"]
+    assert goleador_watch.fetch_opciones_campeon() == ["Y"]
+    assert pedidas == [f"/front/pencas/{data.CAMPEONATO_ID}/opcionesGoleador",
+                       f"/front/pencas/{data.CAMPEONATO_ID}/opcionesEquiposCampeon"]

@@ -1,8 +1,8 @@
 """Vigía del menú de especiales de la penca LUB (campeón y goleador uruguayo, 25 pts c/u).
 
-Al 2026-09-30 /opcionesGoleador de la penca 48 da 500: el admin todavía no cargó los
-candidatos. Los especiales se cargan hasta el primer partido de la temporada, así que
-el menú puede aparecer con poco margen. Este módulo corre por timer cada hora y avisa
+Los menús se piden con el id del CAMPEONATO (45), no de la penca (48): con el de la
+penca el API da 500 siempre, y hasta el 9/10 eso se leyó como "menú sin publicar"
+(estaba publicado). Los especiales se cargan hasta el primer partido de la temporada. Este módulo corre por timer cada hora y avisa
 UNA vez por menú cuando aparece; después de arrancada la temporada sale en el acto.
 
 El goleador no se puede optimizar sin P(goleador) por candidato, y el penca-api no
@@ -28,7 +28,7 @@ from pathlib import Path
 import httpx
 
 from src.clausura.api import BASE, HEADERS
-from src.lub.data import DATA_DIR, PENCA_ID, TZ_UY, fetch_opciones_goleador, load_temporadas
+from src.lub.data import CAMPEONATO_ID, DATA_DIR, TZ_UY, fetch_opciones_goleador, load_temporadas
 from src.lub.picks import GOLEADOR_PRIOR, TEMPORADA
 
 log = logging.getLogger(__name__)
@@ -37,9 +37,10 @@ STATE_PATH = Path("data/state/lub_especiales_menu.json")
 OPCIONES_PATH = DATA_DIR / "goleador_opciones.json"
 
 
-def fetch_opciones_campeon(penca_id: int = PENCA_ID) -> list[str] | None:
+def fetch_opciones_campeon(campeonato_id: int = CAMPEONATO_ID) -> list[str] | None:
+    # id del CAMPEONATO, no de la penca: ver fetch_opciones_goleador.
     with httpx.Client(base_url=BASE, headers=HEADERS, timeout=20.0) as c:
-        r = c.get(f"/front/pencas/{penca_id}/opcionesEquiposCampeon")
+        r = c.get(f"/front/pencas/{campeonato_id}/opcionesEquiposCampeon")
     if r.status_code != 200:
         return None
     data = r.json().get("opcionesEquiposCampeon", {}).get("data", [])

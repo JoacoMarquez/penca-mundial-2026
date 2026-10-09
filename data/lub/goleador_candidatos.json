@@ -327,7 +327,19 @@
   "nombre": "Juan Ignacio Durán",
   "equipo": "Bigua",
   "tipo": "sub23",
-  "pid": null
+  "pid": 2199918,
+  "25/26": {
+   "pj": 7,
+   "pts": 5,
+   "ppg": 0.71,
+   "club": "Bigua"
+  },
+  "24/25": {
+   "pj": 3,
+   "pts": 2,
+   "ppg": 0.67,
+   "club": "Bigua"
+  }
  },
  {
   "nombre": "Álvaro Payovich",
@@ -579,7 +591,19 @@
   "nombre": "Juan Ignacio Ducasse",
   "equipo": "Goes",
   "tipo": "mayores",
-  "pid": null
+  "pid": 208488,
+  "25/26": {
+   "pj": 28,
+   "pts": 247,
+   "ppg": 8.82,
+   "club": "Unión Atlética"
+  },
+  "24/25": {
+   "pj": 28,
+   "pts": 143,
+   "ppg": 5.11,
+   "club": "Bigua"
+  }
  },
  {
   "nombre": "Lucas Bennett",
@@ -1071,7 +1095,19 @@
   "nombre": "Juan Ignacio Stoll",
   "equipo": "Nacional",
   "tipo": "sub23",
-  "pid": null
+  "pid": 1645559,
+  "25/26": {
+   "pj": 28,
+   "pts": 111,
+   "ppg": 3.96,
+   "club": "Welcome"
+  },
+  "24/25": {
+   "pj": 18,
+   "pts": 0,
+   "ppg": 0.0,
+   "club": "Aguada"
+  }
  },
  {
   "nombre": "Thomas Araújo",
@@ -1089,7 +1125,19 @@
   "nombre": "Luis Pedro Imas",
   "equipo": "Nacional",
   "tipo": "sub23",
-  "pid": null
+  "pid": 2225721,
+  "25/26": {
+   "pj": 7,
+   "pts": 12,
+   "ppg": 1.71,
+   "club": "Nacional"
+  },
+  "24/25": {
+   "pj": 12,
+   "pts": 31,
+   "ppg": 2.58,
+   "club": "Nacional"
+  }
  },
  {
   "nombre": "Santiago Vescovi",
