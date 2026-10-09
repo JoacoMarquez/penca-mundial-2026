@@ -40,7 +40,7 @@ from src.lub import odds as lub_odds
 from src.lub.data import (CAMPEONATO_ID, DATA_DIR, TZ_UY, Partido, fetch_especiales_propios,
                           fetch_opciones_goleador, fetch_previos, fetch_temporadas,
                           load_temporadas, mis_numeros_env, save_temporadas)
-from src.lub.goleador import cargar_candidatos, simular_goleador
+from src.lub.goleador import cargar_candidatos, en_menu, simular_goleador
 from src.lub.model import PARAMS_PROD, fit
 from src.lub.pool import PoolModel, perfiles_de_json
 from src.lub.portfolio import Evaluador, evaluar, optimizar
@@ -145,7 +145,8 @@ def _especiales_idx(nombres: list[str | None], universo: list[str], k: int) -> n
 def correr(k: int, n_sims: int, n_rivales: int, refrescar: bool = True, now: datetime | None = None,
            campeon_fijo: list[str | None] | None = None, fecha: str | None = None,
            ventana_h: float | None = None, goleador: tuple[list[str], np.ndarray] | None = None,
-           goleador_fijo: list[str | None] | None = None, previos: Previos | None = None) -> dict:
+           goleador_fijo: list[str | None] | None = None, previos: Previos | None = None,
+           menu_goleador: list[str] | None = None) -> dict:
     """Optimiza la fecha abierta `fecha` (default: la del próximo cierre).
 
     campeon_fijo / goleador_fijo: especiales ya cargados (desde que arranca la temporada
@@ -198,12 +199,19 @@ def correr(k: int, n_sims: int, n_rivales: int, refrescar: bool = True, now: dat
         gol_real, _ = simular_goleador(so.partidos, so.equipos, cands, seed=cfg.seed + 77)
         p_gol = np.bincount(gol_real, minlength=len(cands)) / n_sims + 1e-5
         p_gol /= p_gol.sum()
+        if menu_goleador:
+            # solo lo del menú es cargable (para nosotros y para los rivales); el
+            # nombre que se muestra es el de la web, para copiarlo sin dudas
+            cargables = en_menu(cands, menu_goleador)
+            gol_nombres = [cargables.get(i, n) for i, n in enumerate(gol_nombres)]
     elif goleador is not None:
         gol_nombres, p_gol = goleador
         gol_real = np.random.default_rng(cfg.seed + 77).choice(len(p_gol), size=n_sims, p=p_gol)
         gol_real2 = np.random.default_rng(cfg.seed + 1077).choice(len(p_gol), size=n_sims, p=p_gol)
     if gol_nombres is not None:
         gol_shares = np.power(p_gol, GOLEADOR_EXP)
+        if cands and menu_goleador:
+            gol_shares = np.where(np.isin(np.arange(len(cands)), list(cargables)), gol_shares, 0.0)
         gol_shares /= gol_shares.sum()
     simular_rivales(so, cfg, pm.q, shares, gol_real, gol_shares,
                     perfiles=perfiles_de_json(pm_json), kappa=KAPPA_POOL, previos=previos)
@@ -219,7 +227,10 @@ def correr(k: int, n_sims: int, n_rivales: int, refrescar: bool = True, now: dat
     init = _especiales_idx(campeon_fijo, so.equipos, k) if campeon_fijo is not None else None
     gol_opts, gol_init = None, None
     if gol_nombres is not None:
-        gol_opts = [int(g) for g in np.argsort(-p_gol) if p_gol[g] >= 0.01] or [int(p_gol.argmax())]
+        p_opt = p_gol
+        if cands and menu_goleador:
+            p_opt = np.where(np.isin(np.arange(len(cands)), list(cargables)), p_gol, 0.0)
+        gol_opts = [int(g) for g in np.argsort(-p_opt) if p_opt[g] >= 0.01] or [int(p_opt.argmax())]
         if goleador_fijo is not None:
             gol_init = _especiales_idx(goleador_fijo, gol_nombres, k)
     port = optimizar(ev, opts, campeon_init=init, especiales_libres=especiales_libres,
@@ -445,14 +456,16 @@ def main() -> None:
             log.warning("no pude leer el ranking LUB: %s", ex)
     elif arranco:
         log.warning("temporada arrancada sin LUB_MIS_PARTICIPACIONES: no se condiciona al ranking")
-    goleador = None
+    goleador, menu_gol = None, None
     try:
-        goleador = cargar_goleador(fetch_opciones_goleador())
+        menu_gol = fetch_opciones_goleador()
+        goleador = cargar_goleador(menu_gol)
     except Exception as ex:
         log.warning("no pude leer el menú de goleador: %s", ex)
 
     pls = [correr(k, a.sims, a.rivales, refrescar=False, now=now, campeon_fijo=camp_fijo, fecha=f,
-                  ventana_h=a.ventana_h, goleador=goleador, goleador_fijo=gol_fijo, previos=previos)
+                  ventana_h=a.ventana_h, goleador=goleador, goleador_fijo=gol_fijo, previos=previos,
+                  menu_goleador=menu_gol)
            for f in fechas]
     pl = combinar(pls, numeros, a.ventana_h)
     txt = formatear(pl)
