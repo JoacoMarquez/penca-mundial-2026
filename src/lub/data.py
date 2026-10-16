@@ -157,10 +157,14 @@ def mis_numeros_env() -> list[int]:
     return [int(x) for x in raw.split(",") if x.strip().isdigit()]
 
 
-def fetch_opciones_goleador(penca_id: int = PENCA_ID) -> list[str] | None:
-    """Nombres del menú de goleador; None mientras el admin no lo configure (500)."""
+def fetch_opciones_goleador(campeonato_id: int = CAMPEONATO_ID) -> list[str] | None:
+    """Nombres del menú de goleador; None si el API no lo sirve.
+
+    OJO: la ruta dice `/pencas/` pero el id es el del CAMPEONATO (45), no el de la
+    penca (48) — así lo llama la web. Con el id de la penca da 500 siempre, que es lo
+    que se leyó durante semanas como "menú no publicado"."""
     with httpx.Client(base_url=BASE, headers=HEADERS, timeout=20.0) as c:
-        r = c.get(f"/front/pencas/{penca_id}/opcionesGoleador")
+        r = c.get(f"/front/pencas/{campeonato_id}/opcionesGoleador")
     if r.status_code != 200:
         return None
     data = r.json().get("opcionesGoleador", {}).get("data", [])

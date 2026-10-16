@@ -83,6 +83,14 @@ PRIORES_MANUALES = {
 }
 
 
+# Menú de Supermatch → nombre en Genius/planteles, cuando difieren más que en tildes.
+ALIAS_MENU = {
+    "Ignaxio Xavier": "Ignacio Xavier",
+    "Sebastian Otonello": "Sebastián Ottonello",
+    "Juan Ducasse": "Juan Ignacio Ducasse",
+}
+
+
 def _norm(s: str) -> str:
     return unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode().upper().strip()
 
@@ -135,6 +143,10 @@ def _buscar(genius: dict, nombre: str) -> list[dict]:
             # "K. WACHSMAN" vs "Kiril Wachsmann": prefijo de 6 letras del apellido
             if ap == ape or (len(ape) >= 6 and ap[:6] == ape[:6] and ap.split()[-1][:4] == ape.split()[-1][:4]):
                 filas.append({**f, "temporada": temp})
+    if not filas and len(nombre.split()) >= 3:
+        # nombre compuesto: "Juan Ignacio Ducasse" figura en Genius como "J. DUCASSE"
+        partes = nombre.split()
+        return _buscar(genius, f"{partes[0]} {partes[-1]}")
     pids = {f["pid"] for f in filas}
     if len(pids) > 1:   # homónimos: el de más partidos en las dos temporadas
         pj = {p: sum(f["pj"] for f in filas if f["pid"] == p and f["temporada"] != "amistosos_2026")
@@ -227,6 +239,19 @@ def simular_goleador(partidos_equipo: np.ndarray, equipos: list[str], cands: lis
     pj = rng.binomial(pj_eq.astype(np.int64), disp)
     total = ppg * pj + rng.normal(0, 1, (S, G)) * SD_PARTIDO * np.sqrt(pj)
     return total.argmax(axis=1), total
+
+
+def en_menu(cands: list[Candidato], menu: list[str]) -> dict[int, str]:
+    """índice de candidato → nombre tal cual figura en el menú de la web.
+
+    El ganador real se sigue sorteando entre TODOS los candidatos (si gana uno que no
+    está en el menú, nadie suma esos 25), pero solo se puede cargar lo que ofrece el menú."""
+    clave = {_norm(ALIAS_MENU.get(m, m)): m for m in menu}
+    out = {i: clave[_norm(c.nombre)] for i, c in enumerate(cands) if _norm(c.nombre) in clave}
+    faltan = set(menu) - set(out.values())
+    if faltan:
+        log.warning("menú de goleador sin candidato en el modelo (no se asignan): %s", sorted(faltan))
+    return out
 
 
 def cargar_candidatos(path: Path | None = None) -> list[Candidato] | None:
