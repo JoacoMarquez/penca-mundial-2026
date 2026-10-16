@@ -262,3 +262,10 @@ def test_registro_real_de_especiales_matchea_universos():
     assert len(camp) == 16 and set(camp) <= {"Peñarol", "Nacional", "Aguada"}
     nombres = [c.nombre for c in cargar_candidatos()]
     assert (P._especiales_idx(gol, nombres, 16) >= 0).all()
+
+
+def test_telegram_muestra_el_gate_por_corrida():
+    g = {"delta": 1234, "se": 400, "celdas_distintas": 7, "vigente": "v3_x.json"}
+    pl = _planilla(corridas=[{"fecha": "Fecha 1", "oos": _planilla()["oos"], "gate": g}])
+    assert "Gate vs v3_x.json: Δ $+1,234 ± 400 (7 celdas distintas)" in P.formatear(pl)
+    assert "Gate" not in P.formatear(_planilla())

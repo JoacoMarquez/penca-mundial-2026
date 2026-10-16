@@ -43,8 +43,8 @@ from src.lub.data import (CAMPEONATO_ID, DATA_DIR, TZ_UY, Partido, fetch_especia
 from src.lub.goleador import cargar_candidatos, en_menu, simular_goleador
 from src.lub.model import PARAMS_PROD, fit
 from src.lub.pool import PoolModel, perfiles_de_json
-from src.lub.portfolio import Evaluador, evaluar, optimizar
-from src.lub.scoring import BANDAS, N_BANDAS, marcador_de_clase
+from src.lub.portfolio import Evaluador, Portfolio, evaluar, optimizar
+from src.lub.scoring import BANDAS, N_BANDAS, clase, marcador_de_clase
 from src.lub.season import KAPPA_POOL, Config, Previos, Slot, simular, simular_rivales
 
 log = logging.getLogger(__name__)
@@ -146,13 +146,15 @@ def correr(k: int, n_sims: int, n_rivales: int, refrescar: bool = True, now: dat
            campeon_fijo: list[str | None] | None = None, fecha: str | None = None,
            ventana_h: float | None = None, goleador: tuple[list[str], np.ndarray] | None = None,
            goleador_fijo: list[str | None] | None = None, previos: Previos | None = None,
-           menu_goleador: list[str] | None = None) -> dict:
+           menu_goleador: list[str] | None = None, vigente: dict | None = None) -> dict:
     """Optimiza la fecha abierta `fecha` (default: la del próximo cierre).
 
     campeon_fijo / goleador_fijo: especiales ya cargados (desde que arranca la temporada
     no se pueden cambiar); entran a la valuación pero no se optimizan.
     previos: lo ya jugado en la penca real (ranking vivo): condiciona rivales y nuestros
-    totales, y n_rivales pasa a ser el real."""
+    totales, y n_rivales pasa a ser el real.
+    vigente: planilla ya cargada en la web; si viene, se mide la nueva contra ella sobre
+    los MISMOS sorteos fuera de muestra (gate por valor, ver `_gate`)."""
     if previos is not None:
         n_rivales = len(previos.tot_riv)
     now = now or _now()
@@ -250,6 +252,8 @@ def correr(k: int, n_sims: int, n_rivales: int, refrescar: bool = True, now: dat
     ev2 = Evaluador(so2, k, [idx2[i] for i in perm], seed=8, goleador_real=gol_real2,
                     n_goleadores=len(gol_nombres or []), previos=previos)
     oos = evaluar(ev2, port.picks_actual, port.campeon, port.goleador)
+    gate = (_gate(ev2, port, oos, vigente, [so.slots[j].evento_id for j in slots_idx])
+            if vigente is not None else None)
 
     # planilla
     by_slot = {so.slots[j].evento_id: (i, j) for i, j in enumerate(slots_idx)}
@@ -281,10 +285,29 @@ def correr(k: int, n_sims: int, n_rivales: int, refrescar: bool = True, now: dat
         "e_premio": round(port.e_premio), "oos": {kk: round(v, 3) for kk, v in oos.items() if not kk.startswith("_")}, "_oos_tot": oos["_tot"], "detalle": {kk: round(v, 1) if isinstance(v, float) else v
                                                        for kk, v in port.detalle.items()},
         "costo": k * PRECIO,
+        "gate": gate,
         "previos": ({"n_rivales": int(len(previos.tot_riv)), "lider_rival": int(previos.tot_riv.max(initial=0)),
                      "nuestros": [int(x) for x in previos.tot_prop]} if previos is not None else None),
         "ratings": {e: round(v, 1) for e, v in sorted(rt.r.items(), key=lambda kv: -kv[1])},
     }
+
+
+def _gate(ev2: Evaluador, port: Portfolio, oos: dict, vigente: dict, orden: list[int]) -> dict:
+    """Δ E[premio] nueva − vigente, pareado sobre los mismos sorteos fuera de muestra.
+
+    Solo cambian las celdas de los partidos que la vigente trae; los que no trae (o
+    trae con otro K) quedan con el pick nuevo, que es lo que se cargaría. Los especiales
+    son los mismos en las dos: se miden solo los marcadores."""
+    vig = {f["evento_id"]: f["picks"] for f in vigente.get("partidos", [])}
+    pv = port.picks_actual.copy()
+    for i, eid in enumerate(orden):
+        if eid in vig and len(vig[eid]) == pv.shape[0]:
+            pv[:, i] = [clase(int(a), int(b)) for a, b in vig[eid]]
+    ov = evaluar(ev2, pv, port.campeon, port.goleador)
+    d = oos["_tot"] - ov["_tot"]
+    return {"delta": round(float(d.mean())), "se": round(float(d.std() / np.sqrt(len(d)))),
+            "celdas_distintas": int((pv != port.picks_actual).sum()),
+            "vigente": vigente.get("_archivo")}
 
 
 def combinar(pls: list[dict], numeros: list[int], ventana_h: float | None) -> dict:
@@ -295,7 +318,7 @@ def combinar(pls: list[dict], numeros: list[int], ventana_h: float | None) -> di
     base["partidos"] = [f for pl in pls for f in pl["partidos"]]
     base["fecha"] = " + ".join(pl["fecha"] for pl in pls)
     base["corridas"] = [{"fecha": pl["fecha"], "oos": pl["oos"], "e_premio": pl["e_premio"],
-                         "detalle": pl["detalle"]} for pl in pls]
+                         "detalle": pl["detalle"], "gate": pl.get("gate")} for pl in pls]
     base["numeros"] = numeros
     base["ventana_h"] = ventana_h
     base.pop("_oos_tot", None)
@@ -323,6 +346,11 @@ def formatear(pl: dict) -> str:
         L.append(f"{e(c['fecha'])}: E[premio] ${o['e_premio']:,.0f} ± {o['se']:,.0f} · penca "
                  f"${o['e_penca']:,.0f} (P {o['p_penca']:.1%}) · fechas ${o['e_fechas']:,.0f}")
     L.append(f"Costo ${pl['costo']:,.0f}")
+    for c in pl.get("corridas") or []:
+        g = c.get("gate")
+        if g:
+            L.append(f"Gate vs {e(str(g['vigente']))}: Δ ${g['delta']:+,} ± {g['se']:,} "
+                     f"({g['celdas_distintas']} celdas distintas)")
     pv = pl.get("previos")
     if pv:
         mejor = max(pv["nuestros"], default=0)
@@ -434,6 +462,8 @@ def main() -> None:
     ap.add_argument("--no-refrescar", action="store_true")
     ap.add_argument("--no-guardar", action="store_true")
     ap.add_argument("--telegram", action="store_true")
+    ap.add_argument("--comparar", type=Path, default=None,
+                    help="planilla ya cargada: mide la nueva contra ella sobre los mismos sorteos (gate por valor)")
     a = ap.parse_args()
     if a.sweep:
         for i, k in enumerate(int(x) for x in a.sweep.split(",")):
@@ -491,9 +521,13 @@ def main() -> None:
     except Exception as ex:
         log.warning("no pude leer el menú de goleador: %s", ex)
 
+    vigente = None
+    if a.comparar:
+        vigente = json.loads(a.comparar.read_text())
+        vigente["_archivo"] = a.comparar.name
     pls = [correr(k, a.sims, a.rivales, refrescar=False, now=now, campeon_fijo=camp_fijo, fecha=f,
                   ventana_h=a.ventana_h, goleador=goleador, goleador_fijo=gol_fijo, previos=previos,
-                  menu_goleador=menu_gol)
+                  menu_goleador=menu_gol, vigente=vigente)
            for f in fechas]
     pl = combinar(pls, numeros, a.ventana_h)
     txt = formatear(pl)
