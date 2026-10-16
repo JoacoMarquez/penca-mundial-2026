@@ -232,3 +232,33 @@ def test_menus_de_especiales_se_piden_con_el_id_del_campeonato(monkeypatch):
     assert goleador_watch.fetch_opciones_campeon() == ["Y"]
     assert pedidas == [f"/front/pencas/{data.CAMPEONATO_ID}/opcionesGoleador",
                        f"/front/pencas/{data.CAMPEONATO_ID}/opcionesEquiposCampeon"]
+
+
+def test_especiales_registrados_solo_si_cubre_todos(tmp_path):
+    from src.lub import picks as P
+    reg = tmp_path / "esp.json"
+    reg.write_text(json.dumps({"_nota": "x", "1": {"campeon": "Peñarol", "goleador": "Santiago Vescovi"},
+                               "2": {"campeon": "Nacional", "goleador": None}}))
+    assert P.especiales_registrados([2, 1], reg) == (["Nacional", "Peñarol"], [None, "Santiago Vescovi"])
+    assert P.especiales_registrados([1, 3], reg) == (None, None)
+    assert P.especiales_registrados([], reg) == (None, None)
+
+
+def test_especiales_antes_del_arranque_no_usan_api_ni_planilla(monkeypatch):
+    from src.lub import picks as P
+    monkeypatch.setattr(P, "fetch_especiales_propios", lambda n: pytest.fail("API antes del arranque"))
+    monkeypatch.setattr(P, "ultima_planilla", lambda solo_libres=False: {"campeon": ["X"], "goleador": ["Y"]})
+    monkeypatch.setattr(P, "especiales_registrados", lambda n: (None, None))
+    assert P.especiales_cargados([1], arranco=False) == (None, None)
+    monkeypatch.setattr(P, "especiales_registrados", lambda n: (["Peñarol"], ["Santiago Vescovi"]))
+    assert P.especiales_cargados([1], arranco=False) == (["Peñarol"], ["Santiago Vescovi"])
+
+
+def test_registro_real_de_especiales_matchea_universos():
+    from src.lub import picks as P
+    from src.lub.goleador import cargar_candidatos
+    nums = list(range(899261065, 899261081))
+    camp, gol = P.especiales_registrados(nums)
+    assert len(camp) == 16 and set(camp) <= {"Peñarol", "Nacional", "Aguada"}
+    nombres = [c.nombre for c in cargar_candidatos()]
+    assert (P._especiales_idx(gol, nombres, 16) >= 0).all()

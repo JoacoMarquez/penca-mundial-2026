@@ -27,11 +27,16 @@ for u in "${UNITS[@]}"; do
     cp "$INSTALL_DIR/deploy/$u" "/etc/systemd/system/$u"
 done
 systemctl daemon-reload
-systemctl enable --now lub-picks.timer lub-carga-alert.timer lub-goleador-watch.timer lub-cuotas-watch.timer
+if grep -qs "^activo: true" data/state/clausura_offline.yaml; then
+    # modo offline (Cloudflare bloquea el VPS): no re-habilitar lo que offline_timers.sh pausó
+    echo "==> Offline activo: timers LUB instalados pero sin habilitar (reanudar con offline_timers.sh)"
+else
+    systemctl enable --now lub-picks.timer lub-carga-alert.timer lub-goleador-watch.timer lub-cuotas-watch.timer
 
-echo "==> Chequeo en seco"
-"$INSTALL_DIR/.venv/bin/python" -m src.lub.goleador_watch --dry-run
-"$INSTALL_DIR/.venv/bin/python" -m src.lub.carga_alert --dry-run
-"$INSTALL_DIR/.venv/bin/python" -m src.lub.cuotas_watch --dry-run
+    echo "==> Chequeo en seco"
+    "$INSTALL_DIR/.venv/bin/python" -m src.lub.goleador_watch --dry-run
+    "$INSTALL_DIR/.venv/bin/python" -m src.lub.carga_alert --dry-run
+    "$INSTALL_DIR/.venv/bin/python" -m src.lub.cuotas_watch --dry-run
+fi
 
 systemctl list-timers 'lub-*' --no-pager

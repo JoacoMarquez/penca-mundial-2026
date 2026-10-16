@@ -374,13 +374,34 @@ def ultima_planilla(solo_libres: bool = False) -> dict | None:
     return None
 
 
-def especiales_cargados(numeros: list[int]) -> tuple[list | None, list | None]:
-    """(campeones, goleadores) ya cargados, para valuar desde que arranca la temporada.
+ESPECIALES_PATH = DATA_DIR / "especiales_cargados.json"
 
-    Primero el API (la verdad, pública desde el primer partido); si no, la última
-    planilla que los asignaba — asumir que se cargó lo que dijo es la mejor apuesta y
-    es lo mismo que haría el usuario."""
-    if numeros:
+
+def especiales_registrados(numeros: list[int],
+                           path: Path = ESPECIALES_PATH) -> tuple[list | None, list | None]:
+    """(campeones, goleadores) del registro a mano de lo cargado en la web.
+
+    Antes del primer partido el API no los muestra (gate), y la última planilla es una
+    PROPUESTA, no lo cargado: el registro es la única fuente fiel. Solo vale si cubre
+    todos los números — un registro parcial se ignora entero."""
+    if not numeros or not path.exists():
+        return None, None
+    reg = json.loads(path.read_text(encoding="utf-8"))
+    if any(str(n) not in reg for n in numeros):
+        log.warning("el registro de especiales no cubre todos los números: se ignora")
+        return None, None
+    return [reg[str(n)].get("campeon") for n in numeros], [reg[str(n)].get("goleador") for n in numeros]
+
+
+def especiales_cargados(numeros: list[int], arranco: bool = True) -> tuple[list | None, list | None]:
+    """(campeones, goleadores) ya cargados, para no re-optimizar lo que ya no se puede tocar.
+
+    Después del primer partido, primero el API (la verdad). Si no, el registro
+    `especiales_cargados.json`. Si tampoco, y solo con la temporada arrancada, la última
+    planilla que los asignaba — asumir que se cargó lo que dijo es la mejor apuesta y es
+    lo mismo que haría el usuario. Antes del arranque sin registro: (None, None), los
+    especiales se optimizan libres."""
+    if numeros and arranco:
         try:
             esp = fetch_especiales_propios(numeros)
         except Exception as ex:                      # el API caído no frena la planilla
@@ -388,6 +409,11 @@ def especiales_cargados(numeros: list[int]) -> tuple[list | None, list | None]:
             esp = None
         if esp:
             return [c for c, _ in esp], [g for _, g in esp]
+    camp, gol = especiales_registrados(numeros)
+    if camp is not None:
+        return camp, gol
+    if not arranco:
+        return None, None
     pl = ultima_planilla(solo_libres=True)
     if pl:
         return pl.get("campeon"), pl.get("goleador")
@@ -444,7 +470,9 @@ def main() -> None:
         fechas = [abiertos[0].fecha_nombre]
 
     arranco = any(p.temporada == TEMPORADA and datetime.fromisoformat(p.inicio_utc) <= now for p in partidos)
-    camp_fijo, gol_fijo = especiales_cargados(numeros) if arranco else (None, None)
+    camp_fijo, gol_fijo = especiales_cargados(numeros, arranco)
+    if not arranco and camp_fijo is not None:
+        log.info("especiales fijos desde el registro de lo cargado (%s)", ESPECIALES_PATH)
     if arranco and camp_fijo is None:
         log.warning("temporada arrancada sin especiales conocidos: se valúa como si no acertaran")
         camp_fijo = [None] * k
