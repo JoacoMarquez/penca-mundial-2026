@@ -44,6 +44,8 @@ TIMERS_PAUSADOS = (
     "clausura-gate-watch", "clausura-postmortem", "clausura-cold-check",
     "clausura-pencas-watch", "clausura-sharp-compare", "lub-cuotas-watch",
     "lub-aviso-compra", "valuebet-scan", "valuebet-close",
+    # la LUB lee el mismo penca-api: en offline su planilla y recordatorios corren desde la Mac
+    "lub-picks", "lub-carga-alert", "lub-goleador-watch",
 )
 
 
