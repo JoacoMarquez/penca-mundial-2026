@@ -1,8 +1,8 @@
 # Penca — Agente Autónomo
 
-> **Lo que corre hoy es el CLAUSURA (`src/clausura/`).** El sistema del Mundial
-> ganó su penca el 2026-07-16 y está apagado desde el 29/7 (su droplet fue
-> destruido). Todo lo que sigue del Mundial queda como referencia de diseño; para
+> **Lo que corre hoy es el CLAUSURA (`src/clausura/`) y la LUB (`src/lub/`), todo
+> en la Mac.** El sistema del Mundial ganó su penca el 2026-07-16 y está apagado
+> desde el 29/7 (su droplet fue destruido). Todo lo que sigue del Mundial queda como referencia de diseño; para
 > trabajar sobre producción, la sección de abajo es la que manda.
 
 ---
@@ -54,14 +54,41 @@ maximizar E[premio], no puntaje esperado), otro torneo y otra plataforma.
 
 ## Operación
 
-**VPS:** DigitalOcean 159.203.66.24, 2 GB. Timers systemd (UTC):
-`picks` 11:00 diario · `rerun-cierre` 11..23:35 · `carga-alert` 11..23:10 ·
-`drift-audit` 13:20/18:20/23:50 · `postmortem` 03:20 · `heartbeat` 12:30 ·
-`gate-watch` cada 10 min · `cold-check` martes 04:30 (semanal) ·
-`sharp-compare` :50 cada hora (cuotas Pinnacle vs Supermatch → `data/odds_compare/`).
+**Todo corre en la Mac** desde el 2026-10-27. El droplet de DigitalOcean
+(159.203.66.24) fue destruido: desde el 5/10 Cloudflare le devolvía 403 al
+penca-api, a la web y al ES de cuotas, y desde la Mac todo responde 200. No hay
+VPS, ni systemd, ni `safe_pull.sh`: los timers y el dashboard dejaron de existir.
 
-**Deploy:** `bash deploy/safe_pull.sh` en el VPS — NUNCA `git pull` a secas: los
-units de systemd son copias en `/etc` y el pull no las aplica ni avisa.
+Repo de producción: el checkout `main` en
+`~/Documents/Personal/Automatizaciones/Penca Mundial`. Las corridas son tareas
+programadas de Claude Code en la app de escritorio (sección Scheduled):
+
+| Tarea | Cuándo | Qué hace |
+|---|---|---|
+| `cargar-penca-clausura` | Manual (Run) | `sync` + `picks --fecha N --participaciones 12 --sims 19200` online (~2 min), gate por valor contra `data/state/carga_vigente.json`, carga 12 + gratuita por Chrome y verifica. |
+| `cargar-penca-lub` | Diaria 10:00 UY | Planilla LUB de lo que cierra en 26 h, gate contra `data/state/lub_carga_vigente.json`, carga 16 por Chrome. |
+| `recordatorio-cargas-penca` | 8/12/16/20 UY | `scripts/recordatorio_cargas.py`: push si hay que tocar Run. |
+| `informe-prefecha-clausura-f1` | Viernes 09:00 UY | Tripwire base↔mercado + novedades post-cuota, por Telegram. |
+| `fin-temporada-clausura` | 20/11 09:00 UY (una vez) | Push con lo que falta para cerrar la temporada. |
+
+**Requisitos:** la Mac despierta, la app de Claude abierta y Chrome logueado en
+Supermatch a la hora de cada corrida. Las tareas no inician sesión ni escriben
+contraseñas: sin sesión frenan y avisan por push.
+
+**Entorno:** el `.env` de la Mac no trae las participaciones; los comandos del
+Clausura exportan `CLAUSURA_MIS_PARTICIPACIONES` y
+`CLAUSURA_MI_PARTICIPACION_GRATUITA` (los valores están en la tarea de carga).
+El sync deja `config/clausura2026.yaml` modificado en el árbol: es esperado, y
+la tarea lo descarta antes de cada `git pull`.
+
+**Lo que se apagó con el droplet:** rerun T-2h, drift-audit, carga-alert,
+postmortem automático, heartbeat, gate-watch, cold-check, sharp-compare,
+valuebet y el dashboard :8000. Los módulos siguen en el repo y corren a mano
+desde la Mac si hacen falta.
+
+**Backup del VPS:** `vps_backup_2026-10-27/` en el checkout `main` (fuera de
+git): `data/` completo, `valuebet.tar.gz`, units de systemd, `penca-tools/` y
+el env con los secrets.
 
 **Producción:** `--sims 19200`. Los niveles de E[premio] NO son creíbles; lo único
 que vale son los **deltas pareados sobre los mismos sorteos**.
